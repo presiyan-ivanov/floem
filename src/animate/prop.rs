@@ -10,8 +10,8 @@ pub enum AnimatedProp {
     Height { from: f64, to: f64, unit: SizeUnit },
     Scale { from: f64, to: f64 },
     // Opacity { from: f64, to: f64 },
-    // TranslateX,
-    // TranslateY,
+    TranslateX { from: f64, to: f64 },
+    TranslateY { from: f64, to: f64 },
     Background { from: Color, to: Color },
     BorderRadius { from: f64, to: f64 },
     BorderWidth { from: f64, to: f64 },
@@ -20,11 +20,13 @@ pub enum AnimatedProp {
 }
 
 impl AnimatedProp {
-    pub(crate) fn from(&self) -> AnimValue {
+    pub(crate) fn current_val(&self) -> AnimValue {
         match self {
             AnimatedProp::Width { from, .. }
             | AnimatedProp::Height { from, .. }
             | AnimatedProp::BorderWidth { from, .. }
+            | AnimatedProp::TranslateX { from, .. }
+            | AnimatedProp::TranslateY { from, .. }
             | AnimatedProp::BorderRadius { from, .. } => AnimValue::Float(*from),
             AnimatedProp::Scale { .. } => todo!(),
             AnimatedProp::Background { from, .. }
@@ -108,7 +110,8 @@ impl AnimatedProp {
 
     pub(crate) fn animate(&self, time: f64, direction: AnimDirection) -> AnimValue {
         match self {
-            AnimatedProp::Width { from, to, unit } | AnimatedProp::Height { from, to, unit } => {
+            AnimatedProp::Width { from, to, unit: _ }
+            | AnimatedProp::Height { from, to, unit: _ } => {
                 AnimValue::Float(self.animate_float(*from, *to, time, direction))
             }
             AnimatedProp::Background { from, to }
@@ -117,7 +120,10 @@ impl AnimatedProp {
                 AnimValue::Color(self.animate_color(*from, *to, time, direction))
             }
             AnimatedProp::Scale { .. } => todo!(),
-            AnimatedProp::BorderRadius { from, to } | AnimatedProp::BorderWidth { from, to } => {
+            AnimatedProp::BorderRadius { from, to }
+            | AnimatedProp::BorderWidth { from, to }
+            | AnimatedProp::TranslateX { from, to }
+            | AnimatedProp::TranslateY { from, to } => {
                 AnimValue::Float(self.animate_float(*from, *to, time, direction))
             }
         }
@@ -127,8 +133,8 @@ impl AnimatedProp {
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub enum AnimPropKind {
     Scale,
-    // TranslateX,
-    // TranslateY,
+    TranslateX,
+    TranslateY,
     Width,
     Background,
     Color,

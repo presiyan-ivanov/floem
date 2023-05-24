@@ -1,7 +1,8 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{any::Any, collections::HashMap};
 
 use crate::animate::AnimValue;
+use crate::id;
 use floem_renderer::Renderer;
 use glazier::kurbo::{Affine, Point, Rect};
 use glazier::{FileDialogOptions, FileDialogToken, FileInfo, Scale, TimerToken, WinHandler};
@@ -172,6 +173,7 @@ pub enum UpdateMessage {
         menu: Menu,
         pos: Point,
     },
+    RequestAnimFrame,
 }
 
 impl<V: View> Drop for AppHandle<V> {
@@ -226,17 +228,6 @@ impl<V: View> AppHandle<V> {
 
         cx.clear();
         self.view.compute_layout_main(&mut cx);
-
-        // Currently we only need one ID with animation in progress to request layout, which will
-        // advance the all the animations in progress.
-        // This will be reworked once we change from request_layout to request_paint
-        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
-
-        if let Some(id) = id {
-            id.exec_after(Duration::from_millis(1), move || {
-                id.request_layout();
-            });
-        }
     }
 
     pub fn paint(&mut self) {
@@ -260,6 +251,7 @@ impl<V: View> AppHandle<V> {
             saved_font_styles: Vec::new(),
             saved_line_heights: Vec::new(),
         };
+
         cx.paint_state.renderer.as_mut().unwrap().begin();
         self.view.paint_main(&mut cx);
         cx.paint_state.renderer.as_mut().unwrap().finish();
@@ -304,15 +296,15 @@ impl<V: View> AppHandle<V> {
                 let width = layout.size.width;
                 AnimatedProp::Width {
                     from: width as f64,
-                    to: val.get_f64(),
+                    to: val.unwrap_f64(),
                     unit: SizeUnit::Px,
                 }
             }
             AnimPropKind::Height => {
                 let height = layout.size.height;
-                AnimatedProp::Width {
+                AnimatedProp::Height {
                     from: height as f64,
-                    to: val.get_f64(),
+                    to: val.unwrap_f64(),
                     unit: SizeUnit::Px,
                 }
             }
@@ -320,14 +312,14 @@ impl<V: View> AppHandle<V> {
                 let border_radius = view_state.computed_style.border_radius;
                 AnimatedProp::BorderRadius {
                     from: border_radius as f64,
-                    to: val.get_f64(),
+                    to: val.unwrap_f64(),
                 }
             }
             AnimPropKind::BorderColor => {
                 let border_color = view_state.computed_style.border_color;
                 AnimatedProp::BorderColor {
                     from: border_color,
-                    to: val.get_color(),
+                    to: val.unwrap_color(),
                 }
             }
             AnimPropKind::Background => {
@@ -338,7 +330,7 @@ impl<V: View> AppHandle<V> {
                     .expect("Bg must be set in the styles");
                 AnimatedProp::Background {
                     from: bg,
-                    to: val.get_color(),
+                    to: val.unwrap_color(),
                 }
             }
             AnimPropKind::Color => {
@@ -349,7 +341,31 @@ impl<V: View> AppHandle<V> {
                     .expect("Color must be set in the animated view's style");
                 AnimatedProp::Color {
                     from: color,
-                    to: val.get_color(),
+                    to: val.unwrap_color(),
+                }
+            }
+            AnimPropKind::TranslateX => {
+                let old = anim
+                    .props_mut()
+                    .remove(&AnimPropKind::TranslateX)
+                    .map(|old| old.current_val().unwrap_f64())
+                    .unwrap_or(0.0);
+
+                AnimatedProp::TranslateX {
+                    from: old,
+                    to: val.unwrap_f64(),
+                }
+            }
+            AnimPropKind::TranslateY => {
+                let old = anim
+                    .props_mut()
+                    .remove(&AnimPropKind::TranslateY)
+                    .map(|old| old.current_val().unwrap_f64())
+                    .unwrap_or(0.0);
+
+                AnimatedProp::TranslateY {
+                    from: old,
+                    to: val.unwrap_f64(),
                 }
             }
         };
@@ -360,7 +376,7 @@ impl<V: View> AppHandle<V> {
         anim.props_mut().insert(kind, prop);
         anim.begin();
 
-        ChangeFlags::LAYOUT
+        ChangeFlags::PAINT
     }
 
     fn process_deferred_update_messages(&mut self) -> ChangeFlags {
@@ -546,6 +562,7 @@ impl<V: View> AppHandle<V> {
                         cx.app_state.update_context_menu(menu);
                         self.handle.show_context_menu(platform_menu, pos);
                     }
+                    UpdateMessage::RequestAnimFrame => self.handle.request_anim_frame(),
                 }
             }
         }
@@ -790,6 +807,10 @@ impl<V: View> WinHandler for AppHandle<V> {
     fn prepare_paint(&mut self) {}
 
     fn paint(&mut self, _invalid: &glazier::Region) {
+        if !self.app_state.ids_with_anim_in_progress().is_empty() {
+            self.event(Event::AnimFrame);
+        }
+
         self.paint();
     }
 

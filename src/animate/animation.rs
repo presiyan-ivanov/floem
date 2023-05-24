@@ -33,9 +33,9 @@ pub enum RepeatMode {
     /// but will never reach [`AnimState::Completed`]
     LoopForever,
     /// How many passes do we want, i.e. how many times do we repeat the animation?
-    /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0 and increment `repeat_count` is
-    /// increased by 1. This process is repeated until `repeat_count >= times`, and then the animation is set
-    /// to [`AnimState::Completed`].
+    /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0
+    /// and increment `repeat_count`. This process is repeated until `repeat_count >= times`, and
+    /// then the animation is set to [`AnimState::Completed`].
     Times(usize),
 }
 
@@ -309,6 +309,26 @@ impl Animation {
         }
     }
 
+    pub(crate) fn get_prop(&self, kind: &AnimPropKind) -> Option<&AnimatedProp> {
+        self.animated_props.get(kind)
+    }
+
+    pub(crate) fn animate_translate_y(&self, elapsed: Duration) -> Option<f64> {
+        if let Some(width) = self.animated_props.get(&AnimPropKind::TranslateX) {
+            Some(self.animate_prop(elapsed, width).unwrap_f64())
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn animate_translate_x(&self, elapsed: Duration) -> Option<f64> {
+        if let Some(width) = self.animated_props.get(&AnimPropKind::TranslateX) {
+            Some(self.animate_prop(elapsed, width).unwrap_f64())
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn props(&self) -> &HashMap<AnimPropKind, AnimatedProp> {
         &self.animated_props
     }
@@ -317,16 +337,14 @@ impl Animation {
         self.animated_props.borrow_mut()
     }
 
-    pub(crate) fn animate_prop(&self, elapsed: Duration, prop_kind: &AnimPropKind) -> AnimValue {
+    pub(crate) fn animate_prop(&self, elapsed: Duration, prop: &AnimatedProp) -> AnimValue {
         let mut elapsed = elapsed;
-        let prop = self.animated_props.get(&prop_kind).unwrap();
-
         if let Some(skip) = self.skip {
             elapsed += skip;
         }
 
         if self.duration == Duration::ZERO {
-            return prop.from();
+            return prop.current_val();
         }
 
         if elapsed > self.duration {
@@ -346,5 +364,19 @@ impl Animation {
         } else {
             prop.animate(time, AnimDirection::Forward)
         }
+    }
+
+    // pub(crate) fn animate_prop_kind(
+    //     &self,
+    //     elapsed: Duration,
+    //     prop_kind: &AnimPropKind,
+    // ) -> AnimValue {
+    //     let prop = self.animated_props.get(&prop_kind).unwrap();
+    //     self.animate_prop(elapsed, prop)
+    // }
+
+    pub(crate) fn requires_layout(&self) -> bool {
+        self.animated_props.contains_key(&AnimPropKind::Width)
+            || self.animated_props.contains_key(&AnimPropKind::Height)
     }
 }

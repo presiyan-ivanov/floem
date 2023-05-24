@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, time::Duration};
 
 use bitflags::bitflags;
 use floem_renderer::Renderer;
@@ -260,6 +260,21 @@ pub trait View {
                     }
                 }
             }
+            Event::AnimFrame => {
+                self.id().request_anim_frame();
+                let requires_layout = cx
+                    .app_state
+                    .view_state(id)
+                    .animation
+                    .as_ref()
+                    .map(|anim| anim.requires_layout())
+                    .unwrap_or(false);
+
+                if requires_layout {
+                    cx.app_state.request_layout(self.id());
+                }
+                return true;
+            }
             _ => (),
         }
 
@@ -283,6 +298,8 @@ pub trait View {
         }
 
         cx.save();
+        let view_style = self.view_style();
+        cx.app_state.compute_style(self.id(), view_style);
         let size = cx.transform(id);
         let is_empty = cx
             .clip

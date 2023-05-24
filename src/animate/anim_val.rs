@@ -7,21 +7,21 @@ pub enum AnimValue {
 }
 
 impl AnimValue {
-    pub fn get_f32(self) -> f32 {
+    pub fn unwrap_f32(self) -> f32 {
         match self {
             AnimValue::Float(v) => v as f32,
             AnimValue::Color(_) => panic!(),
         }
     }
 
-    pub fn get_f64(self) -> f64 {
+    pub fn unwrap_f64(self) -> f64 {
         match self {
             AnimValue::Float(v) => v,
             AnimValue::Color(_) => panic!(),
         }
     }
 
-    pub fn get_color(self) -> Color {
+    pub fn unwrap_color(self) -> Color {
         match self {
             AnimValue::Color(c) => c,
             AnimValue::Float(_) => panic!(),

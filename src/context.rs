@@ -163,29 +163,31 @@ impl ViewState {
 
                 let props = animation.props();
 
-                for (kind, _) in props {
-                    let val = animation
-                        .animate_prop(animation.elapsed().unwrap_or(Duration::ZERO), &kind);
+                let elapsed = animation.elapsed().unwrap_or(Duration::ZERO);
+                for (kind, prop) in props {
+                    let val = animation.animate_prop(elapsed, prop);
                     match kind {
                         AnimPropKind::Width => {
-                            computed_style = computed_style.width_px(val.get_f32());
+                            computed_style = computed_style.width_px(val.unwrap_f32());
                         }
                         AnimPropKind::Height => {
-                            computed_style = computed_style.height_px(val.get_f32());
+                            computed_style = computed_style.height_px(val.unwrap_f32());
                         }
                         AnimPropKind::Background => {
-                            computed_style = computed_style.background(val.get_color());
+                            computed_style = computed_style.background(val.unwrap_color());
                         }
                         AnimPropKind::Color => {
-                            computed_style = computed_style.color(val.get_color());
+                            computed_style = computed_style.color(val.unwrap_color());
                         }
                         AnimPropKind::BorderRadius => {
-                            computed_style = computed_style.border_radius(val.get_f32());
+                            computed_style = computed_style.border_radius(val.unwrap_f32());
                         }
                         AnimPropKind::BorderColor => {
-                            computed_style = computed_style.border_color(val.get_color());
+                            computed_style = computed_style.border_color(val.unwrap_color());
                         }
                         AnimPropKind::Scale => todo!(),
+                        // these ignore layout for performance reasons, so they are handled in the renderer
+                        AnimPropKind::TranslateX | AnimPropKind::TranslateY => {}
                     }
                 }
 
@@ -269,14 +271,18 @@ impl AppState {
             .or_insert_with(|| ViewState::new(&mut self.taffy))
     }
 
-    pub fn ids_with_anim_in_progress(&mut self) -> Vec<Id> {
-        self.animated.clone().into_iter().filter(|id| {
-            let anim = &self.view_state(*id).animation;
-            if let Some(anim) = anim {
-                return !anim.is_completed();
-            }
-            false
-        }).collect()
+    pub fn ids_with_anim_in_progress(&mut self) -> HashSet<Id> {
+        self.animated
+            .clone()
+            .into_iter()
+            .filter(|id| {
+                let anim = &self.view_state(*id).animation;
+                if let Some(anim) = anim {
+                    return !anim.is_completed();
+                }
+                false
+            })
+            .collect()
     }
 
     pub fn is_hidden(&self, id: Id) -> bool {
@@ -430,7 +436,7 @@ impl AppState {
         }
     }
 
-    // TODO: animated should be a HashMap<Id, AnimId> 
+    // TODO: animated should be a HashMap<Id, AnimId>
     // so we don't have to loop through all view states
     pub(crate) fn get_view_id_by_anim_id(&self, anim_id: AnimId) -> Id {
         self.view_states
@@ -556,6 +562,13 @@ impl<'a> EventCx<'a> {
         {
             return false;
         }
+
+        if matches!(event, Event::AnimFrame)
+            && !self.app_state.ids_with_anim_in_progress().contains(&id)
+        {
+            return false;
+        }
+
         if let Some(point) = event.point() {
             if let Some(layout) = self.get_layout(id) {
                 if layout.location.x as f64 <= point.x
@@ -812,6 +825,7 @@ impl<'a> PaintCx<'a> {
             let mut new = self.transform.as_coeffs();
             new[4] += offset.x as f64;
             new[5] += offset.y as f64;
+
             self.transform = Affine::new(new);
             self.paint_state
                 .renderer
@@ -820,11 +834,26 @@ impl<'a> PaintCx<'a> {
                 .transform(self.transform);
 
             if let Some(rect) = self.clip.as_mut() {
-                *rect =
-                    rect.with_origin(rect.origin() - Vec2::new(offset.x as f64, offset.y as f64));
+                let (translate_x, translate_y) =
+                    if let Some(anim) = self.app_state.view_state(id).animation.as_ref() {
+                        let elapsed = anim.elapsed().unwrap_or(Duration::ZERO);
+                        let translate_x = anim.animate_translate_x(elapsed).unwrap_or(0.0);
+                        let translate_y = anim.animate_translate_y(elapsed).unwrap_or(0.0);
+
+                        (translate_x, translate_y)
+                    } else {
+                        (0.0, 0.0)
+                    };
+
+                *rect = rect.with_origin(
+                    rect.origin()
+                        - Vec2::new(offset.x as f64 + translate_x, offset.y as f64 + translate_y),
+                );
             }
 
-            Size::new(layout.size.width as f64, layout.size.height as f64)
+            let width = layout.size.width as f64;
+            let height = layout.size.height as f64;
+            Size::new(width, height)
         } else {
             Size::ZERO
         }
