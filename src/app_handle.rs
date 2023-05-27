@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 use std::{any::Any, collections::HashMap};
 
-use crate::animate::AnimValue;
+use crate::animate::{AnimValue, ColorAnimProp, F64AnimProp};
 use crate::id;
 use floem_renderer::Renderer;
 use glazier::kurbo::{Affine, Point, Rect};
@@ -285,7 +285,7 @@ impl<V: View> AppHandle<V> {
         &mut self,
         view_id: Id,
         kind: AnimPropKind,
-        val: AnimValue,
+        to_val: AnimValue,
     ) -> ChangeFlags {
         let layout = self.app_state.get_layout(view_id).unwrap();
         let view_state = self.app_state.view_state(view_id);
@@ -295,7 +295,7 @@ impl<V: View> AppHandle<V> {
                 let width = layout.size.width;
                 AnimatedProp::Width {
                     from: width as f64,
-                    to: val.unwrap_f64(),
+                    to: to_val.unwrap_f64(),
                     unit: SizeUnit::Px,
                 }
             }
@@ -303,83 +303,59 @@ impl<V: View> AppHandle<V> {
                 let height = layout.size.height;
                 AnimatedProp::Height {
                     from: height as f64,
-                    to: val.unwrap_f64(),
+                    to: to_val.unwrap_f64(),
                     unit: SizeUnit::Px,
                 }
             }
             AnimPropKind::BorderRadius => {
                 let border_radius = view_state.computed_style.border_radius;
-                AnimatedProp::BorderRadius {
-                    from: border_radius as f64,
-                    to: val.unwrap_f64(),
-                }
+
+                AnimatedProp::BorderRadius(F64AnimProp::new(border_radius, to_val.unwrap_f64()))
             }
             AnimPropKind::BorderColor => {
-                let border_color = view_state.computed_style.border_color;
-                AnimatedProp::BorderColor {
-                    from: border_color,
-                    to: val.unwrap_color(),
-                }
+                let from_val = view_state.computed_style.border_color;
+                AnimatedProp::BorderColor(ColorAnimProp::new(from_val, to_val.unwrap_color()))
             }
             AnimPropKind::Background => {
-                let bg = view_state
+                let from_val = view_state
                     .computed_style
                     .background
                     //TODO:  get default from cx and remove the expect
                     .expect("Bg must be set in the styles");
-                dbg!(bg);
-                AnimatedProp::Background {
-                    from: bg,
-                    to: val.unwrap_color(),
-                }
+
+                AnimatedProp::Background(ColorAnimProp::new(from_val, to_val.unwrap_color()))
             }
             AnimPropKind::Color => {
-                let color = view_state
+                let from_val = view_state
                     .computed_style
                     .color
                     //TODO:  default get from cx and remove the expect
                     .expect("Color must be set in the animated view's style");
-                AnimatedProp::Color {
-                    from: color,
-                    to: val.unwrap_color(),
-                }
+                AnimatedProp::Color(ColorAnimProp::new(from_val, to_val.unwrap_color()))
             }
             AnimPropKind::TranslateX => {
-                let old = anim
+                let from_val = anim
                     .props_mut()
                     .remove(&AnimPropKind::TranslateX)
                     .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
                     .unwrap_or(0.0);
-
-                AnimatedProp::TranslateX {
-                    from: old,
-                    to: val.unwrap_f64(),
-                }
+                AnimatedProp::TranslateX(F64AnimProp::new(from_val, to_val.unwrap_f64()))
             }
             AnimPropKind::TranslateY => {
-                let old = anim
+                let from_val = anim
                     .props_mut()
                     .remove(&AnimPropKind::TranslateY)
                     .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
                     .unwrap_or(0.0);
-
-                AnimatedProp::TranslateY {
-                    from: old,
-                    to: val.unwrap_f64(),
-                }
+                AnimatedProp::TranslateY(F64AnimProp::new(from_val, to_val.unwrap_f64()))
             }
             AnimPropKind::Scale => {
-                let old = anim
+                let from_val = anim
                     .props_mut()
                     .remove(&AnimPropKind::Scale)
                     .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
                     .unwrap_or(1.0);
-                dbg!(old);
-
-                AnimatedProp::Scale {
-                    from: old,
-                    to: val.unwrap_f64(),
-                }
+                AnimatedProp::Scale(F64AnimProp::new(from_val, to_val.unwrap_f64()))
             }
         };
 

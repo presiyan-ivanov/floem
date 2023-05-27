@@ -5,48 +5,67 @@ use crate::animate::AnimDirection;
 use super::{anim_val::AnimValue, assert_valid_time, SizeUnit};
 
 #[derive(Clone, Debug)]
+pub(crate) struct F64AnimProp {
+    pub(crate) from: f64,
+    pub(crate) to: f64,
+    pub(crate) is_finished: bool,
+}
+
+impl F64AnimProp {
+    pub(crate) fn new(from: f64, to: f64) -> Self {
+        Self {
+            from,
+            to,
+            is_finished: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ColorAnimProp {
+    pub(crate) from: Color,
+    pub(crate) to: Color,
+    pub(crate) is_finished: bool,
+}
+
+impl ColorAnimProp {
+    pub(crate) fn new(from: Color, to: Color) -> Self {
+        Self {
+            from,
+            to,
+            is_finished: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum AnimatedProp {
-    Width { from: f64, to: f64, unit: SizeUnit },
-    Height { from: f64, to: f64, unit: SizeUnit },
-    Scale { from: f64, to: f64 },
-    // Opacity { from: f64, to: f64 },
-    TranslateX { from: f64, to: f64 },
-    TranslateY { from: f64, to: f64 },
-    Background { from: Color, to: Color },
-    BorderRadius { from: f64, to: f64 },
-    BorderWidth { from: f64, to: f64 },
-    BorderColor { from: Color, to: Color },
-    Color { from: Color, to: Color },
+    Width(F64AnimProp),
+    Height(F64AnimProp),
+    Scale(F64AnimProp),
+    // Scale(F64AnimProp)
+    TranslateX(F64AnimProp),
+    TranslateY(F64AnimProp),
+    BorderRadius(F64AnimProp),
+    BorderWidth(F64AnimProp),
+    BorderColor(ColorAnimProp),
+    Background(ColorAnimProp),
+    Color(ColorAnimProp),
 }
 
 impl AnimatedProp {
-    pub(crate) fn freeze_val(&mut self) {
-        match self {
-            AnimatedProp::Width { ref mut from, to, .. }
-            | AnimatedProp::Height { ref mut from, to, .. }
-            | AnimatedProp::BorderWidth { ref mut from, to }
-            | AnimatedProp::TranslateX { ref mut from, to }
-            | AnimatedProp::TranslateY { ref mut from, to }
-            | AnimatedProp::Scale { ref mut from, to }
-            | AnimatedProp::BorderRadius { ref mut from, to } => *from = *to,
-            AnimatedProp::Background { ref mut from, to }
-            | AnimatedProp::BorderColor { ref mut from, to }
-            | AnimatedProp::Color { ref mut from, to } => *from = *to,
-        }
-    }
-
     pub(crate) fn get_from_val(&self) -> AnimValue {
         match self {
-            AnimatedProp::Width { from, .. }
-            | AnimatedProp::Height { from, .. }
-            | AnimatedProp::BorderWidth { from, .. }
-            | AnimatedProp::TranslateX { from, .. }
-            | AnimatedProp::TranslateY { from, .. }
-            | AnimatedProp::Scale { from, .. }
-            | AnimatedProp::BorderRadius { from, .. } => AnimValue::Float(*from),
-            AnimatedProp::Background { from, .. }
-            | AnimatedProp::BorderColor { from, .. }
-            | AnimatedProp::Color { from, .. } => AnimValue::Color(*from),
+            AnimatedProp::Width(p)
+            | AnimatedProp::Height(p)
+            | AnimatedProp::BorderWidth(p)
+            | AnimatedProp::TranslateX(p)
+            | AnimatedProp::TranslateY(p)
+            | AnimatedProp::Scale(p)
+            | AnimatedProp::BorderRadius(p) => AnimValue::Float(p.from),
+            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
+                AnimValue::Color(p.from)
+            }
         }
     }
 
@@ -125,21 +144,18 @@ impl AnimatedProp {
 
     pub(crate) fn animate(&self, time: f64, direction: AnimDirection) -> AnimValue {
         match self {
-            AnimatedProp::Width { from, to, unit: _ }
-            | AnimatedProp::Height { from, to, unit: _ } => {
-                AnimValue::Float(self.animate_float(*from, *to, time, direction))
+            AnimatedProp::Width(p) | AnimatedProp::Height(p) => {
+                AnimValue::Float(self.animate_float(p.from, p.to, time, direction))
             }
-            AnimatedProp::Background { from, to }
-            | AnimatedProp::BorderColor { from, to }
-            | AnimatedProp::Color { from, to } => {
-                AnimValue::Color(self.animate_color(*from, *to, time, direction))
+            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
+                AnimValue::Color(self.animate_color(p.from, p.to, time, direction))
             }
-            AnimatedProp::Scale { from, to }
-            | AnimatedProp::BorderRadius { from, to }
-            | AnimatedProp::BorderWidth { from, to }
-            | AnimatedProp::TranslateX { from, to }
-            | AnimatedProp::TranslateY { from, to } => {
-                AnimValue::Float(self.animate_float(*from, *to, time, direction))
+            AnimatedProp::Scale(p)
+            | AnimatedProp::BorderRadius(p)
+            | AnimatedProp::BorderWidth(p)
+            | AnimatedProp::TranslateX(p)
+            | AnimatedProp::TranslateY(p) => {
+                AnimValue::Float(self.animate_float(p.from, p.to, time, direction))
             }
         }
     }
