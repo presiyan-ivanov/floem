@@ -164,9 +164,9 @@ impl ViewState {
 
                 let props = animation.props();
 
-                let elapsed = animation.elapsed();
                 for (kind, prop) in props {
-                    let val = animation.animate_prop(elapsed, prop);
+                    let elapsed = prop.elapsed();
+                    let val = animation.animate_prop(prop);
                     match kind {
                         AnimPropKind::Width => {
                             computed_style = computed_style.width_px(val.unwrap_f32());
@@ -194,14 +194,6 @@ impl ViewState {
                 }
 
                 animation.advance();
-                let now_completed = animation.is_completed();
-                if !was_completed && now_completed {
-                    let props = animation.props_mut();
-
-                    for (_, prop) in props {
-                        prop.freeze_val();
-                    }
-                }
                 debug_assert!(!animation.is_idle());
             }
         }

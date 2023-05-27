@@ -327,7 +327,8 @@ impl Animation {
                     }
                 }
             },
-            AnimState::Completed { .. } => {}
+            AnimState::Completed { .. } => {
+            }
         }
     }
 
@@ -337,7 +338,7 @@ impl Animation {
 
     pub(crate) fn animate_translate_y(&self, elapsed: Duration) -> Option<f64> {
         if let Some(width) = self.animated_props.get(&AnimPropKind::TranslateY) {
-            Some(self.animate_prop(elapsed, width).unwrap_f64())
+            Some(self.animate_prop(width).unwrap_f64())
         } else {
             None
         }
@@ -345,7 +346,7 @@ impl Animation {
 
     pub(crate) fn animate_scale(&self, elapsed: Duration) -> Option<f64> {
         if let Some(scale) = self.animated_props.get(&AnimPropKind::Scale) {
-            Some(self.animate_prop(elapsed, scale).unwrap_f64())
+            Some(self.animate_prop(scale).unwrap_f64())
         } else {
             None
         }
@@ -353,7 +354,7 @@ impl Animation {
 
     pub(crate) fn animate_translate_x(&self, elapsed: Duration) -> Option<f64> {
         if let Some(width) = self.animated_props.get(&AnimPropKind::TranslateX) {
-            Some(self.animate_prop(elapsed, width).unwrap_f64())
+            Some(self.animate_prop(width).unwrap_f64())
         } else {
             None
         }
@@ -367,8 +368,8 @@ impl Animation {
         self.animated_props.borrow_mut()
     }
 
-    pub(crate) fn animate_prop(&self, elapsed: Duration, prop: &AnimatedProp) -> AnimValue {
-        let mut elapsed = elapsed;
+    pub(crate) fn animate_prop(&self, prop: &AnimatedProp) -> AnimValue {
+        let mut elapsed = prop.get_elapsed();
         if let Some(skip) = self.skip {
             elapsed += skip;
         }

@@ -292,25 +292,22 @@ impl<V: View> AppHandle<V> {
         let anim = view_state.animation.as_mut().unwrap();
         let prop = match kind {
             AnimPropKind::Width => {
-                let width = layout.size.width;
-                AnimatedProp::Width {
-                    from: width as f64,
-                    to: to_val.unwrap_f64(),
-                    unit: SizeUnit::Px,
-                }
+                let from_val = layout.size.width;
+
+                AnimatedProp::Width(F64AnimProp::new(from_val as f64, to_val.unwrap_f64()))
             }
             AnimPropKind::Height => {
-                let height = layout.size.height;
-                AnimatedProp::Height {
-                    from: height as f64,
-                    to: to_val.unwrap_f64(),
-                    unit: SizeUnit::Px,
-                }
+                let from_val = layout.size.height;
+
+                AnimatedProp::Height(F64AnimProp::new(from_val as f64, to_val.unwrap_f64()))
             }
             AnimPropKind::BorderRadius => {
                 let border_radius = view_state.computed_style.border_radius;
 
-                AnimatedProp::BorderRadius(F64AnimProp::new(border_radius, to_val.unwrap_f64()))
+                AnimatedProp::BorderRadius(F64AnimProp::new(
+                    border_radius as f64,
+                    to_val.unwrap_f64(),
+                ))
             }
             AnimPropKind::BorderColor => {
                 let from_val = view_state.computed_style.border_color;

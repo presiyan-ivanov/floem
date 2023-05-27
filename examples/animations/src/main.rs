@@ -55,13 +55,6 @@ fn app_view(cx: AppContext) -> impl View {
                         Color::SKY_BLUE
                     }
                 })
-                // .translate_x(move || {
-                //     if counter.get() > 0.0 {
-                //         100.0
-                //     } else {
-                //         200.0
-                //     }
-                // })
                 .scale(move || {
                     if counter.get() == 0.0 {
                         1.0

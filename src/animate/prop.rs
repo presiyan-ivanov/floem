@@ -1,14 +1,16 @@
+use std::time::Duration;
+
 use vello::peniko::Color;
 
 use crate::animate::AnimDirection;
 
-use super::{anim_val::AnimValue, assert_valid_time, SizeUnit};
+use super::{anim_val::AnimValue, assert_valid_time};
 
 #[derive(Clone, Debug)]
 pub(crate) struct F64AnimProp {
-    pub(crate) from: f64,
-    pub(crate) to: f64,
-    pub(crate) is_finished: bool,
+    from: f64,
+    to: f64,
+    elapsed: Duration,
 }
 
 impl F64AnimProp {
@@ -16,16 +18,16 @@ impl F64AnimProp {
         Self {
             from,
             to,
-            is_finished: false,
+            elapsed: Duration::ZERO,
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct ColorAnimProp {
-    pub(crate) from: Color,
-    pub(crate) to: Color,
-    pub(crate) is_finished: bool,
+    from: Color,
+    to: Color,
+    elapsed: Duration,
 }
 
 impl ColorAnimProp {
@@ -33,13 +35,13 @@ impl ColorAnimProp {
         Self {
             from,
             to,
-            is_finished: false,
+            elapsed: Duration::ZERO,
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum AnimatedProp {
+pub(crate) enum AnimatedProp {
     Width(F64AnimProp),
     Height(F64AnimProp),
     Scale(F64AnimProp),
@@ -54,6 +56,36 @@ pub enum AnimatedProp {
 }
 
 impl AnimatedProp {
+    pub(crate) fn get_elapsed(&self) -> Duration {
+        match self {
+            AnimatedProp::Width(p)
+            | AnimatedProp::Height(p)
+            | AnimatedProp::BorderWidth(p)
+            | AnimatedProp::TranslateX(p)
+            | AnimatedProp::TranslateY(p)
+            | AnimatedProp::Scale(p)
+            | AnimatedProp::BorderRadius(p) => p.elapsed,
+            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
+                p.elapsed
+            }
+        }
+    }
+
+    pub(crate) fn get_to_val(&self) -> AnimValue {
+        match self {
+            AnimatedProp::Width(p)
+            | AnimatedProp::Height(p)
+            | AnimatedProp::BorderWidth(p)
+            | AnimatedProp::TranslateX(p)
+            | AnimatedProp::TranslateY(p)
+            | AnimatedProp::Scale(p)
+            | AnimatedProp::BorderRadius(p) => AnimValue::Float(p.to),
+            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
+                AnimValue::Color(p.to)
+            }
+        }
+    }
+
     pub(crate) fn get_from_val(&self) -> AnimValue {
         match self {
             AnimatedProp::Width(p)
