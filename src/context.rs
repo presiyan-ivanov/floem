@@ -19,7 +19,7 @@ use taffy::{
 use vello::peniko::Color;
 
 use crate::{
-    animate::{AnimId, AnimPropKind, Animation},
+    animate::{AnimId, AnimPropKind, AnimatedProp, Animation},
     app_handle::StyleSelector,
     event::{Event, EventListner},
     id::Id,
@@ -157,13 +157,14 @@ impl ViewState {
 
         'anim: {
             if let Some(animation) = self.animation.as_mut() {
-                if animation.is_completed() && animation.is_auto_reverse() {
+                let was_completed = animation.is_completed();
+                if was_completed && animation.is_auto_reverse() {
                     break 'anim;
                 }
 
                 let props = animation.props();
 
-                let elapsed = animation.elapsed().unwrap_or(Duration::ZERO);
+                let elapsed = animation.elapsed();
                 for (kind, prop) in props {
                     let val = animation.animate_prop(elapsed, prop);
                     match kind {
@@ -185,13 +186,22 @@ impl ViewState {
                         AnimPropKind::BorderColor => {
                             computed_style = computed_style.border_color(val.unwrap_color());
                         }
-                        AnimPropKind::Scale => todo!(),
                         // these ignore layout for performance reasons, so they are handled in the renderer
-                        AnimPropKind::TranslateX | AnimPropKind::TranslateY => {}
+                        AnimPropKind::TranslateX
+                        | AnimPropKind::TranslateY
+                        | AnimPropKind::Scale => {}
                     }
                 }
 
                 animation.advance();
+                let now_completed = animation.is_completed();
+                if !was_completed && now_completed {
+                    let props = animation.props_mut();
+
+                    for (_, prop) in props {
+                        prop.freeze_val();
+                    }
+                }
                 debug_assert!(!animation.is_idle());
             }
         }
@@ -207,6 +217,16 @@ impl ViewState {
                 .entry(breakpoint)
                 .or_insert_with(Vec::new)
                 .push(style.clone())
+        }
+    }
+
+    pub(crate) fn get_translate(&self) -> Vec2 {
+        if let Some(anim) = self.animation.as_ref() {
+            let x = anim.animate_translate_x(anim.elapsed()).unwrap_or(0.0);
+            let y = anim.animate_translate_y(anim.elapsed()).unwrap_or(0.0);
+            Vec2::new(x, y)
+        } else {
+            Vec2::new(0., 0.)
         }
     }
 }
@@ -378,11 +398,22 @@ impl AppState {
     }
 
     pub(crate) fn get_layout(&self, id: Id) -> Option<Layout> {
-        self.view_states
-            .get(&id)
-            .map(|view| view.node)
-            .and_then(|node| self.taffy.layout(node).ok())
-            .copied()
+        let view_state = self.view_states.get(&id);
+
+        if let Some(view_state) = view_state {
+            let node = view_state.node;
+            let mut layout = self.taffy.layout(node).ok().copied();
+
+            if let Some(ref mut layout) = layout {
+                let translate = view_state.get_translate();
+                layout.location.x += translate.x as f32;
+                layout.location.y += translate.y as f32;
+            }
+
+            layout
+        } else {
+            None
+        }
     }
 
     pub(crate) fn update_active(&mut self, id: Id) {
@@ -571,6 +602,7 @@ impl<'a> EventCx<'a> {
 
         if let Some(point) = event.point() {
             if let Some(layout) = self.get_layout(id) {
+                dbg!(layout.location.x);
                 if layout.location.x as f64 <= point.x
                     && point.x <= (layout.location.x + layout.size.width) as f64
                     && layout.location.y as f64 <= point.y
@@ -823,10 +855,28 @@ impl<'a> PaintCx<'a> {
         if let Some(layout) = self.get_layout(id) {
             let offset = layout.location;
             let mut new = self.transform.as_coeffs();
-            new[4] += offset.x as f64;
-            new[5] += offset.y as f64;
+
+            let (translate_x, translate_y, scale) =
+                if let Some(anim) = self.app_state.view_state(id).animation.as_ref() {
+                    let elapsed = anim.elapsed();
+                    let translate_x = anim.animate_translate_x(elapsed).unwrap_or(0.0);
+                    let translate_y = anim.animate_translate_y(elapsed).unwrap_or(0.0);
+                    let scale = anim.animate_scale(elapsed).unwrap_or(1.0);
+
+                    (translate_x, translate_y, scale)
+                } else {
+                    (0.0, 0.0, 1.0)
+                };
+
+            new[4] += offset.x as f64 + translate_x;
+            new[5] += offset.y as f64 + translate_y;
+
+            new[0] = layout.size.width as f64;
+            new[3] = layout.size.height as f64;
 
             self.transform = Affine::new(new);
+            self.transform = self.transform.pre_scale(scale);
+
             self.paint_state
                 .renderer
                 .as_mut()
@@ -834,25 +884,12 @@ impl<'a> PaintCx<'a> {
                 .transform(self.transform);
 
             if let Some(rect) = self.clip.as_mut() {
-                let (translate_x, translate_y) =
-                    if let Some(anim) = self.app_state.view_state(id).animation.as_ref() {
-                        let elapsed = anim.elapsed().unwrap_or(Duration::ZERO);
-                        let translate_x = anim.animate_translate_x(elapsed).unwrap_or(0.0);
-                        let translate_y = anim.animate_translate_y(elapsed).unwrap_or(0.0);
-
-                        (translate_x, translate_y)
-                    } else {
-                        (0.0, 0.0)
-                    };
-
-                *rect = rect.with_origin(
-                    rect.origin()
-                        - Vec2::new(offset.x as f64 + translate_x, offset.y as f64 + translate_y),
-                );
+                *rect =
+                    rect.with_origin(rect.origin() - Vec2::new(offset.x as f64, offset.y as f64));
             }
 
-            let width = layout.size.width as f64;
-            let height = layout.size.height as f64;
+            let width = self.transform.as_coeffs()[0];
+            let height = self.transform.as_coeffs()[3];
             Size::new(width, height)
         } else {
             Size::ZERO

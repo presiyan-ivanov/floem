@@ -100,9 +100,17 @@ impl Animation {
         self.auto_reverse
     }
 
-    // pub fn scale(self, scale: f64) -> Self {
-    //     todo!()
-    // }
+    pub fn scale(self, scale_fn: impl Fn() -> f64 + 'static) -> Self {
+        let cx = AppContext::get_current();
+        create_effect(cx.scope, move |_| {
+            let scale = scale_fn();
+
+            self.id
+                .update_prop(AnimPropKind::Scale, AnimValue::Float(scale));
+        });
+
+        self
+    }
 
     pub fn border_radius(self, border_radius_fn: impl Fn() -> f64 + 'static) -> Self {
         let cx = AppContext::get_current();
@@ -135,6 +143,18 @@ impl Animation {
 
             self.id
                 .update_prop(AnimPropKind::BorderColor, AnimValue::Color(border_color));
+        });
+
+        self
+    }
+
+    pub fn translate_x(self, translate_x_fn: impl Fn() -> f64 + 'static) -> Self {
+        let cx = AppContext::get_current();
+        create_effect(cx.scope, move |_| {
+            let translate_x = translate_x_fn();
+
+            self.id
+                .update_prop(AnimPropKind::TranslateX, AnimValue::Float(translate_x));
         });
 
         self
@@ -252,18 +272,20 @@ impl Animation {
         }
     }
 
-    pub fn elapsed(&self) -> Option<Duration> {
+    pub fn elapsed(&self) -> Duration {
         match &self.state {
-            AnimState::Idle => None,
+            AnimState::Idle => Duration::ZERO,
             AnimState::PassInProgress {
                 started_on,
                 elapsed,
             } => {
                 let duration = Instant::now() - started_on.clone();
-                Some(*elapsed + duration)
+                *elapsed + duration
             }
-            AnimState::PassFinished { elapsed } => Some(elapsed.clone()),
-            AnimState::Completed { elapsed, .. } => elapsed.clone(),
+            AnimState::PassFinished { elapsed } => elapsed.clone(),
+            AnimState::Completed { elapsed, .. } => {
+                elapsed.clone().unwrap_or_else(|| Duration::ZERO)
+            }
         }
     }
 
@@ -309,13 +331,21 @@ impl Animation {
         }
     }
 
-    pub(crate) fn get_prop(&self, kind: &AnimPropKind) -> Option<&AnimatedProp> {
-        self.animated_props.get(kind)
-    }
+    // pub(crate) fn get_prop(&self, kind: &AnimPropKind) -> Option<&AnimatedProp> {
+    //     self.animated_props.get(kind)
+    // }
 
     pub(crate) fn animate_translate_y(&self, elapsed: Duration) -> Option<f64> {
-        if let Some(width) = self.animated_props.get(&AnimPropKind::TranslateX) {
+        if let Some(width) = self.animated_props.get(&AnimPropKind::TranslateY) {
             Some(self.animate_prop(elapsed, width).unwrap_f64())
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn animate_scale(&self, elapsed: Duration) -> Option<f64> {
+        if let Some(scale) = self.animated_props.get(&AnimPropKind::Scale) {
+            Some(self.animate_prop(elapsed, scale).unwrap_f64())
         } else {
             None
         }
@@ -344,7 +374,7 @@ impl Animation {
         }
 
         if self.duration == Duration::ZERO {
-            return prop.current_val();
+            return prop.get_from_val();
         }
 
         if elapsed > self.duration {
@@ -365,15 +395,6 @@ impl Animation {
             prop.animate(time, AnimDirection::Forward)
         }
     }
-
-    // pub(crate) fn animate_prop_kind(
-    //     &self,
-    //     elapsed: Duration,
-    //     prop_kind: &AnimPropKind,
-    // ) -> AnimValue {
-    //     let prop = self.animated_props.get(&prop_kind).unwrap();
-    //     self.animate_prop(elapsed, prop)
-    // }
 
     pub(crate) fn requires_layout(&self) -> bool {
         self.animated_props.contains_key(&AnimPropKind::Width)

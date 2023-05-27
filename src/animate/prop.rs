@@ -20,15 +20,30 @@ pub enum AnimatedProp {
 }
 
 impl AnimatedProp {
-    pub(crate) fn current_val(&self) -> AnimValue {
+    pub(crate) fn freeze_val(&mut self) {
+        match self {
+            AnimatedProp::Width { ref mut from, to, .. }
+            | AnimatedProp::Height { ref mut from, to, .. }
+            | AnimatedProp::BorderWidth { ref mut from, to }
+            | AnimatedProp::TranslateX { ref mut from, to }
+            | AnimatedProp::TranslateY { ref mut from, to }
+            | AnimatedProp::Scale { ref mut from, to }
+            | AnimatedProp::BorderRadius { ref mut from, to } => *from = *to,
+            AnimatedProp::Background { ref mut from, to }
+            | AnimatedProp::BorderColor { ref mut from, to }
+            | AnimatedProp::Color { ref mut from, to } => *from = *to,
+        }
+    }
+
+    pub(crate) fn get_from_val(&self) -> AnimValue {
         match self {
             AnimatedProp::Width { from, .. }
             | AnimatedProp::Height { from, .. }
             | AnimatedProp::BorderWidth { from, .. }
             | AnimatedProp::TranslateX { from, .. }
             | AnimatedProp::TranslateY { from, .. }
+            | AnimatedProp::Scale { from, .. }
             | AnimatedProp::BorderRadius { from, .. } => AnimValue::Float(*from),
-            AnimatedProp::Scale { .. } => todo!(),
             AnimatedProp::Background { from, .. }
             | AnimatedProp::BorderColor { from, .. }
             | AnimatedProp::Color { from, .. } => AnimValue::Color(*from),
@@ -119,8 +134,8 @@ impl AnimatedProp {
             | AnimatedProp::Color { from, to } => {
                 AnimValue::Color(self.animate_color(*from, *to, time, direction))
             }
-            AnimatedProp::Scale { .. } => todo!(),
-            AnimatedProp::BorderRadius { from, to }
+            AnimatedProp::Scale { from, to }
+            | AnimatedProp::BorderRadius { from, to }
             | AnimatedProp::BorderWidth { from, to }
             | AnimatedProp::TranslateX { from, to }
             | AnimatedProp::TranslateY { from, to } => {

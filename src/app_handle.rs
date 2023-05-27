@@ -291,7 +291,6 @@ impl<V: View> AppHandle<V> {
         let view_state = self.app_state.view_state(view_id);
         let anim = view_state.animation.as_mut().unwrap();
         let prop = match kind {
-            AnimPropKind::Scale => todo!(),
             AnimPropKind::Width => {
                 let width = layout.size.width;
                 AnimatedProp::Width {
@@ -323,21 +322,22 @@ impl<V: View> AppHandle<V> {
                 }
             }
             AnimPropKind::Background => {
-                //TODO:  get from cx
                 let bg = view_state
                     .computed_style
                     .background
+                    //TODO:  get default from cx and remove the expect
                     .expect("Bg must be set in the styles");
+                dbg!(bg);
                 AnimatedProp::Background {
                     from: bg,
                     to: val.unwrap_color(),
                 }
             }
             AnimPropKind::Color => {
-                //TODO:  get from cx
                 let color = view_state
                     .computed_style
                     .color
+                    //TODO:  default get from cx and remove the expect
                     .expect("Color must be set in the animated view's style");
                 AnimatedProp::Color {
                     from: color,
@@ -348,7 +348,7 @@ impl<V: View> AppHandle<V> {
                 let old = anim
                     .props_mut()
                     .remove(&AnimPropKind::TranslateX)
-                    .map(|old| old.current_val().unwrap_f64())
+                    .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
                     .unwrap_or(0.0);
 
                 AnimatedProp::TranslateX {
@@ -360,10 +360,23 @@ impl<V: View> AppHandle<V> {
                 let old = anim
                     .props_mut()
                     .remove(&AnimPropKind::TranslateY)
-                    .map(|old| old.current_val().unwrap_f64())
+                    .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
                     .unwrap_or(0.0);
 
                 AnimatedProp::TranslateY {
+                    from: old,
+                    to: val.unwrap_f64(),
+                }
+            }
+            AnimPropKind::Scale => {
+                let old = anim
+                    .props_mut()
+                    .remove(&AnimPropKind::Scale)
+                    .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
+                    .unwrap_or(1.0);
+                dbg!(old);
+
+                AnimatedProp::Scale {
                     from: old,
                     to: val.unwrap_f64(),
                 }

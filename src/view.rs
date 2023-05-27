@@ -273,7 +273,6 @@ pub trait View {
                 if requires_layout {
                     cx.app_state.request_layout(self.id());
                 }
-                return true;
             }
             _ => (),
         }
