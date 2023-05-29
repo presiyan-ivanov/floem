@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 use std::{any::Any, collections::HashMap};
 
 use crate::animate::{
-    AnimValue, AnimatedProp, ColorAnimPropValues, F64AnimPropValues, PropAnimState,
+    AnimValue, AnimatedProp, ColorAnimValues, F64AnimValues, PropAnimState,
 };
 use crate::id;
 use floem_renderer::Renderer;
@@ -296,7 +296,7 @@ impl<V: View> AppHandle<V> {
             AnimPropKind::Width => {
                 let from_val = layout.size.width;
 
-                AnimPropValues::Width(F64AnimPropValues {
+                AnimPropValues::Width(F64AnimValues {
                     from: from_val as f64,
                     to: to_val.unwrap_f64(),
                 })
@@ -304,7 +304,7 @@ impl<V: View> AppHandle<V> {
             AnimPropKind::Height => {
                 let from_val = layout.size.height;
 
-                AnimPropValues::Height(F64AnimPropValues {
+                AnimPropValues::Height(F64AnimValues {
                     from: from_val as f64,
                     to: to_val.unwrap_f64(),
                 })
@@ -312,14 +312,14 @@ impl<V: View> AppHandle<V> {
             AnimPropKind::BorderRadius => {
                 let border_radius = view_state.computed_style.border_radius;
 
-                AnimPropValues::BorderRadius(F64AnimPropValues {
+                AnimPropValues::BorderRadius(F64AnimValues {
                     from: border_radius as f64,
                     to: to_val.unwrap_f64(),
                 })
             }
             AnimPropKind::BorderColor => {
                 let from_val = view_state.computed_style.border_color;
-                AnimPropValues::BorderColor(ColorAnimPropValues {
+                AnimPropValues::BorderColor(ColorAnimValues {
                     from: from_val,
                     to: to_val.unwrap_color(),
                 })
@@ -331,7 +331,7 @@ impl<V: View> AppHandle<V> {
                     //TODO:  get default from cx and remove the expect
                     .expect("Bg must be set in the styles");
 
-                AnimPropValues::Background(ColorAnimPropValues {
+                AnimPropValues::Background(ColorAnimValues {
                     from: from_val,
                     to: to_val.unwrap_color(),
                 })
@@ -342,7 +342,7 @@ impl<V: View> AppHandle<V> {
                     .color
                     //TODO:  default get from cx and remove the expect
                     .expect("Color must be set in the animated view's style");
-                AnimPropValues::Color(ColorAnimPropValues {
+                AnimPropValues::Color(ColorAnimValues {
                     from: from_val,
                     to: to_val.unwrap_color(),
                 })
@@ -353,7 +353,7 @@ impl<V: View> AppHandle<V> {
                     .remove(&AnimPropKind::ColorAnimPropValues)
                     .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(0.0);
-                AnimPropValues::TranslateX(F64AnimPropValues {
+                AnimPropValues::TranslateX(F64AnimValues {
                     from: from_val,
                     to: to_val.unwrap_f64(),
                 })
@@ -364,7 +364,7 @@ impl<V: View> AppHandle<V> {
                     .remove(&AnimPropKind::TranslateY)
                     .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(0.0);
-                AnimPropValues::TranslateY(F64AnimPropValues {
+                AnimPropValues::TranslateY(F64AnimValues {
                     from: from_val,
                     to: to_val.unwrap_f64(),
                 })
@@ -375,7 +375,7 @@ impl<V: View> AppHandle<V> {
                     .remove(&AnimPropKind::Scale)
                     .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(1.0);
-                AnimPropValues::Scale(F64AnimPropValues {
+                AnimPropValues::Scale(F64AnimValues {
                     from: from_val,
                     to: to_val.unwrap_f64(),
                 })

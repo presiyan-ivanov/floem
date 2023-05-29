@@ -15,8 +15,8 @@ fn app_view(cx: AppContext) -> impl View {
     let (counter, set_counter) = create_signal(cx.scope, 0.0);
     let (is_hovered, set_is_hovered) = create_signal(cx.scope, false);
 
-    // stack(|| {
-    //     (
+    stack(|| {
+        (
     label(|| "Hover or click me!".to_string())
         .on_click(move |_| {
             set_counter.update(|value| *value += 1.0);
@@ -66,40 +66,40 @@ fn app_view(cx: AppContext) -> impl View {
                 .ease_in_out()
                 .duration(Duration::from_secs(1)),
         )
-    // ,)
-    // })
-    // .style(|| {
-    //     Style::BASE
-    //         .border(5.0)
-    //         .background(Color::BLUE)
-    //         .padding_px(10.0)
-    //         .size_px(400.0, 400.0)
-    //         .color(Color::BLACK)
-    // })
-    // .animation(
-    //     animation()
-    //         .width(move || {
-    //             if counter.get() % 2.0 == 0.0 {
-    //                 400.0
-    //             } else {
-    //                 600.0
-    //             }
-    //         })
-    //         .height(move || {
-    //             if counter.get() % 2.0 == 0.0 {
-    //                 200.0
-    //             } else {
-    //                 500.0
-    //             }
-    //         })
-    //         .border_color(|| Color::CYAN)
-    //         .color(|| Color::CYAN)
-    //         .background(|| Color::LAVENDER)
-    //         .easing_fn(EasingFn::Cubic)
-    //         .ease_in_out()
-    //         .auto_reverse(true)
-    //         .duration(Duration::from_secs(2)),
-    // )
+    ,)
+    })
+    .style(|| {
+        Style::BASE
+            .border(5.0)
+            .background(Color::BLUE)
+            .padding_px(10.0)
+            .size_px(400.0, 400.0)
+            .color(Color::BLACK)
+    })
+    .animation(
+        animation()
+            .width(move || {
+                if counter.get() % 2.0 == 0.0 {
+                    400.0
+                } else {
+                    600.0
+                }
+            })
+            .height(move || {
+                if counter.get() % 2.0 == 0.0 {
+                    200.0
+                } else {
+                    500.0
+                }
+            })
+            .border_color(|| Color::CYAN)
+            .color(|| Color::CYAN)
+            .background(|| Color::LAVENDER)
+            .easing_fn(EasingFn::Cubic)
+            .ease_in_out()
+            .auto_reverse(true)
+            .duration(Duration::from_secs(2)),
+    )
 }
 
 fn main() {

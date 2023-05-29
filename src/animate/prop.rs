@@ -7,13 +7,13 @@ use crate::animate::AnimDirection;
 use super::{anim_val::AnimValue, assert_valid_time, RepeatMode};
 
 #[derive(Clone, Debug)]
-pub(crate) struct F64AnimPropValues {
+pub(crate) struct F64AnimValues {
     pub(crate) from: f64,
     pub(crate) to: f64,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct ColorAnimPropValues {
+pub(crate) struct ColorAnimValues {
     pub(crate) from: Color,
     pub(crate) to: Color,
 }
@@ -28,7 +28,7 @@ pub(crate) enum PropAnimState {
     PassFinished {
         elapsed: Duration,
     },
-    // NOTE: If the animation has `RepeatMode::LoopForever`, this state will never be reached.
+    // NOTE: If the repeat mode of the animation is `RepeatMode::LoopForever`, this state will never be reached.
     Completed {
         elapsed: Option<Duration>,
     },
@@ -121,17 +121,17 @@ impl AnimatedProp {
 
 #[derive(Clone, Debug)]
 pub(crate) enum AnimPropValues {
-    Width(F64AnimPropValues),
-    Height(F64AnimPropValues),
-    Scale(F64AnimPropValues),
-    TranslateX(F64AnimPropValues),
-    TranslateY(F64AnimPropValues),
-    BorderRadius(F64AnimPropValues),
-    BorderWidth(F64AnimPropValues),
+    Width(F64AnimValues),
+    Height(F64AnimValues),
+    Scale(F64AnimValues),
+    TranslateX(F64AnimValues),
+    TranslateY(F64AnimValues),
+    BorderRadius(F64AnimValues),
+    BorderWidth(F64AnimValues),
 
-    BorderColor(ColorAnimPropValues),
-    Background(ColorAnimPropValues),
-    Color(ColorAnimPropValues),
+    BorderColor(ColorAnimValues),
+    Background(ColorAnimValues),
+    Color(ColorAnimValues),
 }
 
 impl AnimPropValues {
