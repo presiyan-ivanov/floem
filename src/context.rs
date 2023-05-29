@@ -19,7 +19,7 @@ use taffy::{
 use vello::peniko::Color;
 
 use crate::{
-    animate::{AnimId, AnimPropKind, AnimatedProp, Animation},
+    animate::{AnimId, AnimPropKind, AnimPropValues, Animation},
     app_handle::StyleSelector,
     event::{Event, EventListner},
     id::Id,
@@ -187,7 +187,7 @@ impl ViewState {
                             computed_style = computed_style.border_color(val.unwrap_color());
                         }
                         // these ignore layout for performance reasons, so they are handled in the renderer
-                        AnimPropKind::TranslateX
+                        AnimPropKind::ColorAnimPropValues
                         | AnimPropKind::TranslateY
                         | AnimPropKind::Scale => {}
                     }
@@ -214,8 +214,8 @@ impl ViewState {
 
     pub(crate) fn get_translate(&self) -> Vec2 {
         if let Some(anim) = self.animation.as_ref() {
-            let x = anim.animate_translate_x(anim.elapsed()).unwrap_or(0.0);
-            let y = anim.animate_translate_y(anim.elapsed()).unwrap_or(0.0);
+            let x = anim.animate_translate_x().unwrap_or(0.0);
+            let y = anim.animate_translate_y().unwrap_or(0.0);
             Vec2::new(x, y)
         } else {
             Vec2::new(0., 0.)
@@ -850,10 +850,9 @@ impl<'a> PaintCx<'a> {
 
             let (translate_x, translate_y, scale) =
                 if let Some(anim) = self.app_state.view_state(id).animation.as_ref() {
-                    let elapsed = anim.elapsed();
-                    let translate_x = anim.animate_translate_x(elapsed).unwrap_or(0.0);
-                    let translate_y = anim.animate_translate_y(elapsed).unwrap_or(0.0);
-                    let scale = anim.animate_scale(elapsed).unwrap_or(1.0);
+                    let translate_x = anim.animate_translate_x().unwrap_or(0.0);
+                    let translate_y = anim.animate_translate_y().unwrap_or(0.0);
+                    let scale = anim.animate_scale().unwrap_or(1.0);
 
                     (translate_x, translate_y, scale)
                 } else {

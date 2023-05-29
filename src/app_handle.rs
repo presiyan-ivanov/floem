@@ -1,7 +1,9 @@
 use std::time::{Duration, Instant};
 use std::{any::Any, collections::HashMap};
 
-use crate::animate::{AnimValue, ColorAnimProp, F64AnimProp};
+use crate::animate::{
+    AnimValue, AnimatedProp, ColorAnimPropValues, F64AnimPropValues, PropAnimState,
+};
 use crate::id;
 use floem_renderer::Renderer;
 use glazier::kurbo::{Affine, Point, Rect};
@@ -10,7 +12,7 @@ use leptos_reactive::{Scope, SignalSet};
 
 use crate::menu::Menu;
 use crate::{
-    animate::{AnimPropKind, AnimUpdateMsg, AnimatedProp, Animation, SizeUnit},
+    animate::{AnimPropKind, AnimPropValues, AnimUpdateMsg, Animation, SizeUnit},
     context::{
         AppContextStore, AppState, EventCallback, EventCx, LayoutCx, PaintCx, PaintState,
         ResizeCallback, ResizeListener, UpdateCx, APP_CONTEXT_STORE,
@@ -294,24 +296,33 @@ impl<V: View> AppHandle<V> {
             AnimPropKind::Width => {
                 let from_val = layout.size.width;
 
-                AnimatedProp::Width(F64AnimProp::new(from_val as f64, to_val.unwrap_f64()))
+                AnimPropValues::Width(F64AnimPropValues {
+                    from: from_val as f64,
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::Height => {
                 let from_val = layout.size.height;
 
-                AnimatedProp::Height(F64AnimProp::new(from_val as f64, to_val.unwrap_f64()))
+                AnimPropValues::Height(F64AnimPropValues {
+                    from: from_val as f64,
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::BorderRadius => {
                 let border_radius = view_state.computed_style.border_radius;
 
-                AnimatedProp::BorderRadius(F64AnimProp::new(
-                    border_radius as f64,
-                    to_val.unwrap_f64(),
-                ))
+                AnimPropValues::BorderRadius(F64AnimPropValues {
+                    from: border_radius as f64,
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::BorderColor => {
                 let from_val = view_state.computed_style.border_color;
-                AnimatedProp::BorderColor(ColorAnimProp::new(from_val, to_val.unwrap_color()))
+                AnimPropValues::BorderColor(ColorAnimPropValues {
+                    from: from_val,
+                    to: to_val.unwrap_color(),
+                })
             }
             AnimPropKind::Background => {
                 let from_val = view_state
@@ -320,7 +331,10 @@ impl<V: View> AppHandle<V> {
                     //TODO:  get default from cx and remove the expect
                     .expect("Bg must be set in the styles");
 
-                AnimatedProp::Background(ColorAnimProp::new(from_val, to_val.unwrap_color()))
+                AnimPropValues::Background(ColorAnimPropValues {
+                    from: from_val,
+                    to: to_val.unwrap_color(),
+                })
             }
             AnimPropKind::Color => {
                 let from_val = view_state
@@ -328,38 +342,57 @@ impl<V: View> AppHandle<V> {
                     .color
                     //TODO:  default get from cx and remove the expect
                     .expect("Color must be set in the animated view's style");
-                AnimatedProp::Color(ColorAnimProp::new(from_val, to_val.unwrap_color()))
+                AnimPropValues::Color(ColorAnimPropValues {
+                    from: from_val,
+                    to: to_val.unwrap_color(),
+                })
             }
-            AnimPropKind::TranslateX => {
+            AnimPropKind::ColorAnimPropValues => {
                 let from_val = anim
                     .props_mut()
-                    .remove(&AnimPropKind::TranslateX)
-                    .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
+                    .remove(&AnimPropKind::ColorAnimPropValues)
+                    .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(0.0);
-                AnimatedProp::TranslateX(F64AnimProp::new(from_val, to_val.unwrap_f64()))
+                AnimPropValues::TranslateX(F64AnimPropValues {
+                    from: from_val,
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::TranslateY => {
                 let from_val = anim
                     .props_mut()
                     .remove(&AnimPropKind::TranslateY)
-                    .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
+                    .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(0.0);
-                AnimatedProp::TranslateY(F64AnimProp::new(from_val, to_val.unwrap_f64()))
+                AnimPropValues::TranslateY(F64AnimPropValues {
+                    from: from_val,
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::Scale => {
                 let from_val = anim
                     .props_mut()
                     .remove(&AnimPropKind::Scale)
-                    .map(|old| anim.animate_prop(anim.elapsed(), &old).unwrap_f64())
+                    .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(1.0);
-                AnimatedProp::Scale(F64AnimProp::new(from_val, to_val.unwrap_f64()))
+                AnimPropValues::Scale(F64AnimPropValues {
+                    from: from_val,
+                    to: to_val.unwrap_f64(),
+                })
             }
         };
 
         // Overrides the old value
-        // TODO: logic based on the old val to make the animation smoother when overriding an old
-        // animation that was in progress
-        anim.props_mut().insert(kind, prop);
+        anim.props_mut().insert(
+            kind,
+            AnimatedProp {
+                values: prop,
+                elapsed: Duration::ZERO,
+                started_on: Instant::now(),
+                state: PropAnimState::Idle,
+                repeats_count: 0,
+            },
+        );
         anim.begin();
 
         ChangeFlags::PAINT

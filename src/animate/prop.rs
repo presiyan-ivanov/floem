@@ -1,103 +1,167 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use vello::peniko::Color;
 
 use crate::animate::AnimDirection;
 
-use super::{anim_val::AnimValue, assert_valid_time};
+use super::{anim_val::AnimValue, assert_valid_time, RepeatMode};
 
 #[derive(Clone, Debug)]
-pub(crate) struct F64AnimProp {
-    from: f64,
-    to: f64,
-    elapsed: Duration,
-}
-
-impl F64AnimProp {
-    pub(crate) fn new(from: f64, to: f64) -> Self {
-        Self {
-            from,
-            to,
-            elapsed: Duration::ZERO,
-        }
-    }
+pub(crate) struct F64AnimPropValues {
+    pub(crate) from: f64,
+    pub(crate) to: f64,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct ColorAnimProp {
-    from: Color,
-    to: Color,
-    elapsed: Duration,
-}
-
-impl ColorAnimProp {
-    pub(crate) fn new(from: Color, to: Color) -> Self {
-        Self {
-            from,
-            to,
-            elapsed: Duration::ZERO,
-        }
-    }
+pub(crate) struct ColorAnimPropValues {
+    pub(crate) from: Color,
+    pub(crate) to: Color,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum AnimatedProp {
-    Width(F64AnimProp),
-    Height(F64AnimProp),
-    Scale(F64AnimProp),
-    // Scale(F64AnimProp)
-    TranslateX(F64AnimProp),
-    TranslateY(F64AnimProp),
-    BorderRadius(F64AnimProp),
-    BorderWidth(F64AnimProp),
-    BorderColor(ColorAnimProp),
-    Background(ColorAnimProp),
-    Color(ColorAnimProp),
+pub(crate) enum PropAnimState {
+    Idle,
+    PassInProgress {
+        started_on: Instant,
+        elapsed: Duration,
+    },
+    PassFinished {
+        elapsed: Duration,
+    },
+    // NOTE: If the animation has `RepeatMode::LoopForever`, this state will never be reached.
+    Completed {
+        elapsed: Option<Duration>,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AnimatedProp {
+    pub(crate) values: AnimPropValues,
+    pub(crate) elapsed: Duration,
+    pub(crate) started_on: Instant,
+    pub(crate) state: PropAnimState,
+    pub(crate) repeats_count: usize,
 }
 
 impl AnimatedProp {
-    pub(crate) fn get_elapsed(&self) -> Duration {
-        match self {
-            AnimatedProp::Width(p)
-            | AnimatedProp::Height(p)
-            | AnimatedProp::BorderWidth(p)
-            | AnimatedProp::TranslateX(p)
-            | AnimatedProp::TranslateY(p)
-            | AnimatedProp::Scale(p)
-            | AnimatedProp::BorderRadius(p) => p.elapsed,
-            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
-                p.elapsed
+    pub fn begin(&mut self) {
+        self.repeats_count = 0;
+        self.state = PropAnimState::PassInProgress {
+            started_on: Instant::now(),
+            elapsed: Duration::ZERO,
+        }
+    }
+
+    pub fn advance(&mut self, repeat_mode: RepeatMode, target_duration: &Duration) {
+        match self.state {
+            PropAnimState::Idle => {
+                self.begin();
+            }
+            PropAnimState::PassInProgress {
+                started_on,
+                mut elapsed,
+            } => {
+                let now = Instant::now();
+                let duration = now - started_on.clone();
+                elapsed += duration;
+
+                if elapsed >= *target_duration {
+                    self.state = PropAnimState::PassFinished { elapsed };
+                }
+            }
+            PropAnimState::PassFinished { elapsed } => match repeat_mode {
+                RepeatMode::LoopForever => {
+                    self.state = PropAnimState::PassInProgress {
+                        started_on: Instant::now(),
+                        elapsed: Duration::ZERO,
+                    }
+                }
+                RepeatMode::Times(times) => {
+                    self.repeats_count += 1;
+                    if self.repeats_count >= times {
+                        self.state = PropAnimState::Completed {
+                            elapsed: Some(elapsed),
+                        }
+                    } else {
+                        self.state = PropAnimState::PassInProgress {
+                            started_on: Instant::now(),
+                            elapsed: Duration::ZERO,
+                        }
+                    }
+                }
+            },
+            PropAnimState::Completed {..}=> {}
+        }
+    }
+
+    pub fn elapsed(&self) -> Duration {
+        match &self.state {
+            PropAnimState::Idle => Duration::ZERO,
+            PropAnimState::PassInProgress {
+                started_on,
+                elapsed,
+            } => {
+                let duration = Instant::now() - started_on.clone();
+                *elapsed + duration
+            }
+            PropAnimState::PassFinished { elapsed } => elapsed.clone(),
+            PropAnimState::Completed { elapsed, .. } => {
+                elapsed.clone().unwrap_or_else(|| Duration::ZERO)
             }
         }
     }
 
-    pub(crate) fn get_to_val(&self) -> AnimValue {
+    pub(crate) fn is_completed(&self) -> bool {
+        match &self.state {
+            PropAnimState::Completed { elapsed } => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) enum AnimPropValues {
+    Width(F64AnimPropValues),
+    Height(F64AnimPropValues),
+    Scale(F64AnimPropValues),
+    TranslateX(F64AnimPropValues),
+    TranslateY(F64AnimPropValues),
+    BorderRadius(F64AnimPropValues),
+    BorderWidth(F64AnimPropValues),
+
+    BorderColor(ColorAnimPropValues),
+    Background(ColorAnimPropValues),
+    Color(ColorAnimPropValues),
+}
+
+impl AnimPropValues {
+    pub(crate) fn get_to(&self) -> AnimValue {
         match self {
-            AnimatedProp::Width(p)
-            | AnimatedProp::Height(p)
-            | AnimatedProp::BorderWidth(p)
-            | AnimatedProp::TranslateX(p)
-            | AnimatedProp::TranslateY(p)
-            | AnimatedProp::Scale(p)
-            | AnimatedProp::BorderRadius(p) => AnimValue::Float(p.to),
-            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
-                AnimValue::Color(p.to)
-            }
+            AnimPropValues::Width(p)
+            | AnimPropValues::Height(p)
+            | AnimPropValues::BorderWidth(p)
+            | AnimPropValues::TranslateX(p)
+            | AnimPropValues::TranslateY(p)
+            | AnimPropValues::Scale(p)
+            | AnimPropValues::BorderRadius(p) => AnimValue::Float(p.to),
+            AnimPropValues::Background(p)
+            | AnimPropValues::BorderColor(p)
+            | AnimPropValues::Color(p) => AnimValue::Color(p.to),
         }
     }
 
-    pub(crate) fn get_from_val(&self) -> AnimValue {
+    pub(crate) fn get_from(&self) -> AnimValue {
         match self {
-            AnimatedProp::Width(p)
-            | AnimatedProp::Height(p)
-            | AnimatedProp::BorderWidth(p)
-            | AnimatedProp::TranslateX(p)
-            | AnimatedProp::TranslateY(p)
-            | AnimatedProp::Scale(p)
-            | AnimatedProp::BorderRadius(p) => AnimValue::Float(p.from),
-            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
-                AnimValue::Color(p.from)
-            }
+            AnimPropValues::Width(p)
+            | AnimPropValues::Height(p)
+            | AnimPropValues::BorderWidth(p)
+            | AnimPropValues::TranslateX(p)
+            | AnimPropValues::TranslateY(p)
+            | AnimPropValues::Scale(p)
+            | AnimPropValues::BorderRadius(p) => AnimValue::Float(p.from),
+            AnimPropValues::Background(p)
+            | AnimPropValues::BorderColor(p)
+            | AnimPropValues::Color(p) => AnimValue::Color(p.from),
         }
     }
 
@@ -176,17 +240,19 @@ impl AnimatedProp {
 
     pub(crate) fn animate(&self, time: f64, direction: AnimDirection) -> AnimValue {
         match self {
-            AnimatedProp::Width(p) | AnimatedProp::Height(p) => {
-                AnimValue::Float(self.animate_float(p.from, p.to, time, direction))
-            }
-            AnimatedProp::Background(p) | AnimatedProp::BorderColor(p) | AnimatedProp::Color(p) => {
+            AnimPropValues::Background(p)
+            | AnimPropValues::BorderColor(p)
+            | AnimPropValues::Color(p) => {
                 AnimValue::Color(self.animate_color(p.from, p.to, time, direction))
             }
-            AnimatedProp::Scale(p)
-            | AnimatedProp::BorderRadius(p)
-            | AnimatedProp::BorderWidth(p)
-            | AnimatedProp::TranslateX(p)
-            | AnimatedProp::TranslateY(p) => {
+            AnimPropValues::Width(p) | AnimPropValues::Height(p) => {
+                AnimValue::Float(self.animate_float(p.from, p.to, time, direction))
+            }
+            AnimPropValues::Scale(p)
+            | AnimPropValues::BorderRadius(p)
+            | AnimPropValues::BorderWidth(p)
+            | AnimPropValues::TranslateX(p)
+            | AnimPropValues::TranslateY(p) => {
                 AnimValue::Float(self.animate_float(p.from, p.to, time, direction))
             }
         }
@@ -196,7 +262,7 @@ impl AnimatedProp {
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub enum AnimPropKind {
     Scale,
-    TranslateX,
+    ColorAnimPropValues,
     TranslateY,
     Width,
     Background,
