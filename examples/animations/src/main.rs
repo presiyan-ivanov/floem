@@ -36,8 +36,8 @@ fn app_view() -> impl View {
                 .border(1.0)
                 .background(Color::RED)
                 .color(Color::BLACK)
-                .padding_px(10.0)
-                .margin_px(20.0)
+                .padding_px(20.0)
+                .margin_px(80.0)
                 .size_px(120.0, 120.0)
         })
         .active_style(|| Style::BASE.color(Color::BLACK))
@@ -85,7 +85,7 @@ fn app_view() -> impl View {
             })
             .height(move || {
                 if counter.get() % 2.0 == 0.0 {
-                    200.0
+                    300.0
                 } else {
                     500.0
                 }

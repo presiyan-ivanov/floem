@@ -386,9 +386,9 @@ impl<V: View> AppHandle<V> {
             }
         };
 
-        if kind == AnimPropKind::Height {
-            dbg!(prop.get_to());
-        }
+        // if kind == AnimPropKind::Height {
+        //     dbg!(prop.get_to());
+        // }
 
         // Overrides the old value
         anim.props_mut().insert(

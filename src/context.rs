@@ -898,8 +898,8 @@ impl<'a> PaintCx<'a> {
             new_transform[3] = layout.size.height as f64;
 
             if scale != 1.0 {
-                new_transform[4] += layout.size.width as f64 * (1.0 - scale / 2.0);
-                new_transform[5] += layout.size.height as f64 * (1.0 - scale / 2.0);
+                new_transform[4] += (layout.size.width as f64 * 0.5) * (1.0 - scale);
+                new_transform[5] += (layout.size.height as f64 * 0.5) * (1.0 - scale);
             }
 
             self.transform = Affine::new(new_transform);
