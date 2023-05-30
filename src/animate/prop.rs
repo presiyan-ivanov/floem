@@ -262,7 +262,7 @@ impl AnimPropValues {
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub enum AnimPropKind {
     Scale,
-    ColorAnimPropValues,
+    TranslateX,
     TranslateY,
     Width,
     Background,

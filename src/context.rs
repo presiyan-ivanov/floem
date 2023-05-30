@@ -69,6 +69,7 @@ pub struct ViewState {
     pub(crate) request_layout: bool,
     pub(crate) viewport: Option<Rect>,
     pub(crate) animation: Option<Animation>,
+    pub(crate) base_style: Option<Style>,
     pub(crate) style: Style,
     pub(crate) hover_style: Option<Style>,
     pub(crate) disabled_style: Option<Style>,
@@ -89,6 +90,7 @@ impl ViewState {
             viewport: None,
             animation: None,
             request_layout: true,
+            base_style: None,
             style: Style::BASE,
             computed_style: ComputedStyle::default(),
             hover_style: None,
@@ -111,7 +113,13 @@ impl ViewState {
         screen_size_bp: ScreenSizeBp,
     ) {
         let mut computed_style = if let Some(view_style) = view_style {
-            view_style.apply(self.style.clone())
+            if let Some(base_style) = self.base_style.clone() {
+                view_style.apply(base_style).apply(self.style.clone())
+            } else {
+                view_style.apply(self.style.clone())
+            }
+        } else if let Some(base_style) = self.base_style.clone() {
+            base_style.apply(self.style.clone())
         } else {
             self.style.clone()
         };
@@ -157,15 +165,13 @@ impl ViewState {
 
         'anim: {
             if let Some(animation) = self.animation.as_mut() {
-                let was_completed = animation.is_completed();
-                if was_completed && animation.is_auto_reverse() {
+                if animation.is_completed() && animation.is_auto_reverse() {
                     break 'anim;
                 }
 
                 let props = animation.props();
 
                 for (kind, prop) in props {
-                    let elapsed = prop.elapsed();
                     let val = animation.animate_prop(prop);
                     match kind {
                         AnimPropKind::Width => {
@@ -186,8 +192,9 @@ impl ViewState {
                         AnimPropKind::BorderColor => {
                             computed_style = computed_style.border_color(val.unwrap_color());
                         }
-                        // these ignore layout for performance reasons, so they are handled in the renderer
-                        AnimPropKind::ColorAnimPropValues
+                        // these ignore layout for performance reasons, so they are handled in the
+                        // paint cx
+                        AnimPropKind::TranslateX
                         | AnimPropKind::TranslateY
                         | AnimPropKind::Scale => {}
                     }
@@ -209,6 +216,14 @@ impl ViewState {
                 .entry(breakpoint)
                 .or_insert_with(Vec::new)
                 .push(style.clone())
+        }
+    }
+
+    pub(crate) fn get_anim_scale_transform(&self) -> f64 {
+        if let Some(anim) = self.animation.as_ref() {
+            anim.animate_scale().unwrap_or(1.0)
+        } else {
+            1.0
         }
     }
 
@@ -283,7 +298,7 @@ impl AppState {
             .or_insert_with(|| ViewState::new(&mut self.taffy))
     }
 
-    pub fn ids_with_anim_in_progress(&mut self) -> HashSet<Id> {
+    pub fn ids_with_anim_in_progress(&mut self) -> Vec<Id> {
         self.animated
             .clone()
             .into_iter()
@@ -396,11 +411,15 @@ impl AppState {
             let node = view_state.node;
             let mut layout = self.taffy.layout(node).ok().copied();
 
-            if let Some(ref mut layout) = layout {
-                let translate = view_state.get_translate();
-                layout.location.x += translate.x as f32;
-                layout.location.y += translate.y as f32;
-            }
+            // if let Some(ref mut layout) = layout {
+            //     let translate = view_state.get_translate();
+            //     layout.location.x += translate.x as f32;
+            //     layout.location.y += translate.y as f32;
+            //
+            //     let scale = view_state.get_anim_scale_transform();
+            //     layout.size.width *= scale as f32;
+            //     layout.size.height *= scale as f32;
+            // }
 
             layout
         } else {
@@ -594,7 +613,6 @@ impl<'a> EventCx<'a> {
 
         if let Some(point) = event.point() {
             if let Some(layout) = self.get_layout(id) {
-                dbg!(layout.location.x);
                 if layout.location.x as f64 <= point.x
                     && point.x <= (layout.location.x + layout.size.width) as f64
                     && layout.location.y as f64 <= point.y
@@ -622,6 +640,7 @@ pub struct InteractionState {
 pub struct LayoutCx<'a> {
     pub(crate) app_state: &'a mut AppState,
     pub(crate) viewport: Option<Rect>,
+    pub(crate) color: Option<Color>,
     pub(crate) font_size: Option<f32>,
     pub(crate) font_family: Option<String>,
     pub(crate) font_weight: Option<Weight>,
@@ -629,6 +648,7 @@ pub struct LayoutCx<'a> {
     pub(crate) line_height: Option<LineHeightValue>,
     pub(crate) window_origin: Point,
     pub(crate) saved_viewports: Vec<Option<Rect>>,
+    pub(crate) saved_colors: Vec<Option<Color>>,
     pub(crate) saved_font_sizes: Vec<Option<f32>>,
     pub(crate) saved_font_families: Vec<Option<String>>,
     pub(crate) saved_font_weights: Vec<Option<Weight>>,
@@ -642,6 +662,7 @@ impl<'a> LayoutCx<'a> {
         self.viewport = None;
         self.font_size = None;
         self.window_origin = Point::ZERO;
+        self.saved_colors.clear();
         self.saved_viewports.clear();
         self.saved_font_sizes.clear();
         self.saved_font_families.clear();
@@ -653,6 +674,7 @@ impl<'a> LayoutCx<'a> {
 
     pub fn save(&mut self) {
         self.saved_viewports.push(self.viewport);
+        self.saved_colors.push(self.color);
         self.saved_font_sizes.push(self.font_size);
         self.saved_font_families.push(self.font_family.clone());
         self.saved_font_weights.push(self.font_weight);
@@ -663,6 +685,7 @@ impl<'a> LayoutCx<'a> {
 
     pub fn restore(&mut self) {
         self.viewport = self.saved_viewports.pop().unwrap_or_default();
+        self.color = self.saved_colors.pop().unwrap_or_default();
         self.font_size = self.saved_font_sizes.pop().unwrap_or_default();
         self.font_family = self.saved_font_families.pop().unwrap_or_default();
         self.font_weight = self.saved_font_weights.pop().unwrap_or_default();
@@ -697,6 +720,10 @@ impl<'a> LayoutCx<'a> {
 
     pub fn get_layout(&self, id: Id) -> Option<Layout> {
         self.app_state.get_layout(id)
+    }
+
+    pub fn get_computed_style(&mut self, id: Id) -> &ComputedStyle {
+        self.app_state.get_computed_style(id)
     }
 
     pub fn set_style(&mut self, node: Node, style: taffy::style::Style) {
@@ -824,6 +851,11 @@ impl<'a> PaintCx<'a> {
 
     pub fn clip(&mut self, shape: &impl Shape) {
         let rect = shape.bounding_box();
+        let rect = if let Some(existing) = self.clip {
+            existing.intersect(rect)
+        } else {
+            rect
+        };
         self.clip = Some(rect);
         self.paint_state.renderer.as_mut().unwrap().clip(&rect);
     }
@@ -846,7 +878,7 @@ impl<'a> PaintCx<'a> {
     pub fn transform(&mut self, id: Id) -> Size {
         if let Some(layout) = self.get_layout(id) {
             let offset = layout.location;
-            let mut new = self.transform.as_coeffs();
+            let mut new_transform = self.transform.as_coeffs();
 
             let (translate_x, translate_y, scale) =
                 if let Some(anim) = self.app_state.view_state(id).animation.as_ref() {
@@ -859,13 +891,18 @@ impl<'a> PaintCx<'a> {
                     (0.0, 0.0, 1.0)
                 };
 
-            new[4] += offset.x as f64 + translate_x;
-            new[5] += offset.y as f64 + translate_y;
+            new_transform[4] += offset.x as f64 + translate_x;
+            new_transform[5] += offset.y as f64 + translate_y;
 
-            new[0] = layout.size.width as f64;
-            new[3] = layout.size.height as f64;
+            new_transform[0] = layout.size.width as f64;
+            new_transform[3] = layout.size.height as f64;
 
-            self.transform = Affine::new(new);
+            if scale != 1.0 {
+                new_transform[4] += layout.size.width as f64 * (1.0 - scale / 2.0);
+                new_transform[5] += layout.size.height as f64 * (1.0 - scale / 2.0);
+            }
+
+            self.transform = Affine::new(new_transform);
             self.transform = self.transform.pre_scale(scale);
 
             self.paint_state
@@ -885,6 +922,10 @@ impl<'a> PaintCx<'a> {
         } else {
             Size::ZERO
         }
+    }
+
+    pub fn is_focused(&self, id: Id) -> bool {
+        self.app_state.is_focused(&id)
     }
 }
 
@@ -913,11 +954,15 @@ impl PaintState {
     }
 
     pub(crate) fn resize(&mut self, scale: Scale, size: Size) {
-        self.renderer.as_mut().unwrap().resize(scale, size);
+        if let Some(renderer) = self.renderer.as_mut() {
+            renderer.resize(scale, size);
+        }
     }
 
     pub(crate) fn set_scale(&mut self, scale: Scale) {
-        self.renderer.as_mut().unwrap().set_scale(scale);
+        if let Some(renderer) = self.renderer.as_mut() {
+            renderer.set_scale(scale);
+        }
     }
 }
 

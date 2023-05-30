@@ -11,7 +11,8 @@ use floem::{
     AppContext,
 };
 
-fn app_view(cx: AppContext) -> impl View {
+fn app_view() -> impl View {
+    let cx = AppContext::get_current();
     let (counter, set_counter) = create_signal(cx.scope, 0.0);
     let (is_hovered, set_is_hovered) = create_signal(cx.scope, false);
 
@@ -20,17 +21,14 @@ fn app_view(cx: AppContext) -> impl View {
     label(|| "Hover or click me!".to_string())
         .on_click(move |_| {
             set_counter.update(|value| *value += 1.0);
-            dbg!(counter.get());
             true
         })
         .on_event(EventListner::PointerEnter, move |_| {
             set_is_hovered.update(|val| *val = true);
-            println!("pointer enter");
             true
         })
         .on_event(EventListner::PointerLeave, move |_| {
             set_is_hovered.update(|val| *val = false);
-            println!("pointer leave");
             true
         })
         .style(|| {
@@ -56,10 +54,10 @@ fn app_view(cx: AppContext) -> impl View {
                     }
                 })
                 .scale(move || {
-                    if counter.get() == 0.0 {
+                    if counter.get() % 2.0 == 0.0 {
                         1.0
                     } else {
-                        2.0
+                        0.5
                     }
                 })
                 .easing_fn(EasingFn::Quartic)

@@ -34,7 +34,6 @@ impl Id {
         Id(WIDGET_ID_COUNTER.next_nonzero())
     }
 
-
     #[allow(unused)]
     pub fn to_raw(self) -> u64 {
         self.0.into()
@@ -313,6 +312,16 @@ impl Id {
         }
     }
 
+    pub fn update_base_style(&self, style: Style) {
+        if let Some(root) = self.root_id() {
+            UPDATE_MESSAGES.with(|msgs| {
+                let mut msgs = msgs.borrow_mut();
+                let msgs = msgs.entry(root).or_default();
+                msgs.push(UpdateMessage::BaseStyle { id: *self, style });
+            });
+        }
+    }
+
     pub fn update_style(&self, style: Style) {
         if let Some(root) = self.root_id() {
             UPDATE_MESSAGES.with(|msgs| {
@@ -400,7 +409,10 @@ impl Id {
             UPDATE_MESSAGES.with(|msgs| {
                 let mut msgs = msgs.borrow_mut();
                 let msgs = msgs.entry(root).or_default();
-                msgs.push(UpdateMessage::Animation { id: *self, animation })
+                msgs.push(UpdateMessage::Animation {
+                    id: *self,
+                    animation,
+                })
             });
         }
     }

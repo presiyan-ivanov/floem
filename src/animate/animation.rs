@@ -152,7 +152,7 @@ impl Animation {
             let translate_x = translate_x_fn();
 
             self.id.update_prop(
-                AnimPropKind::ColorAnimPropValues,
+                AnimPropKind::TranslateX,
                 AnimValue::Float(translate_x),
             );
         });
@@ -274,8 +274,8 @@ impl Animation {
     }
 
     pub(crate) fn animate_translate_y(&self) -> Option<f64> {
-        if let Some(width) = self.animated_props.get(&AnimPropKind::TranslateY) {
-            Some(self.animate_prop(width).unwrap_f64())
+        if let Some(translate_y) = self.animated_props.get(&AnimPropKind::TranslateY) {
+            Some(self.animate_prop(translate_y).unwrap_f64())
         } else {
             None
         }
@@ -290,8 +290,8 @@ impl Animation {
     }
 
     pub(crate) fn animate_translate_x(&self) -> Option<f64> {
-        if let Some(width) = self.animated_props.get(&AnimPropKind::ColorAnimPropValues) {
-            Some(self.animate_prop(width).unwrap_f64())
+        if let Some(translate_x) = self.animated_props.get(&AnimPropKind::TranslateX) {
+            Some(self.animate_prop(translate_x).unwrap_f64())
         } else {
             None
         }
