@@ -253,7 +253,12 @@ pub trait View {
             }
             Event::PointerMove(event) => {
                 let rect = cx.get_size(id).unwrap_or_default().to_rect();
-                if rect.contains(event.pos) {
+                let anim_scale: f64 = cx.app_state.view_states.get(&id)
+                    .map(|vs| vs.anim_transform().map(|xform| xform.scale).unwrap_or(1.0)).unwrap_or(1.0);
+
+                dbg!(rect, rect.scale_from_origin(anim_scale));
+
+                if rect.scale_from_origin(anim_scale).contains(event.pos) {
                     cx.app_state.hovered.insert(id);
                     let style = cx.app_state.get_computed_style(id);
                     if let Some(cursor) = style.cursor {

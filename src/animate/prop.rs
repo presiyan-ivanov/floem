@@ -271,3 +271,4 @@ pub enum AnimPropKind {
     BorderRadius,
     BorderColor,
 }
+

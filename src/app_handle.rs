@@ -298,18 +298,25 @@ impl<V: View> AppHandle<V> {
         let anim = view_state.animation.as_mut().unwrap();
         let prop = match kind {
             AnimPropKind::Width => {
-                let from_val = layout.size.width;
-
+                let from = anim
+                    .props()
+                    .get(&kind)
+                    .map(|old| anim.animate_prop(&old).unwrap_f64())
+                    .unwrap_or(layout.size.width as f64);
                 AnimPropValues::Width(F64AnimValues {
-                    from: from_val as f64,
+                    from,
                     to: to_val.unwrap_f64(),
                 })
             }
             AnimPropKind::Height => {
-                let from_val = layout.size.height;
+                let from = anim
+                    .props()
+                    .get(&kind)
+                    .map(|old| anim.animate_prop(&old).unwrap_f64())
+                    .unwrap_or(layout.size.height as f64);
 
                 AnimPropValues::Height(F64AnimValues {
-                    from: from_val as f64,
+                    from,
                     to: to_val.unwrap_f64(),
                 })
             }
@@ -386,16 +393,17 @@ impl<V: View> AppHandle<V> {
             }
         };
 
-        // if kind == AnimPropKind::Height {
-        //     dbg!(prop.get_to());
-        // }
+        let elapsed = anim
+            .props()
+            .get(&kind)
+            .map(|old| old.elapsed)
+            .unwrap_or(Duration::ZERO);
 
-        // Overrides the old value
         anim.props_mut().insert(
             kind,
             AnimatedProp {
                 values: prop,
-                elapsed: Duration::ZERO,
+                elapsed,
                 started_on: Instant::now(),
                 state: PropAnimState::Idle,
                 repeats_count: 0,

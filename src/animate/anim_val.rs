@@ -1,6 +1,6 @@
 use vello::peniko::Color;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AnimValue {
     Float(f64),
     Color(Color),

@@ -15,3 +15,6 @@ pub use easing::*;
 
 mod prop;
 pub use prop::*;
+
+mod anim_transform;
+pub use anim_transform::*;

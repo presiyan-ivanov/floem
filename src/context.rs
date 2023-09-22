@@ -19,7 +19,7 @@ use taffy::{
 use vello::peniko::Color;
 
 use crate::{
-    animate::{AnimId, AnimPropKind, AnimPropValues, Animation},
+    animate::{AnimId, AnimPropKind, AnimTransform, AnimValue, Animation, PersistMode},
     app_handle::StyleSelector,
     event::{Event, EventListner},
     id::Id,
@@ -165,15 +165,32 @@ impl ViewState {
 
         'anim: {
             if let Some(animation) = self.animation.as_mut() {
-                if animation.is_completed() && animation.is_auto_reverse() {
-                    break 'anim;
+                match animation.persist_mode {
+                    PersistMode::None | PersistMode::AutoReverse => {
+                        if animation.is_completed() {
+                            break 'anim;
+                        }
+                    }
+                    // Continue applying the style changes even if the animation is completed
+                    PersistMode::Keep => {}
                 }
 
-                let props = animation.props();
-
-                for (kind, prop) in props {
+                for (prop_kind, prop) in animation.props() {
                     let val = animation.animate_prop(prop);
-                    match kind {
+                    // if animation.is_prop_playing_rev(prop) {
+                    //     let style_val = prop_kind_style_val(&computed_style, prop_kind);
+                    //
+                    //     // This is true in the following scenarios:
+                    //     // 1. The styles changed *while* the animation was in progress
+                    //     // 2. A new animation(for the same prop) replaced the old one
+                    //     if let Some(val) = style_val {
+                    //         if val != prop.values.get_from() {
+                    //             prop.values.set_from(val);
+                    //         }
+                    //     }
+                    // }
+
+                    match prop_kind {
                         AnimPropKind::Width => {
                             computed_style = computed_style.width_px(val.unwrap_f32());
                         }
@@ -193,7 +210,7 @@ impl ViewState {
                             computed_style = computed_style.border_color(val.unwrap_color());
                         }
                         // these ignore layout for performance reasons, so they are handled in the
-                        // paint cx
+                        // paint cx instead
                         AnimPropKind::TranslateX
                         | AnimPropKind::TranslateY
                         | AnimPropKind::Scale => {}
@@ -219,22 +236,39 @@ impl ViewState {
         }
     }
 
-    pub(crate) fn get_anim_scale_transform(&self) -> f64 {
-        if let Some(anim) = self.animation.as_ref() {
-            anim.animate_scale().unwrap_or(1.0)
-        } else {
-            1.0
-        }
+    pub(crate) fn anim_transform(&self) -> Option<AnimTransform> {
+        self.animation.as_ref().map(|anim| AnimTransform {
+            scale: anim.animate_scale().unwrap_or(1.0),
+            translate_x: anim.animate_translate_x().unwrap_or(0.0),
+            translate_y: anim.animate_translate_y().unwrap_or(0.0),
+        })
     }
+}
 
-    pub(crate) fn get_translate(&self) -> Vec2 {
-        if let Some(anim) = self.animation.as_ref() {
-            let x = anim.animate_translate_x().unwrap_or(0.0);
-            let y = anim.animate_translate_y().unwrap_or(0.0);
-            Vec2::new(x, y)
-        } else {
-            Vec2::new(0., 0.)
+pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<AnimValue> {
+    match &kind {
+        AnimPropKind::Scale | AnimPropKind::TranslateX | AnimPropKind::TranslateY => None,
+        AnimPropKind::Width => {
+            todo!();
+            // let layout = self.get_layout(self.id).unwrap();
+            // Some(AnimValue::Float(layout.size.width))
         }
+        AnimPropKind::Height => {
+            todo!();
+            // let layout = self.get_layout(self.id).unwrap();
+            // Some(AnimValue::Float(layout.size.height))
+        }
+        AnimPropKind::Background => style
+            .background
+            .unwrap_or(None)
+            .map(|c| AnimValue::Color(c)),
+        AnimPropKind::BorderRadius => {
+            Some(AnimValue::Float(style.border_radius.unwrap_or(0.0) as f64))
+        }
+        AnimPropKind::BorderColor => {
+            Some(AnimValue::Color(style.border_color.unwrap_or(Color::BLACK)))
+        }
+        AnimPropKind::Color => style.color.unwrap_or(None).map(|c| AnimValue::Color(c)),
     }
 }
 
@@ -411,15 +445,7 @@ impl AppState {
             let node = view_state.node;
             let mut layout = self.taffy.layout(node).ok().copied();
 
-            // if let Some(ref mut layout) = layout {
-            //     let translate = view_state.get_translate();
-            //     layout.location.x += translate.x as f32;
-            //     layout.location.y += translate.y as f32;
-            //
-            //     let scale = view_state.get_anim_scale_transform();
-            //     layout.size.width *= scale as f32;
-            //     layout.size.height *= scale as f32;
-            // }
+
 
             layout
         } else {
@@ -598,6 +624,36 @@ impl<'a> EventCx<'a> {
         }
     }
 
+    pub(crate) fn anim_xform_contains_pt(
+        layout: &Layout,
+        anim_transform: AnimTransform,
+        point: Point,
+    ) -> bool {
+        let scale = anim_transform.scale;
+        let height = layout.size.height * scale as f32;
+        let width = layout.size.width * scale as f32;
+
+        let start_x = layout.location.x + width * (1.0 - scale as f32);
+        let end_x = start_x + width;
+
+        let start_y = layout.location.y + height * (1.0 - scale as f32);
+        let end_y = start_y + height;
+
+        dbg!(layout.location.x, start_x, end_x, point.x, scale);
+        dbg!(layout.location.y, start_y, end_y, point.y, scale);
+
+        if start_x as f64 <= point.x
+            && point.x <= (end_x as f64)
+            && start_y as f64 <= point.y
+            && point.y <= (end_y as f64)
+        {
+            println!("shud send");
+            return true;
+        }
+
+        false
+    }
+
     pub(crate) fn should_send(&mut self, id: Id, event: &Event) -> bool {
         if self.app_state.is_hidden(id)
             || (self.app_state.is_disabled(&id) && !event.allow_disabled())
@@ -613,7 +669,17 @@ impl<'a> EventCx<'a> {
 
         if let Some(point) = event.point() {
             if let Some(layout) = self.get_layout(id) {
-                if layout.location.x as f64 <= point.x
+                if self
+                    .app_state
+                    .view_state(id)
+                    .anim_transform()
+                    .map(|anim_transform| {
+                        Self::anim_xform_contains_pt(&layout, anim_transform, point)
+                    })
+                    .unwrap_or(false)
+                {
+                    return true;
+                } else if layout.location.x as f64 <= point.x
                     && point.x <= (layout.location.x + layout.size.width) as f64
                     && layout.location.y as f64 <= point.y
                     && point.y <= (layout.location.y + layout.size.height) as f64

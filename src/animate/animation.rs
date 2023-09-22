@@ -14,7 +14,7 @@ pub struct Animation {
     pub(crate) id: AnimId,
     pub(crate) state: AnimState,
     pub(crate) easing: Easing,
-    pub(crate) auto_reverse: bool,
+    pub(crate) persist_mode: PersistMode,
     pub(crate) duration: Duration,
     pub(crate) repeat_mode: RepeatMode,
     pub(crate) repeat_count: usize,
@@ -38,14 +38,21 @@ pub enum RepeatMode {
     Times(usize),
 }
 
+#[derive(Clone, Debug, Copy)]
+pub enum PersistMode {
+    None,
+    Keep,
+    AutoReverse
+}
+
 pub fn animation() -> Animation {
     Animation {
         id: AnimId::next(),
         state: AnimState::Idle,
         easing: Easing::default(),
-        auto_reverse: false,
         duration: Duration::from_secs(1),
         repeat_mode: RepeatMode::Times(1),
+        persist_mode: PersistMode::Keep,
         repeat_count: 0,
         animated_props: HashMap::new(),
     }
@@ -95,8 +102,15 @@ impl Animation {
     }
 
     pub fn is_auto_reverse(&self) -> bool {
-        self.auto_reverse
+        matches!(self.persist_mode, PersistMode::AutoReverse)
     }
+
+    // pub fn is_playing_reverse(&self) -> bool {
+    //     let mut elapsed = self.elapsed();
+    //     let time = elapsed / self.duration.as_secs_f64();
+    //     let time = self.easing.ease(time);
+    //     time >= 0.5
+    // }
 
     pub fn scale(self, scale_fn: impl Fn() -> f64 + 'static) -> Self {
         let cx = AppContext::get_current();
@@ -151,10 +165,8 @@ impl Animation {
         create_effect(cx.scope, move |_| {
             let translate_x = translate_x_fn();
 
-            self.id.update_prop(
-                AnimPropKind::TranslateX,
-                AnimValue::Float(translate_x),
-            );
+            self.id
+                .update_prop(AnimPropKind::TranslateX, AnimValue::Float(translate_x));
         });
 
         self
@@ -196,13 +208,18 @@ impl Animation {
         self
     }
 
-    pub fn auto_reverse(mut self, auto_rev: bool) -> Self {
-        self.auto_reverse = auto_rev;
+    pub fn persists(mut self, persist: bool) -> Self {
+        self.persist_mode = if persist {PersistMode::Keep} else {PersistMode::None};
+        self
+    }
+
+    pub fn auto_reverse(mut self) -> Self {
+        self.persist_mode = PersistMode::AutoReverse;
         self
     }
 
     /// Should the animation repeat forever?
-    pub fn repeat(mut self, repeat: bool) -> Self {
+    pub fn repeat_forever(mut self, repeat: bool) -> Self {
         self.repeat_mode = if repeat {
             RepeatMode::LoopForever
         } else {
@@ -305,6 +322,16 @@ impl Animation {
         self.animated_props.borrow_mut()
     }
 
+    pub(crate) fn is_prop_playing_rev(&self, prop: &AnimatedProp) -> bool {
+        if !self.is_auto_reverse() {
+            return false;
+        }
+
+        let time = prop.elapsed.as_secs_f64() / self.duration.as_secs_f64();
+        let time = self.easing.ease(time);
+        time > 0.5
+    }
+
     pub(crate) fn animate_prop(&self, prop: &AnimatedProp) -> AnimValue {
         let mut elapsed = prop.elapsed();
 
@@ -320,7 +347,7 @@ impl Animation {
         let time = self.easing.ease(time);
         assert_valid_time(time);
 
-        if self.auto_reverse {
+        if self.is_auto_reverse() {
             if time > 0.5 {
                 prop.values
                     .animate(time * 2.0 - 1.0, AnimDirection::Backward)
