@@ -4,3 +4,7 @@ pub struct AnimTransform {
     pub(crate) translate_y: f64
 }
 
+impl AnimTransform {
+
+}
+

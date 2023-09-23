@@ -445,8 +445,6 @@ impl AppState {
             let node = view_state.node;
             let mut layout = self.taffy.layout(node).ok().copied();
 
-
-
             layout
         } else {
             None
@@ -629,18 +627,14 @@ impl<'a> EventCx<'a> {
         anim_transform: AnimTransform,
         point: Point,
     ) -> bool {
+        let size = layout.size;
         let scale = anim_transform.scale;
-        let height = layout.size.height * scale as f32;
-        let width = layout.size.width * scale as f32;
-
-        let start_x = layout.location.x + width * (1.0 - scale as f32);
-        let end_x = start_x + width;
-
-        let start_y = layout.location.y + height * (1.0 - scale as f32);
-        let end_y = start_y + height;
-
-        dbg!(layout.location.x, start_x, end_x, point.x, scale);
-        dbg!(layout.location.y, start_y, end_y, point.y, scale);
+        let start_x = (size.width as f64 * 0.5) * (1.0 - scale);
+        let start_y = (size.height as f64 * 0.5) * (1.0 - scale);
+        let width = size.width as f64 * scale as f64;
+        let height = size.height as f64 * scale as f64;
+        let end_x = width + start_x;
+        let end_y = height + start_y;
 
         if start_x as f64 <= point.x
             && point.x <= (end_x as f64)
@@ -674,7 +668,7 @@ impl<'a> EventCx<'a> {
                     .view_state(id)
                     .anim_transform()
                     .map(|anim_transform| {
-                        Self::anim_xform_contains_pt(&layout, anim_transform, point)
+                        dbg!(Self::anim_xform_contains_pt(&layout, anim_transform, point))
                     })
                     .unwrap_or(false)
                 {
@@ -957,11 +951,11 @@ impl<'a> PaintCx<'a> {
                     (0.0, 0.0, 1.0)
                 };
 
-            new_transform[4] += offset.x as f64 + translate_x;
-            new_transform[5] += offset.y as f64 + translate_y;
-
             new_transform[0] = layout.size.width as f64;
             new_transform[3] = layout.size.height as f64;
+
+            new_transform[4] += offset.x as f64 + translate_x;
+            new_transform[5] += offset.y as f64 + translate_y;
 
             if scale != 1.0 {
                 new_transform[4] += (layout.size.width as f64 * 0.5) * (1.0 - scale);

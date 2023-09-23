@@ -2,7 +2,7 @@ use std::{any::Any, time::Duration};
 
 use bitflags::bitflags;
 use floem_renderer::Renderer;
-use glazier::kurbo::{Line, Point, Size};
+use glazier::kurbo::{Line, Point, Rect, Size};
 use taffy::prelude::Node;
 
 use crate::{
@@ -252,13 +252,24 @@ pub trait View {
                 }
             }
             Event::PointerMove(event) => {
-                let rect = cx.get_size(id).unwrap_or_default().to_rect();
-                let anim_scale: f64 = cx.app_state.view_states.get(&id)
-                    .map(|vs| vs.anim_transform().map(|xform| xform.scale).unwrap_or(1.0)).unwrap_or(1.0);
+                let rect = if let Some(anim_transform) = cx
+                    .app_state
+                    .view_states
+                    .get(&id)
+                    .map(|vs| vs.anim_transform())
+                {
+                    let scale = anim_transform.map(|at| at.scale).unwrap_or(1.0);
+                    let size = cx.get_size(id).unwrap_or_default();
+                    let offset_x = (size.width as f64 * 0.5) * (1.0 - scale);
+                    let offset_y = (size.height as f64 * 0.5) * (1.0 - scale);
+                    let width = size.width * scale as f64;
+                    let height = size.height * scale as f64;
+                    Rect::new(offset_x, offset_y, width + offset_x, height + offset_y)
+                } else {
+                    cx.get_size(id).unwrap_or_default().to_rect()
+                };
 
-                dbg!(rect, rect.scale_from_origin(anim_scale));
-
-                if rect.scale_from_origin(anim_scale).contains(event.pos) {
+                if rect.contains(event.pos) {
                     cx.app_state.hovered.insert(id);
                     let style = cx.app_state.get_computed_style(id);
                     if let Some(cursor) = style.cursor {
