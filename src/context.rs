@@ -586,6 +586,30 @@ impl<'a> EventCx<'a> {
             .map(|l| Size::new(l.size.width as f64, l.size.height as f64))
     }
 
+    pub(crate) fn get_rect(&self, id: Id) -> Rect {
+        let size = self
+            .app_state
+            .get_layout(id)
+            .map(|l| Size::new(l.size.width as f64, l.size.height as f64));
+
+        if let Some(anim_transform) = self
+            .app_state
+            .view_states
+            .get(&id)
+            .map(|vs| vs.anim_transform())
+        {
+            let scale = anim_transform.map(|at| at.scale).unwrap_or(1.0);
+            let size = self.get_size(id).unwrap_or_default();
+            let offset_x = (size.width as f64 * 0.5) * (1.0 - scale);
+            let offset_y = (size.height as f64 * 0.5) * (1.0 - scale);
+            let width = size.width * scale as f64;
+            let height = size.height * scale as f64;
+            Rect::new(offset_x, offset_y, width + offset_x, height + offset_y)
+        } else {
+            size.unwrap_or_default().to_rect()
+        }
+    }
+
     pub(crate) fn has_event_listener(&self, id: Id, listner: EventListner) -> bool {
         self.app_state
             .view_states

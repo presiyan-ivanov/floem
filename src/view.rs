@@ -203,7 +203,7 @@ pub trait View {
         match &event {
             Event::PointerDown(event) => {
                 if event.button.is_left() {
-                    let rect = cx.get_size(self.id()).unwrap_or_default().to_rect();
+                    let rect = cx.get_rect(id);
                     let now_focused = rect.contains(event.pos);
 
                     if now_focused {
@@ -225,7 +225,7 @@ pub trait View {
             Event::PointerUp(pointer_event) => {
                 if pointer_event.button.is_left() {
                     let last_pointer_down = cx.app_state.view_state(id).last_pointer_down.take();
-                    let rect = cx.get_size(self.id()).unwrap_or_default().to_rect();
+                    let rect = cx.get_rect(id);
                     if let Some(action) = cx.get_event_listener(id, &EventListner::DoubleClick) {
                         if rect.contains(pointer_event.pos)
                             && last_pointer_down
@@ -252,23 +252,7 @@ pub trait View {
                 }
             }
             Event::PointerMove(event) => {
-                let rect = if let Some(anim_transform) = cx
-                    .app_state
-                    .view_states
-                    .get(&id)
-                    .map(|vs| vs.anim_transform())
-                {
-                    let scale = anim_transform.map(|at| at.scale).unwrap_or(1.0);
-                    let size = cx.get_size(id).unwrap_or_default();
-                    let offset_x = (size.width as f64 * 0.5) * (1.0 - scale);
-                    let offset_y = (size.height as f64 * 0.5) * (1.0 - scale);
-                    let width = size.width * scale as f64;
-                    let height = size.height * scale as f64;
-                    Rect::new(offset_x, offset_y, width + offset_x, height + offset_y)
-                } else {
-                    cx.get_size(id).unwrap_or_default().to_rect()
-                };
-
+                let rect = cx.get_rect(id);
                 if rect.contains(event.pos) {
                     cx.app_state.hovered.insert(id);
                     let style = cx.app_state.get_computed_style(id);
