@@ -2,7 +2,10 @@ use std::{any::Any, time::Duration};
 
 use bitflags::bitflags;
 use floem_renderer::Renderer;
-use glazier::kurbo::{Line, Point, Rect, Size};
+use glazier::{
+    kurbo::{Line, Point, Rect, Size},
+    Scale,
+};
 use taffy::prelude::Node;
 
 use crate::{
@@ -316,6 +319,15 @@ pub trait View {
             .unwrap_or(false);
         if !is_empty {
             let style = cx.app_state.get_computed_style(id).clone();
+
+            if let Some(scale) = cx.app_state.view_state(id).anim_scale() {
+                cx.scale = Some(scale.x() as f32);
+                // cx.set_scale(scale);
+            } else {
+                cx.scale = None;
+                // cx.set_scale(Scale::default());
+            }
+
             paint_bg(cx, &style, size);
 
             if style.color.is_some() {
@@ -336,9 +348,12 @@ pub trait View {
             if style.line_height.is_some() {
                 cx.line_height = style.line_height;
             }
+
             self.paint(cx);
+
             paint_border(cx, &style, size);
         }
+
         cx.restore();
     }
 
@@ -424,10 +439,12 @@ fn paint_border(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
     let top = style.border_top;
     let right = style.border_right;
     let bottom = style.border_bottom;
+    let scale = cx.scale.unwrap_or(1.0) as f64;
+    dbg!(scale);
 
     let border_color = style.border_color;
     if left == top && top == right && right == bottom && bottom == left && left > 0.0 {
-        let half = left as f64 / 2.0;
+        let half = left as f64 / 2.0 * scale;
         let rect = size.to_rect().inflate(-half, -half);
         let radius = style.border_radius;
         if radius > 0.0 {
@@ -441,7 +458,7 @@ fn paint_border(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
         }
     } else {
         if left > 0.0 {
-            let half = left as f64 / 2.0;
+            let half = left as f64 / 2.0 * scale;
             cx.stroke(
                 &Line::new(Point::new(half, 0.0), Point::new(half, size.height)),
                 border_color,
@@ -449,7 +466,7 @@ fn paint_border(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
             );
         }
         if right > 0.0 {
-            let half = right as f64 / 2.0;
+            let half = right as f64 / 2.0 * scale;
             cx.stroke(
                 &Line::new(
                     Point::new(size.width - half, 0.0),
@@ -460,7 +477,7 @@ fn paint_border(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
             );
         }
         if top > 0.0 {
-            let half = top as f64 / 2.0;
+            let half = top as f64 / 2.0 * scale;
             cx.stroke(
                 &Line::new(Point::new(0.0, half), Point::new(size.width, half)),
                 border_color,
@@ -468,7 +485,7 @@ fn paint_border(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
             );
         }
         if bottom > 0.0 {
-            let half = bottom as f64 / 2.0;
+            let half = bottom as f64 / 2.0 * scale;
             cx.stroke(
                 &Line::new(
                     Point::new(0.0, size.height - half),

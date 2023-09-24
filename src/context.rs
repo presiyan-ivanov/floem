@@ -243,6 +243,14 @@ impl ViewState {
             translate_y: anim.animate_translate_y().unwrap_or(0.0),
         })
     }
+
+    pub(crate) fn anim_scale(&self) -> Option<Scale> {
+        let scale = self.animation
+            .as_ref()
+            .and_then(|anim| anim.animate_scale());
+
+        scale.map(|s| Scale::new(s, s))
+    }
 }
 
 pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<AnimValue> {
@@ -869,6 +877,7 @@ pub struct PaintCx<'a> {
     pub(crate) font_weight: Option<Weight>,
     pub(crate) font_style: Option<FontStyle>,
     pub(crate) line_height: Option<LineHeightValue>,
+    pub(crate) scale: Option<f32>,
     pub(crate) saved_transforms: Vec<Affine>,
     pub(crate) saved_clips: Vec<Option<Rect>>,
     pub(crate) saved_colors: Vec<Option<Color>>,
@@ -877,6 +886,7 @@ pub struct PaintCx<'a> {
     pub(crate) saved_font_weights: Vec<Option<Weight>>,
     pub(crate) saved_font_styles: Vec<Option<FontStyle>>,
     pub(crate) saved_line_heights: Vec<Option<LineHeightValue>>,
+    pub(crate) saved_scales: Vec<Option<f32>>,
 }
 
 impl<'a> PaintCx<'a> {
@@ -889,6 +899,7 @@ impl<'a> PaintCx<'a> {
         self.saved_font_weights.push(self.font_weight);
         self.saved_font_styles.push(self.font_style);
         self.saved_line_heights.push(self.line_height);
+        self.saved_scales.push(self.scale);
     }
 
     pub fn restore(&mut self) {
@@ -900,8 +911,11 @@ impl<'a> PaintCx<'a> {
         self.font_weight = self.saved_font_weights.pop().unwrap_or_default();
         self.font_style = self.saved_font_styles.pop().unwrap_or_default();
         self.line_height = self.saved_line_heights.pop().unwrap_or_default();
+        self.scale = self.saved_scales.pop().unwrap_or_else(|| Some(1.0));
         let renderer = self.paint_state.renderer.as_mut().unwrap();
         renderer.transform(self.transform);
+        renderer.set_scale(self.scale.map(|s| Scale::new(s as f64, s as f64)).unwrap_or_default());
+
         if let Some(rect) = self.clip {
             renderer.clip(&rect);
         } else {
@@ -982,8 +996,8 @@ impl<'a> PaintCx<'a> {
             new_transform[5] += offset.y as f64 + translate_y;
 
             if scale != 1.0 {
-                new_transform[4] += (layout.size.width as f64 * 0.5) * (1.0 - scale);
-                new_transform[5] += (layout.size.height as f64 * 0.5) * (1.0 - scale);
+                new_transform[4] += (layout.size.width as f64 / 2.0) * (1.0 - scale);
+                new_transform[5] += (layout.size.height as f64 / 2.0) * (1.0 - scale);
             }
 
             self.transform = Affine::new(new_transform);

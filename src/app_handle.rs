@@ -248,6 +248,7 @@ impl<V: View> AppHandle<V> {
             font_weight: None,
             font_style: None,
             line_height: None,
+            scale: None,
             saved_transforms: Vec::new(),
             saved_clips: Vec::new(),
             saved_colors: Vec::new(),
@@ -256,6 +257,7 @@ impl<V: View> AppHandle<V> {
             saved_font_weights: Vec::new(),
             saved_font_styles: Vec::new(),
             saved_line_heights: Vec::new(),
+            saved_scales: Vec::new(),
         };
 
         cx.paint_state.renderer.as_mut().unwrap().begin();
