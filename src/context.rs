@@ -425,6 +425,14 @@ impl AppState {
         view.viewport = Some(viewport);
     }
 
+    pub(crate) fn get_layout(&self, id: Id) -> Option<Layout> {
+        self.view_states
+            .get(&id)
+            .map(|view| view.node)
+            .and_then(|node| self.taffy.layout(node).ok())
+            .copied()
+    }
+
     pub(crate) fn update_active(&mut self, id: Id) {
         if self.active.is_some() {
             // the first update_active wins, so if there's active set,

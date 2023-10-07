@@ -7,7 +7,7 @@ use floem::{
     reactive::{create_signal, SignalGet, SignalUpdate},
     style::Style,
     view::View,
-    views::{label, stack, Decorators},
+    views::{label, scroll, stack, Decorators},
     AppContext,
 };
 
@@ -33,20 +33,19 @@ fn app_view() -> impl View {
                 })
                 .style(|| {
                     Style::BASE
-                        .border(10.0)
-                        .background(Color::RED)
+                        .border(3.0)
+                        .background(Color::BEIGE)
                         .color(Color::BLACK)
                         .padding_px(20.0)
-                        .margin_px(80.0)
+                        .margin_px(50.0)
                         .size_px(200.0, 140.0)
                     // .width_px(150.0)
                 })
                 .active_style(|| Style::BASE.background(Color::PURPLE))
                 .animation(
                     animation()
-                        .border_radius(move || if is_hovered.get() { 1.0 } else { 40.0 })
+                        .border_radius(move || if is_hovered.get() { 1.0 } else { 20.0 })
                         .border_color(|| Color::CYAN)
-                        .color(|| Color::CYAN)
                         .background(move || {
                             if is_hovered.get() {
                                 Color::PINK
@@ -54,7 +53,7 @@ fn app_view() -> impl View {
                                 Color::SKY_BLUE
                             }
                         })
-                        // .width(move || if is_hovered.get() { 800.0 } else { 400.0 })
+                        .width(move || if is_hovered.get() { 400.0 } else { 200.0 })
                         // .scale(move || if counter.get() % 2.0 == 0.0 { 1.0 } else { 2.5 })
                         .easing_fn(EasingFn::Quartic)
                         .ease_in_out()
@@ -76,34 +75,24 @@ fn app_view() -> impl View {
             .border(5.0)
             .background(Color::LIGHT_GREEN)
             .padding_px(10.0)
-            .size_px(300.0, 300.0)
             .color(Color::BLACK)
     })
     .animation(
         animation()
-            // .width(move || {
-            //     if counter.get() % 2.0 == 0.0 {
-            //         400.0
-            //     } else {
-            //         600.0
-            //     }
-            // })
-            // .height(move || {
-            //     if counter.get() % 2.0 == 0.0 {
-            //         300.0
-            //     } else {
-            //         800.0
-            //     }
-            // })
-            //
-            .scale(move || if counter.get() % 2.0 == 0.0 { 0.5 } else { 2.0 })
+            .height(move || {
+                if counter.get() % 2.0 == 0.0 {
+                    250.0
+                } else {
+                    600.0
+                }
+            })
             .border_color(|| Color::CYAN)
             .color(|| Color::CYAN)
             .background(|| Color::LAVENDER)
             .easing_fn(EasingFn::Cubic)
             .ease_in_out()
             // .persists(true)
-            .duration(Duration::from_secs(2)),
+            .duration(Duration::from_secs(1)),
     )
 }
 

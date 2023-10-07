@@ -45,7 +45,6 @@ pub struct AppHandle<V: View> {
     app_state: AppState,
     paint_state: PaintState,
     prev_mouse_pos: MousePosState,
-
     file_dialogs: FileDialogs,
     timers: HashMap<TimerToken, Box<dyn FnOnce()>>,
 }
@@ -203,7 +202,6 @@ impl<V: View> AppHandle<V> {
             paint_state: PaintState::new(),
             handle: Default::default(),
             prev_mouse_pos: MousePosState::None,
-
             file_dialogs: HashMap::new(),
             timers: HashMap::new(),
         }
@@ -234,6 +232,17 @@ impl<V: View> AppHandle<V> {
 
         cx.clear();
         self.view.compute_layout_main(&mut cx);
+
+        // Currently we only need one ID with animation in progress to request layout, which will
+        // advance the all the animations in progress.
+        // This will be reworked once we change from request_layout to request_paint
+        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
+
+        if let Some(id) = id {
+            id.exec_after(Duration::from_millis(1), move || {
+                id.request_layout();
+            });
+        }
     }
 
     pub fn paint(&mut self) {
@@ -257,7 +266,6 @@ impl<V: View> AppHandle<V> {
             saved_font_styles: Vec::new(),
             saved_line_heights: Vec::new(),
         };
-
         cx.paint_state.renderer.as_mut().unwrap().begin();
         self.view.paint_main(&mut cx);
         cx.paint_state.renderer.as_mut().unwrap().finish();

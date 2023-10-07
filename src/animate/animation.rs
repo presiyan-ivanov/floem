@@ -112,17 +112,18 @@ impl Animation {
     //     time >= 0.5
     // }
 
-    pub fn scale(self, scale_fn: impl Fn() -> f64 + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
-            let scale = scale_fn();
-
-            self.id
-                .update_prop(AnimPropKind::Scale, AnimValue::Float(scale));
-        });
-
-        self
-    }
+    //TODO:
+    // pub fn scale(self, scale_fn: impl Fn() -> f64 + 'static) -> Self {
+    //     let cx = AppContext::get_current();
+    //     create_effect(cx.scope, move |_| {
+    //         let scale = scale_fn();
+    //
+    //         self.id
+    //             .update_prop(AnimPropKind::Scale, AnimValue::Float(scale));
+    //     });
+    //
+    //     self
+    // }
 
     pub fn border_radius(self, border_radius_fn: impl Fn() -> f64 + 'static) -> Self {
         let cx = AppContext::get_current();
@@ -160,17 +161,18 @@ impl Animation {
         self
     }
 
-    pub fn translate_x(self, translate_x_fn: impl Fn() -> f64 + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
-            let translate_x = translate_x_fn();
-
-            self.id
-                .update_prop(AnimPropKind::TranslateX, AnimValue::Float(translate_x));
-        });
-
-        self
-    }
+    //TODO:
+    // pub fn translate_x(self, translate_x_fn: impl Fn() -> f64 + 'static) -> Self {
+    //     let cx = AppContext::get_current();
+    //     create_effect(cx.scope, move |_| {
+    //         let translate_x = translate_x_fn();
+    //
+    //         self.id
+    //             .update_prop(AnimPropKind::TranslateX, AnimValue::Float(translate_x));
+    //     });
+    //
+    //     self
+    // }
 
     pub fn background(self, bg_fn: impl Fn() -> Color + 'static) -> Self {
         let cx = AppContext::get_current();
