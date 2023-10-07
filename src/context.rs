@@ -19,7 +19,7 @@ use taffy::{
 use vello::peniko::Color;
 
 use crate::{
-    animate::{AnimId, AnimPropKind, Animation},
+    animate::{AnimId, AnimPropKind, AnimValue, Animation, PersistMode},
     app_handle::StyleSelector,
     event::{Event, EventListner},
     id::Id,
@@ -165,35 +165,50 @@ impl ViewState {
 
         'anim: {
             if let Some(animation) = self.animation.as_mut() {
-                if animation.is_completed() && animation.is_auto_reverse() {
-                    break 'anim;
+                match animation.persist_mode {
+                    PersistMode::None | PersistMode::AutoReverse => {
+                        if animation.is_completed() {
+                            break 'anim;
+                        }
+                    }
+                    // Continue applying the style changes even if the animation is completed
+                    PersistMode::Keep => {}
                 }
 
-                let props = animation.props();
+                for (prop_kind, prop) in animation.props() {
+                    let val = animation.animate_prop(prop);
+                    // if animation.is_prop_playing_rev(prop) {
+                    //     let style_val = prop_kind_style_val(&computed_style, prop_kind);
+                    //
+                    //     // This is true in the following scenarios:
+                    //     // 1. The styles changed *while* the animation was in progress
+                    //     // 2. A new animation(for the same prop) replaced the old one
+                    //     if let Some(val) = style_val {
+                    //         if val != prop.values.get_from() {
+                    //             prop.values.set_from(val);
+                    //         }
+                    //     }
+                    // }
 
-                for (kind, _) in props {
-                    let val = animation
-                        .animate_prop(animation.elapsed().unwrap_or(Duration::ZERO), &kind);
-                    match kind {
+                    match prop_kind {
                         AnimPropKind::Width => {
-                            computed_style = computed_style.width_px(val.get_f32());
+                            computed_style = computed_style.width_px(val.unwrap_f32());
                         }
                         AnimPropKind::Height => {
-                            computed_style = computed_style.height_px(val.get_f32());
+                            computed_style = computed_style.height_px(val.unwrap_f32());
                         }
                         AnimPropKind::Background => {
-                            computed_style = computed_style.background(val.get_color());
+                            computed_style = computed_style.background(val.unwrap_color());
                         }
                         AnimPropKind::Color => {
-                            computed_style = computed_style.color(val.get_color());
+                            computed_style = computed_style.color(val.unwrap_color());
                         }
                         AnimPropKind::BorderRadius => {
-                            computed_style = computed_style.border_radius(val.get_f32());
+                            computed_style = computed_style.border_radius(val.unwrap_f32());
                         }
                         AnimPropKind::BorderColor => {
-                            computed_style = computed_style.border_color(val.get_color());
+                            computed_style = computed_style.border_color(val.unwrap_color());
                         }
-                        AnimPropKind::Scale => todo!(),
                     }
                 }
 
@@ -214,6 +229,33 @@ impl ViewState {
                 .or_insert_with(Vec::new)
                 .push(style.clone())
         }
+    }
+
+}
+
+pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<AnimValue> {
+    match &kind {
+        AnimPropKind::Width => {
+            todo!();
+            // let layout = self.get_layout(self.id).unwrap();
+            // Some(AnimValue::Float(layout.size.width))
+        }
+        AnimPropKind::Height => {
+            todo!();
+            // let layout = self.get_layout(self.id).unwrap();
+            // Some(AnimValue::Float(layout.size.height))
+        }
+        AnimPropKind::Background => style
+            .background
+            .unwrap_or(None)
+            .map(|c| AnimValue::Color(c)),
+        AnimPropKind::BorderRadius => {
+            Some(AnimValue::Float(style.border_radius.unwrap_or(0.0) as f64))
+        }
+        AnimPropKind::BorderColor => {
+            Some(AnimValue::Color(style.border_color.unwrap_or(Color::BLACK)))
+        }
+        AnimPropKind::Color => style.color.unwrap_or(None).map(|c| AnimValue::Color(c)),
     }
 }
 
@@ -381,14 +423,6 @@ impl AppState {
     pub(crate) fn set_viewport(&mut self, id: Id, viewport: Rect) {
         let view = self.view_state(id);
         view.viewport = Some(viewport);
-    }
-
-    pub(crate) fn get_layout(&self, id: Id) -> Option<Layout> {
-        self.view_states
-            .get(&id)
-            .map(|view| view.node)
-            .and_then(|node| self.taffy.layout(node).ok())
-            .copied()
     }
 
     pub(crate) fn update_active(&mut self, id: Id) {
@@ -570,7 +604,7 @@ impl<'a> EventCx<'a> {
         }
         if let Some(point) = event.point() {
             if let Some(layout) = self.get_layout(id) {
-                if layout.location.x as f64 <= point.x
+               if layout.location.x as f64 <= point.x
                     && point.x <= (layout.location.x + layout.size.width) as f64
                     && layout.location.y as f64 <= point.y
                     && point.y <= (layout.location.y + layout.size.height) as f64

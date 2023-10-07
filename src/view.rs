@@ -270,6 +270,20 @@ pub trait View {
                     }
                 }
             }
+            Event::AnimFrame => {
+                self.id().request_anim_frame();
+                let requires_layout = cx
+                    .app_state
+                    .view_state(id)
+                    .animation
+                    .as_ref()
+                    .map(|anim| anim.requires_layout())
+                    .unwrap_or(false);
+
+                if requires_layout {
+                    cx.app_state.request_layout(self.id());
+                }
+            }
             _ => (),
         }
 

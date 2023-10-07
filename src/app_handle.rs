@@ -1,7 +1,8 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{any::Any, collections::HashMap};
 
-use crate::animate::AnimValue;
+use crate::animate::{AnimValue, AnimatedProp, ColorAnimValues, F64AnimValues, PropAnimState};
+use crate::id;
 use floem_renderer::Renderer;
 use glazier::kurbo::{Affine, Point, Rect};
 use glazier::{FileDialogOptions, FileDialogToken, FileInfo, Scale, TimerToken, WinHandler};
@@ -9,7 +10,7 @@ use leptos_reactive::{Scope, SignalSet};
 
 use crate::menu::Menu;
 use crate::{
-    animate::{AnimPropKind, AnimUpdateMsg, AnimatedProp, Animation, SizeUnit},
+    animate::{AnimPropKind, AnimPropValues, AnimUpdateMsg, Animation, SizeUnit},
     context::{
         AppContextStore, AppState, EventCallback, EventCx, LayoutCx, PaintCx, PaintState,
         ResizeCallback, ResizeListener, UpdateCx, APP_CONTEXT_STORE,
@@ -176,6 +177,7 @@ pub enum UpdateMessage {
         menu: Menu,
         pos: Point,
     },
+    RequestAnimFrame,
 }
 
 impl<V: View> Drop for AppHandle<V> {
@@ -232,17 +234,6 @@ impl<V: View> AppHandle<V> {
 
         cx.clear();
         self.view.compute_layout_main(&mut cx);
-
-        // Currently we only need one ID with animation in progress to request layout, which will
-        // advance the all the animations in progress.
-        // This will be reworked once we change from request_layout to request_paint
-        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
-
-        if let Some(id) = id {
-            id.exec_after(Duration::from_millis(1), move || {
-                id.request_layout();
-            });
-        }
     }
 
     pub fn paint(&mut self) {
@@ -266,6 +257,7 @@ impl<V: View> AppHandle<V> {
             saved_font_styles: Vec::new(),
             saved_line_heights: Vec::new(),
         };
+
         cx.paint_state.renderer.as_mut().unwrap().begin();
         self.view.paint_main(&mut cx);
         cx.paint_state.renderer.as_mut().unwrap().finish();
@@ -299,74 +291,94 @@ impl<V: View> AppHandle<V> {
         &mut self,
         view_id: Id,
         kind: AnimPropKind,
-        val: AnimValue,
+        to_val: AnimValue,
     ) -> ChangeFlags {
         let layout = self.app_state.get_layout(view_id).unwrap();
         let view_state = self.app_state.view_state(view_id);
         let anim = view_state.animation.as_mut().unwrap();
         let prop = match kind {
-            AnimPropKind::Scale => todo!(),
             AnimPropKind::Width => {
-                let width = layout.size.width;
-                AnimatedProp::Width {
-                    from: width as f64,
-                    to: val.get_f64(),
-                    unit: SizeUnit::Px,
-                }
+                let from = anim
+                    .props()
+                    .get(&kind)
+                    .map(|old| anim.animate_prop(&old).unwrap_f64())
+                    .unwrap_or(layout.size.width as f64);
+                AnimPropValues::Width(F64AnimValues {
+                    from,
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::Height => {
-                let height = layout.size.height;
-                AnimatedProp::Width {
-                    from: height as f64,
-                    to: val.get_f64(),
-                    unit: SizeUnit::Px,
-                }
+                let from = anim
+                    .props()
+                    .get(&kind)
+                    .map(|old| anim.animate_prop(&old).unwrap_f64())
+                    .unwrap_or(layout.size.height as f64);
+
+                AnimPropValues::Height(F64AnimValues {
+                    from,
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::BorderRadius => {
                 let border_radius = view_state.computed_style.border_radius;
-                AnimatedProp::BorderRadius {
+
+                AnimPropValues::BorderRadius(F64AnimValues {
                     from: border_radius as f64,
-                    to: val.get_f64(),
-                }
+                    to: to_val.unwrap_f64(),
+                })
             }
             AnimPropKind::BorderColor => {
-                let border_color = view_state.computed_style.border_color;
-                AnimatedProp::BorderColor {
-                    from: border_color,
-                    to: val.get_color(),
-                }
+                let from_val = view_state.computed_style.border_color;
+                AnimPropValues::BorderColor(ColorAnimValues {
+                    from: from_val,
+                    to: to_val.unwrap_color(),
+                })
             }
             AnimPropKind::Background => {
-                //TODO:  get from cx
-                let bg = view_state
+                let from_val = view_state
                     .computed_style
                     .background
+                    //TODO:  get default from cx and remove the expect
                     .expect("Bg must be set in the styles");
-                AnimatedProp::Background {
-                    from: bg,
-                    to: val.get_color(),
-                }
+
+                AnimPropValues::Background(ColorAnimValues {
+                    from: from_val,
+                    to: to_val.unwrap_color(),
+                })
             }
             AnimPropKind::Color => {
-                //TODO:  get from cx
-                let color = view_state
+                let from_val = view_state
                     .computed_style
                     .color
+                    //TODO:  default get from cx and remove the expect
                     .expect("Color must be set in the animated view's style");
-                AnimatedProp::Color {
-                    from: color,
-                    to: val.get_color(),
-                }
+                AnimPropValues::Color(ColorAnimValues {
+                    from: from_val,
+                    to: to_val.unwrap_color(),
+                })
             }
         };
 
-        // Overrides the old value
-        // TODO: logic based on the old val to make the animation smoother when overriding an old
-        // animation that was in progress
-        anim.props_mut().insert(kind, prop);
+        let elapsed = anim
+            .props()
+            .get(&kind)
+            .map(|old| old.elapsed)
+            .unwrap_or(Duration::ZERO);
+
+        anim.props_mut().insert(
+            kind,
+            AnimatedProp {
+                values: prop,
+                elapsed,
+                started_on: Instant::now(),
+                state: PropAnimState::Idle,
+                repeats_count: 0,
+            },
+        );
         anim.begin();
 
-        ChangeFlags::LAYOUT
+        ChangeFlags::PAINT
     }
 
     fn process_deferred_update_messages(&mut self) -> ChangeFlags {
@@ -557,6 +569,7 @@ impl<V: View> AppHandle<V> {
                         cx.app_state.update_context_menu(menu);
                         self.handle.show_context_menu(platform_menu, pos);
                     }
+                    UpdateMessage::RequestAnimFrame => self.handle.request_anim_frame(),
                 }
             }
         }
@@ -800,6 +813,10 @@ impl<V: View> WinHandler for AppHandle<V> {
     fn prepare_paint(&mut self) {}
 
     fn paint(&mut self, _invalid: &glazier::Region) {
+        if !self.app_state.ids_with_anim_in_progress().is_empty() {
+            self.event(Event::AnimFrame);
+        }
+
         self.paint();
     }
 

@@ -1,5 +1,5 @@
 use super::{
-    anim_val::AnimValue, AnimId, AnimPropKind, AnimState, AnimStateKind, AnimatedProp, Easing,
+    anim_val::AnimValue, AnimId, AnimPropKind, AnimPropValues, AnimState, AnimatedProp, Easing,
     EasingFn, EasingMode,
 };
 use std::{borrow::BorrowMut, collections::HashMap, time::Duration, time::Instant};
@@ -14,8 +14,7 @@ pub struct Animation {
     pub(crate) id: AnimId,
     pub(crate) state: AnimState,
     pub(crate) easing: Easing,
-    pub(crate) auto_reverse: bool,
-    pub(crate) skip: Option<Duration>,
+    pub(crate) persist_mode: PersistMode,
     pub(crate) duration: Duration,
     pub(crate) repeat_mode: RepeatMode,
     pub(crate) repeat_count: usize,
@@ -27,16 +26,23 @@ pub(crate) fn assert_valid_time(time: f64) {
 }
 
 /// See [`Self::advance`].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum RepeatMode {
     /// Once started, the animation will juggle between [`AnimState::PassInProgress`] and [`AnimState::PassFinished`],
     /// but will never reach [`AnimState::Completed`]
     LoopForever,
     /// How many passes do we want, i.e. how many times do we repeat the animation?
-    /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0 and increment `repeat_count` is
-    /// increased by 1. This process is repeated until `repeat_count >= times`, and then the animation is set
-    /// to [`AnimState::Completed`].
+    /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0
+    /// and increment `repeat_count`. This process is repeated until `repeat_count >= times`, and
+    /// then the animation is set to [`AnimState::Completed`].
     Times(usize),
+}
+
+#[derive(Clone, Debug, Copy)]
+pub enum PersistMode {
+    None,
+    Keep,
+    AutoReverse
 }
 
 pub fn animation() -> Animation {
@@ -44,10 +50,9 @@ pub fn animation() -> Animation {
         id: AnimId::next(),
         state: AnimState::Idle,
         easing: Easing::default(),
-        auto_reverse: false,
-        skip: None,
         duration: Duration::from_secs(1),
         repeat_mode: RepeatMode::Times(1),
+        persist_mode: PersistMode::Keep,
         repeat_count: 0,
         animated_props: HashMap::new(),
     }
@@ -85,24 +90,39 @@ impl Animation {
     }
 
     pub fn is_idle(&self) -> bool {
-        matches!(self.state_kind(), AnimStateKind::Idle)
+        matches!(self.state, AnimState::Idle)
     }
 
     pub fn is_in_progress(&self) -> bool {
-        matches!(self.state_kind(), AnimStateKind::PassInProgress)
+        matches!(self.state, AnimState::InProgress)
     }
 
     pub fn is_completed(&self) -> bool {
-        matches!(self.state_kind(), AnimStateKind::Completed)
+        matches!(self.state, AnimState::Completed)
     }
 
     pub fn is_auto_reverse(&self) -> bool {
-        self.auto_reverse
+        matches!(self.persist_mode, PersistMode::AutoReverse)
     }
 
-    // pub fn scale(self, scale: f64) -> Self {
-    //     todo!()
+    // pub fn is_playing_reverse(&self) -> bool {
+    //     let mut elapsed = self.elapsed();
+    //     let time = elapsed / self.duration.as_secs_f64();
+    //     let time = self.easing.ease(time);
+    //     time >= 0.5
     // }
+
+    pub fn scale(self, scale_fn: impl Fn() -> f64 + 'static) -> Self {
+        let cx = AppContext::get_current();
+        create_effect(cx.scope, move |_| {
+            let scale = scale_fn();
+
+            self.id
+                .update_prop(AnimPropKind::Scale, AnimValue::Float(scale));
+        });
+
+        self
+    }
 
     pub fn border_radius(self, border_radius_fn: impl Fn() -> f64 + 'static) -> Self {
         let cx = AppContext::get_current();
@@ -135,6 +155,18 @@ impl Animation {
 
             self.id
                 .update_prop(AnimPropKind::BorderColor, AnimValue::Color(border_color));
+        });
+
+        self
+    }
+
+    pub fn translate_x(self, translate_x_fn: impl Fn() -> f64 + 'static) -> Self {
+        let cx = AppContext::get_current();
+        create_effect(cx.scope, move |_| {
+            let translate_x = translate_x_fn();
+
+            self.id
+                .update_prop(AnimPropKind::TranslateX, AnimValue::Float(translate_x));
         });
 
         self
@@ -176,13 +208,18 @@ impl Animation {
         self
     }
 
-    pub fn auto_reverse(mut self, auto_rev: bool) -> Self {
-        self.auto_reverse = auto_rev;
+    pub fn persists(mut self, persist: bool) -> Self {
+        self.persist_mode = if persist {PersistMode::Keep} else {PersistMode::None};
+        self
+    }
+
+    pub fn auto_reverse(mut self) -> Self {
+        self.persist_mode = PersistMode::AutoReverse;
         self
     }
 
     /// Should the animation repeat forever?
-    pub fn repeat(mut self, repeat: bool) -> Self {
+    pub fn repeat_forever(mut self, repeat: bool) -> Self {
         self.repeat_mode = if repeat {
             RepeatMode::LoopForever
         } else {
@@ -221,49 +258,13 @@ impl Animation {
 
     pub fn begin(&mut self) {
         self.repeat_count = 0;
-        self.state = AnimState::PassInProgress {
-            started_on: Instant::now(),
-            elapsed: Duration::ZERO,
-        }
+        self.state = AnimState::InProgress;
     }
 
     pub fn stop(&mut self) {
         match &mut self.state {
-            AnimState::Idle | AnimState::Completed { .. } | AnimState::PassFinished { .. } => {}
-            AnimState::PassInProgress {
-                started_on,
-                elapsed,
-            } => {
-                let duration = Instant::now() - started_on.clone();
-                let elapsed = *elapsed + duration;
-                self.state = AnimState::Completed {
-                    elapsed: Some(elapsed),
-                }
-            }
-        }
-    }
-
-    pub fn state_kind(&self) -> AnimStateKind {
-        match self.state {
-            AnimState::Idle => AnimStateKind::Idle,
-            AnimState::PassInProgress { .. } => AnimStateKind::PassInProgress,
-            AnimState::PassFinished { .. } => AnimStateKind::PassFinished,
-            AnimState::Completed { .. } => AnimStateKind::Completed,
-        }
-    }
-
-    pub fn elapsed(&self) -> Option<Duration> {
-        match &self.state {
-            AnimState::Idle => None,
-            AnimState::PassInProgress {
-                started_on,
-                elapsed,
-            } => {
-                let duration = Instant::now() - started_on.clone();
-                Some(*elapsed + duration)
-            }
-            AnimState::PassFinished { elapsed } => Some(elapsed.clone()),
-            AnimState::Completed { elapsed, .. } => elapsed.clone(),
+            AnimState::Idle | AnimState::Completed => {}
+            AnimState::InProgress => self.state = AnimState::Completed,
         }
     }
 
@@ -272,40 +273,20 @@ impl Animation {
             AnimState::Idle => {
                 self.begin();
             }
-            AnimState::PassInProgress {
-                started_on,
-                mut elapsed,
-            } => {
-                let now = Instant::now();
-                let duration = now - started_on.clone();
-                elapsed += duration;
+            AnimState::InProgress => {
+                let mut can_advance = false;
+                let repeat_mode = self.repeat_mode;
+                let duration = self.duration.clone();
 
-                if elapsed >= self.duration {
-                    self.state = AnimState::PassFinished { elapsed };
+                for (_, prop) in self.props_mut() {
+                    prop.advance(repeat_mode, &duration);
+                    can_advance |= !prop.is_completed();
+                }
+                if !can_advance {
+                    self.state = AnimState::Completed;
                 }
             }
-            AnimState::PassFinished { elapsed } => match self.repeat_mode {
-                RepeatMode::LoopForever => {
-                    self.state = AnimState::PassInProgress {
-                        started_on: Instant::now(),
-                        elapsed: Duration::ZERO,
-                    }
-                }
-                RepeatMode::Times(times) => {
-                    self.repeat_count += 1;
-                    if self.repeat_count >= times {
-                        self.state = AnimState::Completed {
-                            elapsed: Some(*elapsed),
-                        }
-                    } else {
-                        self.state = AnimState::PassInProgress {
-                            started_on: Instant::now(),
-                            elapsed: Duration::ZERO,
-                        }
-                    }
-                }
-            },
-            AnimState::Completed { .. } => {}
+            AnimState::Completed => {}
         }
     }
 
@@ -317,16 +298,21 @@ impl Animation {
         self.animated_props.borrow_mut()
     }
 
-    pub(crate) fn animate_prop(&self, elapsed: Duration, prop_kind: &AnimPropKind) -> AnimValue {
-        let mut elapsed = elapsed;
-        let prop = self.animated_props.get(&prop_kind).unwrap();
-
-        if let Some(skip) = self.skip {
-            elapsed += skip;
+    pub(crate) fn is_prop_playing_rev(&self, prop: &AnimatedProp) -> bool {
+        if !self.is_auto_reverse() {
+            return false;
         }
 
+        let time = prop.elapsed.as_secs_f64() / self.duration.as_secs_f64();
+        let time = self.easing.ease(time);
+        time > 0.5
+    }
+
+    pub(crate) fn animate_prop(&self, prop: &AnimatedProp) -> AnimValue {
+        let mut elapsed = prop.elapsed();
+
         if self.duration == Duration::ZERO {
-            return prop.from();
+            return prop.values.get_from();
         }
 
         if elapsed > self.duration {
@@ -337,14 +323,20 @@ impl Animation {
         let time = self.easing.ease(time);
         assert_valid_time(time);
 
-        if self.auto_reverse {
+        if self.is_auto_reverse() {
             if time > 0.5 {
-                prop.animate(time * 2.0 - 1.0, AnimDirection::Backward)
+                prop.values
+                    .animate(time * 2.0 - 1.0, AnimDirection::Backward)
             } else {
-                prop.animate(time * 2.0, AnimDirection::Forward)
+                prop.values.animate(time * 2.0, AnimDirection::Forward)
             }
         } else {
-            prop.animate(time, AnimDirection::Forward)
+            prop.values.animate(time, AnimDirection::Forward)
         }
+    }
+
+    pub(crate) fn requires_layout(&self) -> bool {
+        self.animated_props.contains_key(&AnimPropKind::Width)
+            || self.animated_props.contains_key(&AnimPropKind::Height)
     }
 }

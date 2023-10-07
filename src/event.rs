@@ -17,6 +17,7 @@ pub enum EventListner {
     WindowClosed,
     WindowResized,
     WindowMoved,
+    AnimFrame,
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +31,7 @@ pub enum Event {
     WindowClosed,
     WindowResized(Size),
     WindowMoved(Point),
+    AnimFrame,
 }
 
 impl Event {
@@ -41,7 +43,8 @@ impl Event {
             | Event::PointerWheel(_)
             | Event::WindowClosed
             | Event::WindowResized(_)
-            | Event::WindowMoved(_) => false,
+            | Event::WindowMoved(_) 
+            | Event::AnimFrame => false,
             Event::KeyDown(_) | Event::KeyUp(_) => true,
         }
     }
@@ -56,6 +59,7 @@ impl Event {
             | Event::KeyUp(_)
             | Event::WindowClosed
             | Event::WindowResized(_)
+            | Event::AnimFrame 
             | Event::WindowMoved(_) => false,
         }
     }
@@ -81,6 +85,7 @@ impl Event {
             Event::PointerMove(_)
             | Event::WindowClosed
             | Event::WindowResized(_)
+            | Event::AnimFrame
             | Event::WindowMoved(_) => true,
         }
     }
@@ -95,6 +100,7 @@ impl Event {
             | Event::KeyUp(_)
             | Event::WindowClosed
             | Event::WindowResized(_)
+            | Event::AnimFrame
             | Event::WindowMoved(_) => None,
         }
     }
@@ -112,6 +118,7 @@ impl Event {
             | Event::KeyUp(_)
             | Event::WindowClosed
             | Event::WindowResized(_)
+            | Event::AnimFrame
             | Event::WindowMoved(_) => {}
         }
         self
@@ -128,6 +135,7 @@ impl Event {
             Event::KeyDown(_)
             | Event::KeyUp(_)
             | Event::WindowClosed
+            | Event::AnimFrame
             | Event::WindowResized(_)
             | Event::WindowMoved(_) => {}
         }
@@ -136,6 +144,7 @@ impl Event {
 
     pub fn listener(&self) -> Option<EventListner> {
         match self {
+            Event::AnimFrame => Some(EventListner::AnimFrame),
             Event::PointerDown(_) => Some(EventListner::PointerDown),
             Event::PointerUp(_) => Some(EventListner::PointerUp),
             Event::PointerMove(_) => Some(EventListner::PointerMove),
