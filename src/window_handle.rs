@@ -699,14 +699,14 @@ impl WindowHandle {
                         self.show_context_menu(menu, platform_menu, pos);
                     }
                     UpdateMessage::RequestAnimFrame => {
-                        self.event(Event::AnimFrame);
-
                         let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
                         if let Some(id) = id {
                             exec_after(Duration::from_millis(1), move |_| {
                                 id.request_anim_frame();
                             });
                         }
+
+                        self.event(Event::AnimFrame);
                     }
                     UpdateMessage::WindowMenu { menu } => {
                         // let platform_menu = menu.platform_menu();

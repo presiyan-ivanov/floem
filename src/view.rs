@@ -626,7 +626,7 @@ pub trait View {
                 }
             }
             Event::AnimFrame => {
-                self.id().request_anim_frame();
+                // self.id().request_anim_frame();
                 let requires_layout = cx
                     .app_state
                     .view_state(id)
@@ -635,7 +635,7 @@ pub trait View {
                     .map(|anim| anim.requires_layout())
                     .unwrap_or(false);
 
-                if requires_layout {
+                if true {
                     cx.app_state.request_layout(self.id());
                 }
                 // else {
