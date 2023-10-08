@@ -3,15 +3,15 @@ use std::{
     marker::PhantomData,
 };
 
-use leptos_reactive::{create_effect, ScopeDisposer};
+use floem_reactive::{as_child_of_current_scope, create_effect, Scope};
+use kurbo::Rect;
 use rustc_hash::FxHasher;
 use smallvec::SmallVec;
 
 use crate::{
-    app_handle::AppContext,
     context::{AppState, EventCx, UpdateCx},
     id::Id,
-    view::{ChangeFlags, View},
+    view::{view_children_set_parent_id, ChangeFlags, View},
 };
 
 pub(crate) type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
@@ -20,20 +20,18 @@ pub(crate) type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHashe
 #[educe(Debug)]
 pub(crate) struct HashRun<T>(#[educe(Debug(ignore))] pub(crate) T);
 
-pub struct List<V, VF, T>
+pub struct List<V, T>
 where
     V: View,
-    VF: Fn(T) -> V + 'static,
     T: 'static,
 {
     id: Id,
-    children: Vec<Option<(V, ScopeDisposer)>>,
-    view_fn: VF,
-    phatom: PhantomData<T>,
-    cx: AppContext,
+    children: Vec<Option<(V, Scope)>>,
+    view_fn: Box<dyn Fn(T) -> (V, Scope)>,
+    phantom: PhantomData<T>,
 }
 
-pub fn list<IF, I, T, KF, K, VF, V>(each_fn: IF, key_fn: KF, view_fn: VF) -> List<V, VF, T>
+pub fn list<IF, I, T, KF, K, VF, V>(each_fn: IF, key_fn: KF, view_fn: VF) -> List<V, T>
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
@@ -43,12 +41,8 @@ where
     V: View + 'static,
     T: 'static,
 {
-    let cx = AppContext::get_current();
-    let id = cx.new_id();
-
-    let mut child_cx = cx;
-    child_cx.id = id;
-    create_effect(cx.scope, move |prev_hash_run| {
+    let id = Id::next();
+    create_effect(move |prev_hash_run| {
         let items = each_fn();
         let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
         let hashed_items = items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
@@ -75,24 +69,33 @@ where
         id.update_state(diff, false);
         HashRun(hashed_items)
     });
+    let view_fn = Box::new(as_child_of_current_scope(view_fn));
     List {
         id,
         children: Vec::new(),
         view_fn,
-        phatom: PhantomData::default(),
-        cx: child_cx,
+        phantom: PhantomData,
     }
 }
 
-impl<V: View + 'static, VF, T> View for List<V, VF, T>
-where
-    VF: Fn(T) -> V + 'static,
-{
+impl<V: View + 'static, T> View for List<V, T> {
     fn id(&self) -> Id {
         self.id
     }
 
-    fn child(&mut self, id: Id) -> Option<&mut dyn View> {
+    fn child(&self, id: Id) -> Option<&dyn View> {
+        let child = self
+            .children
+            .iter()
+            .find(|v| v.as_ref().map(|(v, _)| v.id() == id).unwrap_or(false));
+        if let Some(child) = child {
+            child.as_ref().map(|(view, _)| view as &dyn View)
+        } else {
+            None
+        }
+    }
+
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
         let child = self
             .children
             .iter_mut()
@@ -104,7 +107,15 @@ where
         }
     }
 
-    fn children(&mut self) -> Vec<&mut dyn View> {
+    fn children(&self) -> Vec<&dyn View> {
+        self.children
+            .iter()
+            .filter_map(|child| child.as_ref())
+            .map(|child| &child.0 as &dyn View)
+            .collect()
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
         self.children
             .iter_mut()
             .filter_map(|child| child.as_mut())
@@ -122,10 +133,13 @@ where
         state: Box<dyn std::any::Any>,
     ) -> crate::view::ChangeFlags {
         if let Ok(diff) = state.downcast() {
-            AppContext::save();
-            AppContext::set_current(self.cx);
-            apply_diff(cx.app_state, *diff, &mut self.children, &self.view_fn);
-            AppContext::restore();
+            apply_diff(
+                self.id,
+                cx.app_state,
+                *diff,
+                &mut self.children,
+                &self.view_fn,
+            );
             cx.request_layout(self.id());
             ChangeFlags::LAYOUT
         } else {
@@ -144,12 +158,14 @@ where
         })
     }
 
-    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) {
+    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
+        let mut layout_rect = Rect::ZERO;
         for child in &mut self.children {
             if let Some((child, _)) = child.as_mut() {
-                child.compute_layout_main(cx);
+                layout_rect = layout_rect.union(child.compute_layout_main(cx));
             }
         }
+        Some(layout_rect)
     }
 
     fn event(
@@ -305,50 +321,24 @@ pub(crate) fn diff<K: Eq + Hash, V>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) ->
 
 fn remove_index<V: View>(
     app_state: &mut AppState,
-    children: &mut [Option<(V, ScopeDisposer)>],
+    children: &mut [Option<(V, Scope)>],
     index: usize,
 ) -> Option<()> {
-    let (view, disposer) = std::mem::take(&mut children[index])?;
-    disposer.dispose();
-    let id = view.id();
-    if let Some(view_state) = app_state.view_states.remove(&id) {
-        let node = view_state.node;
-        let mut nodes = Vec::new();
-        let mut parents = Vec::new();
-        parents.push(node);
-        nodes.push(node);
-        while !parents.is_empty() {
-            let parent = parents.pop().unwrap();
-            if let Ok(children) = app_state.taffy.children(parent) {
-                for child in children {
-                    nodes.push(child);
-                    parents.push(child);
-                }
-            }
-        }
-        for node in nodes {
-            let _ = app_state.taffy.remove(node);
-        }
-    }
-
-    let mut all_ids = id.all_chilren();
-    all_ids.push(id);
-    for id in all_ids {
-        id.remove_idpath();
-        app_state.view_states.remove(&id);
-    }
-
+    let (mut view, scope) = std::mem::take(&mut children[index])?;
+    view.cleanup(app_state);
+    scope.dispose();
     Some(())
 }
 
 pub(super) fn apply_diff<T, V, VF>(
+    view_id: Id,
     app_state: &mut AppState,
     mut diff: Diff<T>,
-    children: &mut Vec<Option<(V, ScopeDisposer)>>,
+    children: &mut Vec<Option<(V, Scope)>>,
     view_fn: &VF,
 ) where
     V: View,
-    VF: Fn(T) -> V + 'static,
+    VF: Fn(T) -> (V, Scope),
 {
     // Resize children if needed
     if diff.added.len().checked_sub(diff.removed.len()).is_some() {
@@ -380,23 +370,16 @@ pub(super) fn apply_diff<T, V, VF>(
     }
 
     for DiffOpMove { from, to } in diff.moved {
-        let item = std::mem::take(&mut children[from]).unwrap();
+        let item = children[from].take().unwrap();
         items_to_move.push((to, item));
     }
 
     for DiffOpAdd { at, view } in diff.added {
-        children[at] = view.map(|value| {
-            let cx = AppContext::get_current();
-            cx.scope.run_child_scope(|scope| {
-                let mut cx = cx;
-                cx.scope = scope;
-                AppContext::save();
-                AppContext::set_current(cx);
-                let view = view_fn(value);
-                AppContext::restore();
-                view
-            })
-        });
+        children[at] = view.map(view_fn);
+        if let Some((child, _)) = children[at].as_ref() {
+            child.id().set_parent(view_id);
+            view_children_set_parent_id(child);
+        }
     }
 
     for (to, each_item) in items_to_move {

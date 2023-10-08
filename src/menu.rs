@@ -1,13 +1,10 @@
-use glazier::{Counter, HotKey};
-
-static COUNTER: Counter = Counter::new();
+use std::sync::atomic::AtomicU64;
 
 /// An entry in a menu.
 ///
-/// An entry is either a [`MenuItem`], a submenu (i.e. [`Menu`]), or one of a few other
-/// possibilities (such as one of the two options above, wrapped in a [`MenuLensWrap`]).
+/// An entry is either a [`MenuItem`], a submenu (i.e. [`Menu`]).
 pub enum MenuEntry {
-    Seperator,
+    Separator,
     Item(MenuItem),
     SubMenu(Menu),
 }
@@ -46,25 +43,25 @@ impl Menu {
 
     /// Append a separator to this menu, returning the modified menu.
     pub fn separator(self) -> Self {
-        self.entry(MenuEntry::Seperator)
+        self.entry(MenuEntry::Separator)
     }
 
-    pub(crate) fn platform_menu(&self) -> glazier::Menu {
+    pub(crate) fn platform_menu(&self) -> winit::menu::Menu {
         let mut menu = if self.popup {
-            glazier::Menu::new_for_popup()
+            winit::menu::Menu::new_for_popup()
         } else {
-            glazier::Menu::new()
+            winit::menu::Menu::new()
         };
         for entry in &self.children {
             match entry {
-                MenuEntry::Seperator => {
+                MenuEntry::Separator => {
                     menu.add_separator();
                 }
                 MenuEntry::Item(item) => {
                     menu.add_item(
                         item.id as u32,
                         &item.title,
-                        item.key.as_ref(),
+                        // item.key.as_ref(),
                         item.selected,
                         item.enabled,
                     );
@@ -82,10 +79,10 @@ impl Menu {
 
 pub struct MenuItem {
     pub(crate) id: u64,
-    title: String,
-    key: Option<HotKey>,
+    pub(crate) title: String,
+    // key: Option<HotKey>,
     selected: Option<bool>,
-    enabled: bool,
+    pub(crate) enabled: bool,
     pub(crate) action: Option<Box<dyn Fn()>>,
 }
 
@@ -97,10 +94,12 @@ impl From<MenuItem> for MenuEntry {
 
 impl MenuItem {
     pub fn new(title: impl Into<String>) -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Self {
-            id: COUNTER.next(),
+            id,
             title: title.into(),
-            key: None,
+            // key: None,
             selected: None,
             enabled: true,
             action: None,

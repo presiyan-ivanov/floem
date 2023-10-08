@@ -1,20 +1,20 @@
-use std::any::Any;
+use std::{any::Any, fmt::Display};
 
 use crate::{
     cosmic_text::{Attrs, AttrsList, FamilyOwned, TextLayout},
     style::{ComputedStyle, TextOverflow},
+    unit::PxPct,
 };
+use floem_reactive::create_effect;
 use floem_renderer::{
     cosmic_text::{LineHeightValue, Style as FontStyle, Weight},
     Renderer,
 };
-use glazier::kurbo::Point;
-use leptos_reactive::create_effect;
-use taffy::{prelude::Node, style::Dimension};
-use vello::peniko::Color;
+use kurbo::{Point, Rect};
+use peniko::Color;
+use taffy::prelude::Node;
 
 use crate::{
-    app_handle::AppContext,
     context::{EventCx, UpdateCx},
     event::Event,
     id::Id,
@@ -39,11 +39,15 @@ pub struct Label {
     text_overflow: TextOverflow,
 }
 
-pub fn label(label: impl Fn() -> String + 'static) -> Label {
-    let cx = AppContext::get_current();
-    let id = cx.new_id();
-    create_effect(cx.scope, move |_| {
-        let new_label = label();
+pub fn text<S: Display>(text: S) -> Label {
+    let text = text.to_string();
+    label(move || text.clone())
+}
+
+pub fn label<S: Display + 'static>(label: impl Fn() -> S + 'static) -> Label {
+    let id = Id::next();
+    create_effect(move |_| {
+        let new_label = label().to_string();
         id.update_state(new_label, false);
     });
     Label {
@@ -65,8 +69,7 @@ pub fn label(label: impl Fn() -> String + 'static) -> Label {
 }
 
 impl Label {
-    fn set_text_layout(&mut self) {
-        let mut text_layout = TextLayout::new();
+    fn get_attrs_list(&self) -> AttrsList {
         let mut attrs = Attrs::new().color(self.color.unwrap_or(Color::BLACK));
         if let Some(font_size) = self.font_size {
             attrs = attrs.font_size(font_size);
@@ -87,32 +90,18 @@ impl Label {
         if let Some(line_height) = self.line_height {
             attrs = attrs.line_height(line_height);
         }
-        text_layout.set_text(self.label.as_str(), AttrsList::new(attrs));
+        AttrsList::new(attrs)
+    }
+
+    fn set_text_layout(&mut self) {
+        let mut text_layout = TextLayout::new();
+        let attrs_list = self.get_attrs_list();
+        text_layout.set_text(self.label.as_str(), attrs_list.clone());
         self.text_layout = Some(text_layout);
 
         if let Some(new_text) = self.available_text.as_ref() {
             let mut text_layout = TextLayout::new();
-            let mut attrs = Attrs::new().color(self.color.unwrap_or(Color::BLACK));
-            if let Some(font_size) = self.font_size {
-                attrs = attrs.font_size(font_size);
-            }
-            if let Some(font_style) = self.font_style {
-                attrs = attrs.style(font_style);
-            }
-            let font_family = self.font_family.as_ref().map(|font_family| {
-                let family: Vec<FamilyOwned> = FamilyOwned::parse_list(font_family).collect();
-                family
-            });
-            if let Some(font_family) = font_family.as_ref() {
-                attrs = attrs.family(font_family);
-            }
-            if let Some(font_weight) = self.font_weight {
-                attrs = attrs.weight(font_weight);
-            }
-            if let Some(line_height) = self.line_height {
-                attrs = attrs.line_height(line_height);
-            }
-            text_layout.set_text(new_text, AttrsList::new(attrs));
+            text_layout.set_text(new_text, attrs_list);
             self.available_text_layout = Some(text_layout);
         }
     }
@@ -123,11 +112,19 @@ impl View for Label {
         self.id
     }
 
-    fn child(&mut self, _id: Id) -> Option<&mut dyn View> {
+    fn child(&self, _id: Id) -> Option<&dyn View> {
         None
     }
 
-    fn children(&mut self) -> Vec<&mut dyn View> {
+    fn child_mut(&mut self, _id: Id) -> Option<&mut dyn View> {
+        None
+    }
+
+    fn children(&self) -> Vec<&dyn View> {
+        Vec::new()
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
         Vec::new()
     }
 
@@ -139,6 +136,9 @@ impl View for Label {
         if let Ok(state) = state.downcast() {
             self.label = *state;
             self.text_layout = None;
+            self.available_text = None;
+            self.available_width = None;
+            self.available_text_layout = None;
             cx.request_layout(self.id());
             ChangeFlags::LAYOUT
         } else {
@@ -155,9 +155,9 @@ impl View for Label {
             let (width, height) = if self.label.is_empty() {
                 (0.0, cx.current_font_size().unwrap_or(14.0))
             } else {
-                let text_overflow = cx.app_state.get_computed_style(self.id).text_overflow;
+                let text_overflow = cx.app_state_mut().get_computed_style(self.id).text_overflow;
                 if self.color != cx.color
-                    || self.font_size != cx.current_font_size()
+                    || self.font_size != cx.font_size
                     || self.font_family.as_deref() != cx.current_font_family()
                     || self.font_weight != cx.font_weight
                     || self.font_style != cx.font_style
@@ -165,12 +165,16 @@ impl View for Label {
                     || self.text_overflow != text_overflow
                 {
                     self.color = cx.color;
-                    self.font_size = cx.current_font_size();
+                    self.font_size = cx.font_size;
                     self.font_family = cx.current_font_family().map(|s| s.to_string());
                     self.font_weight = cx.font_weight;
                     self.font_style = cx.font_style;
                     self.line_height = cx.line_height;
                     self.text_overflow = text_overflow;
+                    self.text_layout = None;
+                    self.available_text = None;
+                    self.available_width = None;
+                    self.available_text_layout = None;
                     self.set_text_layout();
                 }
                 if self.text_layout.is_none() {
@@ -192,7 +196,7 @@ impl View for Label {
 
             if self.text_node.is_none() {
                 self.text_node = Some(
-                    cx.app_state
+                    cx.app_state_mut()
                         .taffy
                         .new_leaf(taffy::style::Style::DEFAULT)
                         .unwrap(),
@@ -201,31 +205,40 @@ impl View for Label {
             let text_node = self.text_node.unwrap();
 
             let style = Style::BASE
-                .width(Dimension::Points(width))
-                .height(Dimension::Points(height))
+                .width(width)
+                .height(height)
                 .compute(&ComputedStyle::default())
                 .to_taffy_style();
-            let _ = cx.app_state.taffy.set_style(text_node, style);
+            let _ = cx.app_state_mut().taffy.set_style(text_node, style);
 
             vec![text_node]
         })
     }
 
-    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) {
+    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
         if self.label.is_empty() {
-            return;
+            return None;
+        }
+
+        if self.font_size != cx.font_size
+            || self.font_family.as_deref() != cx.current_font_family()
+            || self.font_weight != cx.font_weight
+            || self.font_style != cx.font_style
+            || self.line_height != cx.line_height
+        {
+            cx.app_state_mut().request_layout(self.id());
         }
 
         let layout = cx.get_layout(self.id()).unwrap();
-        let style = cx.app_state.get_computed_style(self.id);
+        let style = cx.app_state_mut().get_computed_style(self.id);
         let text_overflow = style.text_overflow;
         let padding_left = match style.padding_left {
-            taffy::style::LengthPercentage::Points(padding) => padding,
-            taffy::style::LengthPercentage::Percent(pct) => pct * layout.size.width,
+            PxPct::Px(padding) => padding as f32,
+            PxPct::Pct(pct) => pct as f32 * layout.size.width,
         };
         let padding_right = match style.padding_right {
-            taffy::style::LengthPercentage::Points(padding) => padding,
-            taffy::style::LengthPercentage::Percent(pct) => pct * layout.size.width,
+            PxPct::Px(padding) => padding as f32,
+            PxPct::Pct(pct) => pct as f32 * layout.size.width,
         };
         let padding = padding_left + padding_right;
 
@@ -236,25 +249,7 @@ impl View for Label {
             if width > available_width {
                 if self.available_width != Some(available_width) {
                     let mut dots_text = TextLayout::new();
-                    let mut attrs = Attrs::new().color(self.color.unwrap_or(Color::BLACK));
-                    if let Some(font_size) = self.font_size {
-                        attrs = attrs.font_size(font_size);
-                    }
-                    if let Some(font_style) = self.font_style {
-                        attrs = attrs.style(font_style);
-                    }
-                    let font_family = self.font_family.as_ref().map(|font_family| {
-                        let family: Vec<FamilyOwned> =
-                            FamilyOwned::parse_list(font_family).collect();
-                        family
-                    });
-                    if let Some(font_family) = font_family.as_ref() {
-                        attrs = attrs.family(font_family);
-                    }
-                    if let Some(font_weight) = self.font_weight {
-                        attrs = attrs.weight(font_weight);
-                    }
-                    dots_text.set_text("...", AttrsList::new(attrs));
+                    dots_text.set_text("...", self.get_attrs_list());
 
                     let dots_width = dots_text.size().width as f32;
                     let width_left = available_width - dots_width;
@@ -282,17 +277,18 @@ impl View for Label {
                     text_layout.set_size(available_width, f32::MAX);
                     self.available_text_layout = Some(text_layout);
                     self.available_width = Some(available_width);
-                    cx.app_state.request_layout(self.id());
+                    cx.app_state_mut().request_layout(self.id());
                 }
             } else {
                 if self.available_text_layout.is_some() {
-                    cx.app_state.request_layout(self.id());
+                    cx.app_state_mut().request_layout(self.id());
                 }
                 self.available_text = None;
                 self.available_width = None;
                 self.available_text_layout = None;
             }
         }
+        None
     }
 
     fn paint(&mut self, cx: &mut crate::context::PaintCx) {

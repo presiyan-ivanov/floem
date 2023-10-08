@@ -4,10 +4,8 @@ use super::{
 };
 use std::{borrow::BorrowMut, collections::HashMap, time::Duration, time::Instant};
 
-use leptos_reactive::create_effect;
-use vello::peniko::Color;
-
-use crate::AppContext;
+use floem_reactive::create_effect;
+use peniko::Color;
 
 #[derive(Clone, Debug)]
 pub struct Animation {
@@ -28,8 +26,9 @@ pub(crate) fn assert_valid_time(time: f64) {
 /// See [`Self::advance`].
 #[derive(Clone, Debug, Copy)]
 pub enum RepeatMode {
-    /// Once started, the animation will juggle between [`AnimState::PassInProgress`] and [`AnimState::PassFinished`],
-    /// but will never reach [`AnimState::Completed`]
+    // Once started, the animation will juggle between [`AnimState::PassInProgress`] and [`AnimState::PassFinished`],
+    // but will never reach [`AnimState::Completed`]
+    /// Repeat the animation forever
     LoopForever,
     /// How many passes do we want, i.e. how many times do we repeat the animation?
     /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0
@@ -126,8 +125,7 @@ impl Animation {
     // }
 
     pub fn border_radius(self, border_radius_fn: impl Fn() -> f64 + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let border_radius = border_radius_fn();
 
             self.id
@@ -138,8 +136,7 @@ impl Animation {
     }
 
     pub fn color(self, color_fn: impl Fn() -> Color + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let color = color_fn();
 
             self.id
@@ -150,8 +147,7 @@ impl Animation {
     }
 
     pub fn border_color(self, bord_color_fn: impl Fn() -> Color + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let border_color = bord_color_fn();
 
             self.id
@@ -175,8 +171,7 @@ impl Animation {
     // }
 
     pub fn background(self, bg_fn: impl Fn() -> Color + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let background = bg_fn();
 
             self.id
@@ -187,8 +182,7 @@ impl Animation {
     }
 
     pub fn width(self, width_fn: impl Fn() -> f64 + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let to_width = width_fn();
 
             self.id
@@ -199,8 +193,7 @@ impl Animation {
     }
 
     pub fn height(self, height_fn: impl Fn() -> f64 + 'static) -> Self {
-        let cx = AppContext::get_current();
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let height = height_fn();
 
             self.id

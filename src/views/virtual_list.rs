@@ -1,14 +1,11 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
-use glazier::kurbo::{Rect, Size};
-use leptos_reactive::{
-    create_effect, create_signal, ScopeDisposer, SignalGet, SignalSet, WriteSignal,
-};
+use floem_reactive::{as_child_of_current_scope, create_effect, create_signal, Scope, WriteSignal};
+use kurbo::{Rect, Size};
 use smallvec::SmallVec;
 use taffy::{prelude::Node, style::Dimension};
 
 use crate::{
-    app_handle::AppContext,
     context::LayoutCx,
     id::Id,
     view::{ChangeFlags, View},
@@ -43,19 +40,17 @@ pub trait VirtualListVector<T> {
     fn slice(&mut self, range: Range<usize>) -> Self::ItemIterator;
 }
 
-pub struct VirtualList<V: View, VF, T>
+pub struct VirtualList<V: View, T>
 where
-    VF: Fn(T) -> V + 'static,
     T: 'static,
 {
     id: Id,
     direction: VirtualListDirection,
-    children: Vec<Option<(V, ScopeDisposer)>>,
+    children: Vec<Option<(V, Scope)>>,
     viewport: Rect,
     set_viewport: WriteSignal<Rect>,
-    view_fn: VF,
+    view_fn: Box<dyn Fn(T) -> (V, Scope)>,
     phatom: PhantomData<T>,
-    cx: AppContext,
     before_size: f64,
     after_size: f64,
     before_node: Option<Node>,
@@ -74,7 +69,7 @@ pub fn virtual_list<T, IF, I, KF, K, VF, V>(
     each_fn: IF,
     key_fn: KF,
     view_fn: VF,
-) -> VirtualList<V, VF, T>
+) -> VirtualList<V, T>
 where
     T: 'static,
     IF: Fn() -> I + 'static,
@@ -84,15 +79,11 @@ where
     VF: Fn(T) -> V + 'static,
     V: View + 'static,
 {
-    let cx = AppContext::get_current();
-    let id = cx.new_id();
+    let id = Id::next();
 
-    let mut child_cx = cx;
-    child_cx.id = id;
+    let (viewport, set_viewport) = create_signal(Rect::ZERO);
 
-    let (viewport, set_viewport) = create_signal(cx.scope, Rect::ZERO);
-
-    create_effect(cx.scope, move |prev_hash_run| {
+    create_effect(move |prev_hash_run| {
         let mut items_vector = each_fn();
         let viewport = viewport.get();
         let min = match direction {
@@ -187,6 +178,8 @@ where
         HashRun(hashed_items)
     });
 
+    let view_fn = Box::new(as_child_of_current_scope(view_fn));
+
     VirtualList {
         id,
         direction,
@@ -194,8 +187,7 @@ where
         viewport: Rect::ZERO,
         set_viewport,
         view_fn,
-        phatom: PhantomData::default(),
-        cx: child_cx,
+        phatom: PhantomData,
         before_size: 0.0,
         after_size: 0.0,
         before_node: None,
@@ -203,15 +195,24 @@ where
     }
 }
 
-impl<V: View + 'static, VF, T> View for VirtualList<V, VF, T>
-where
-    VF: Fn(T) -> V + 'static,
-{
+impl<V: View + 'static, T> View for VirtualList<V, T> {
     fn id(&self) -> Id {
         self.id
     }
 
-    fn child(&mut self, id: Id) -> Option<&mut dyn View> {
+    fn child(&self, id: Id) -> Option<&dyn View> {
+        let child = self
+            .children
+            .iter()
+            .find(|v| v.as_ref().map(|(v, _)| v.id() == id).unwrap_or(false));
+        if let Some(child) = child {
+            child.as_ref().map(|(view, _)| view as &dyn View)
+        } else {
+            None
+        }
+    }
+
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
         let child = self
             .children
             .iter_mut()
@@ -223,7 +224,15 @@ where
         }
     }
 
-    fn children(&mut self) -> Vec<&mut dyn View> {
+    fn children(&self) -> Vec<&dyn View> {
+        self.children
+            .iter()
+            .filter_map(|child| child.as_ref())
+            .map(|child| &child.0 as &dyn View)
+            .collect()
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
         self.children
             .iter_mut()
             .filter_map(|child| child.as_mut())
@@ -249,10 +258,13 @@ where
             }
             self.before_size = state.before_size;
             self.after_size = state.after_size;
-            AppContext::save();
-            AppContext::set_current(self.cx);
-            apply_diff(cx.app_state, state.diff, &mut self.children, &self.view_fn);
-            AppContext::restore();
+            apply_diff(
+                self.id,
+                cx.app_state,
+                state.diff,
+                &mut self.children,
+                &self.view_fn,
+            );
             cx.request_layout(self.id());
             ChangeFlags::LAYOUT
         } else {
@@ -289,7 +301,7 @@ where
             };
             if self.before_node.is_none() {
                 self.before_node = Some(
-                    cx.app_state
+                    cx.app_state_mut()
                         .taffy
                         .new_leaf(taffy::style::Style::DEFAULT)
                         .unwrap(),
@@ -297,7 +309,7 @@ where
             }
             if self.after_node.is_none() {
                 self.after_node = Some(
-                    cx.app_state
+                    cx.app_state_mut()
                         .taffy
                         .new_leaf(taffy::style::Style::DEFAULT)
                         .unwrap(),
@@ -305,14 +317,14 @@ where
             }
             let before_node = self.before_node.unwrap();
             let after_node = self.after_node.unwrap();
-            let _ = cx.app_state.taffy.set_style(
+            let _ = cx.app_state_mut().taffy.set_style(
                 before_node,
                 taffy::style::Style {
                     size: before_size,
                     ..Default::default()
                 },
             );
-            let _ = cx.app_state.taffy.set_style(
+            let _ = cx.app_state_mut().taffy.set_style(
                 after_node,
                 taffy::style::Style {
                     size: after_size,
@@ -325,21 +337,23 @@ where
         })
     }
 
-    fn compute_layout(&mut self, cx: &mut LayoutCx) {
+    fn compute_layout(&mut self, cx: &mut LayoutCx) -> Option<Rect> {
         let viewport = cx.viewport.unwrap_or_default();
         if self.viewport != viewport {
-            let layout = cx.app_state.get_layout(self.id).unwrap();
-            let size = Size::new(layout.size.width as f64, layout.size.height as f64);
+            let layout = cx.app_state().get_layout(self.id).unwrap();
+            let _size = Size::new(layout.size.width as f64, layout.size.height as f64);
 
             self.viewport = viewport;
             self.set_viewport.set(viewport);
         }
 
+        let mut layout_rect = Rect::ZERO;
         for child in &mut self.children {
             if let Some((child, _)) = child.as_mut() {
-                child.compute_layout_main(cx);
+                layout_rect = layout_rect.union(child.compute_layout_main(cx));
             }
         }
+        Some(layout_rect)
     }
 
     fn event(

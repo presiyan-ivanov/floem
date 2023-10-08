@@ -1,904 +1,281 @@
-use std::time::{Duration, Instant};
-use std::{any::Any, collections::HashMap};
+use std::{collections::HashMap, time::Instant};
 
-use crate::animate::{AnimValue, AnimatedProp, ColorAnimValues, F64AnimValues, PropAnimState};
-use crate::id;
-use floem_renderer::Renderer;
-use glazier::kurbo::{Affine, Point, Rect};
-use glazier::{FileDialogOptions, FileDialogToken, FileInfo, Scale, TimerToken, WinHandler};
-use leptos_reactive::{Scope, SignalSet};
-
-use crate::menu::Menu;
-use crate::{
-    animate::{AnimPropKind, AnimPropValues, AnimUpdateMsg, Animation, SizeUnit},
-    context::{
-        AppContextStore, AppState, EventCallback, EventCx, LayoutCx, PaintCx, PaintState,
-        ResizeCallback, ResizeListener, UpdateCx, APP_CONTEXT_STORE,
-    },
-    event::{Event, EventListner},
-    ext_event::{EXT_EVENT_HANDLER, WRITE_SIGNALS},
-    id::{Id, IDPATHS},
-    responsive::ScreenSize,
-    style::{CursorStyle, Style},
-    view::{ChangeFlags, View},
+use kurbo::{Point, Size};
+use winit::{
+    dpi::{LogicalPosition, LogicalSize},
+    event::WindowEvent,
+    event_loop::{ControlFlow, EventLoopWindowTarget},
+    window::WindowId,
 };
 
-thread_local! {
-    pub(crate) static UPDATE_MESSAGES: std::cell::RefCell<HashMap<Id, Vec<UpdateMessage>>> = Default::default();
-    pub(crate) static ANIM_UPDATE_MESSAGES: std::cell::RefCell<Vec<AnimUpdateMsg>> = Default::default();
-    pub(crate) static DEFERRED_UPDATE_MESSAGES: std::cell::RefCell<DeferredUpdateMessages> = Default::default();
+use crate::{
+    action::{Timer, TimerToken},
+    app::{AppUpdateEvent, UserEvent, APP_UPDATE_EVENTS},
+    ext_event::EXT_EVENT_HANDLER,
+    view::View,
+    window::WindowConfig,
+    window_handle::WindowHandle,
+};
+
+pub(crate) struct ApplicationHandle {
+    window_handles: HashMap<winit::window::WindowId, WindowHandle>,
+    timers: HashMap<TimerToken, Timer>,
 }
 
-pub type FileDialogs = HashMap<FileDialogToken, Box<dyn Fn(Option<FileInfo>)>>;
-type DeferredUpdateMessages = HashMap<Id, Vec<(Id, Box<dyn Any>)>>;
-
-enum MousePosState {
-    None,
-    Ready,
-    Some(Point),
-}
-
-pub struct AppHandle<V: View> {
-    scope: Scope,
-    view: V,
-    handle: glazier::WindowHandle,
-    app_state: AppState,
-    paint_state: PaintState,
-    prev_mouse_pos: MousePosState,
-    file_dialogs: FileDialogs,
-    timers: HashMap<TimerToken, Box<dyn FnOnce()>>,
-}
-
-#[derive(Copy, Clone)]
-pub struct AppContext {
-    pub scope: Scope,
-    pub id: Id,
-}
-
-impl AppContext {
-    pub fn save() {
-        APP_CONTEXT_STORE.with(|store| {
-            let mut store = store.borrow_mut();
-            if let Some(store) = store.as_mut() {
-                store.save();
-            }
-        })
-    }
-
-    pub fn set_current(cx: AppContext) {
-        APP_CONTEXT_STORE.with(|store| {
-            let mut store = store.borrow_mut();
-            if let Some(store) = store.as_mut() {
-                store.set_current(cx);
-            } else {
-                *store = Some(AppContextStore {
-                    cx,
-                    saved_cx: Vec::new(),
-                });
-            }
-        })
-    }
-
-    pub fn get_current() -> AppContext {
-        APP_CONTEXT_STORE.with(|store| {
-            let store = store.borrow();
-            store.as_ref().unwrap().cx
-        })
-    }
-
-    pub fn restore() {
-        APP_CONTEXT_STORE.with(|store| {
-            let mut store = store.borrow_mut();
-            if let Some(store) = store.as_mut() {
-                store.restore();
-            }
-        })
-    }
-
-    pub fn with_id(mut self, id: Id) -> Self {
-        self.id = id;
-        self
-    }
-
-    pub fn new_id(&self) -> Id {
-        self.id.new()
-    }
-}
-
-pub enum StyleSelector {
-    Hover,
-    Focus,
-    FocusVisible,
-    Disabled,
-    Active,
-}
-
-pub enum UpdateMessage {
-    Focus(Id),
-    Active(Id),
-    WindowScale(f64),
-    Disabled {
-        id: Id,
-        is_disabled: bool,
-    },
-    RequestPaint,
-    RequestLayout {
-        id: Id,
-    },
-    State {
-        id: Id,
-        state: Box<dyn Any>,
-    },
-    BaseStyle {
-        id: Id,
-        style: Style,
-    },
-    Style {
-        id: Id,
-        style: Style,
-    },
-    ResponsiveStyle {
-        id: Id,
-        style: Style,
-        size: ScreenSize,
-    },
-    StyleSelector {
-        id: Id,
-        selector: StyleSelector,
-        style: Style,
-    },
-    KeyboardNavigatable {
-        id: Id,
-    },
-    EventListener {
-        id: Id,
-        listener: EventListner,
-        action: Box<EventCallback>,
-    },
-    ResizeListener {
-        id: Id,
-        action: Box<ResizeCallback>,
-    },
-    HandleTitleBar(bool),
-    OpenFile {
-        options: FileDialogOptions,
-        file_info_action: Box<dyn Fn(Option<FileInfo>)>,
-    },
-    RequestTimer {
-        deadline: std::time::Duration,
-        action: Box<dyn FnOnce()>,
-    },
-    Animation {
-        id: Id,
-        animation: Animation,
-    },
-    ShowContextMenu {
-        menu: Menu,
-        pos: Point,
-    },
-    RequestAnimFrame,
-}
-
-impl<V: View> Drop for AppHandle<V> {
-    fn drop(&mut self) {
-        self.scope.dispose();
-    }
-}
-
-impl<V: View> AppHandle<V> {
-    pub fn new(scope: Scope, app_logic: impl FnOnce() -> V) -> Self {
-        let cx = AppContext {
-            scope,
-            id: Id::next(),
-        };
-
-        AppContext::set_current(cx);
-
-        let view = app_logic();
+impl ApplicationHandle {
+    pub(crate) fn new() -> Self {
         Self {
-            scope,
-            view,
-            app_state: AppState::new(),
-            paint_state: PaintState::new(),
-            handle: Default::default(),
-            prev_mouse_pos: MousePosState::None,
-            file_dialogs: HashMap::new(),
+            window_handles: HashMap::new(),
             timers: HashMap::new(),
         }
     }
 
-    fn layout(&mut self) {
-        let mut cx = LayoutCx {
-            app_state: &mut self.app_state,
-            viewport: None,
-            color: None,
-            font_size: None,
-            font_family: None,
-            font_weight: None,
-            font_style: None,
-            line_height: None,
-            window_origin: Point::ZERO,
-            saved_viewports: Vec::new(),
-            saved_colors: Vec::new(),
-            saved_font_sizes: Vec::new(),
-            saved_font_families: Vec::new(),
-            saved_font_weights: Vec::new(),
-            saved_font_styles: Vec::new(),
-            saved_line_heights: Vec::new(),
-            saved_window_origins: Vec::new(),
-        };
-        cx.app_state.root = Some(self.view.layout_main(&mut cx));
-        cx.app_state.compute_layout();
-
-        cx.clear();
-        self.view.compute_layout_main(&mut cx);
-
-        // Currently we only need one ID with animation in progress to request layout, which will
-        // advance the all the animations in progress.
-        // This will be reworked once we change from request_layout to request_paint
-        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
-
-        if let Some(id) = id {
-            id.exec_after(Duration::from_millis(1), move || {
-                id.request_layout();
-            });
-        }
-    }
-
-    pub fn paint(&mut self) {
-        let mut cx = PaintCx {
-            app_state: &mut self.app_state,
-            paint_state: &mut self.paint_state,
-            transform: Affine::IDENTITY,
-            clip: None,
-            color: None,
-            font_size: None,
-            font_family: None,
-            font_weight: None,
-            font_style: None,
-            line_height: None,
-            saved_transforms: Vec::new(),
-            saved_clips: Vec::new(),
-            saved_colors: Vec::new(),
-            saved_font_sizes: Vec::new(),
-            saved_font_families: Vec::new(),
-            saved_font_weights: Vec::new(),
-            saved_font_styles: Vec::new(),
-            saved_line_heights: Vec::new(),
-        };
-        cx.paint_state.renderer.as_mut().unwrap().begin();
-        self.view.paint_main(&mut cx);
-        cx.paint_state.renderer.as_mut().unwrap().finish();
-    }
-
-    fn process_anim_update_messages(&mut self) -> ChangeFlags {
-        let mut flags = ChangeFlags::empty();
-        let msgs: Vec<AnimUpdateMsg> = ANIM_UPDATE_MESSAGES.with(|msgs| {
-            let mut msgs = msgs.borrow_mut();
-            let len = msgs.len();
-            msgs.drain(0..len).collect()
-        });
-
-        for msg in msgs {
-            match msg {
-                AnimUpdateMsg::Prop {
-                    id: anim_id,
-                    kind,
-                    val,
-                } => {
-                    let view_id = self.app_state.get_view_id_by_anim_id(anim_id);
-                    flags |= self.process_update_anim_prop(view_id, kind, val);
-                }
-            }
-        }
-
-        flags
-    }
-
-    fn process_update_anim_prop(
+    pub(crate) fn handle_user_event(
         &mut self,
-        view_id: Id,
-        kind: AnimPropKind,
-        to_val: AnimValue,
-    ) -> ChangeFlags {
-        let layout = self.app_state.get_layout(view_id).unwrap();
-        let view_state = self.app_state.view_state(view_id);
-        let anim = view_state.animation.as_mut().unwrap();
-        let prop = match kind {
-            AnimPropKind::Width => {
-                let from = anim
-                    .props()
-                    .get(&kind)
-                    .map(|old| anim.animate_prop(&old).unwrap_f64())
-                    .unwrap_or(layout.size.width as f64);
-                AnimPropValues::Width(F64AnimValues {
-                    from,
-                    to: to_val.unwrap_f64(),
-                })
+        event_loop: &EventLoopWindowTarget<UserEvent>,
+        event: UserEvent,
+        control_flow: &mut ControlFlow,
+    ) {
+        match event {
+            UserEvent::AppUpdate => {
+                self.handle_update_event(event_loop, control_flow);
             }
-            AnimPropKind::Height => {
-                let from = anim
-                    .props()
-                    .get(&kind)
-                    .map(|old| anim.animate_prop(&old).unwrap_f64())
-                    .unwrap_or(layout.size.height as f64);
-
-                AnimPropValues::Height(F64AnimValues {
-                    from,
-                    to: to_val.unwrap_f64(),
-                })
+            UserEvent::Idle => {
+                self.idle();
             }
-            AnimPropKind::BorderRadius => {
-                let border_radius = view_state.computed_style.border_radius;
-
-                AnimPropValues::BorderRadius(F64AnimValues {
-                    from: border_radius as f64,
-                    to: to_val.unwrap_f64(),
-                })
+            UserEvent::QuitApp => {
+                control_flow.set_exit();
             }
-            AnimPropKind::BorderColor => {
-                let from_val = view_state.computed_style.border_color;
-                AnimPropValues::BorderColor(ColorAnimValues {
-                    from: from_val,
-                    to: to_val.unwrap_color(),
-                })
-            }
-            AnimPropKind::Background => {
-                let from_val = view_state
-                    .computed_style
-                    .background
-                    //TODO:  get default from cx and remove the expect
-                    .expect("Bg must be set in the styles");
-
-                AnimPropValues::Background(ColorAnimValues {
-                    from: from_val,
-                    to: to_val.unwrap_color(),
-                })
-            }
-            AnimPropKind::Color => {
-                let from_val = view_state
-                    .computed_style
-                    .color
-                    //TODO:  default get from cx and remove the expect
-                    .expect("Color must be set in the animated view's style");
-                AnimPropValues::Color(ColorAnimValues {
-                    from: from_val,
-                    to: to_val.unwrap_color(),
-                })
-            }
-        };
-
-        let elapsed = anim
-            .props()
-            .get(&kind)
-            .map(|old| old.elapsed)
-            .unwrap_or(Duration::ZERO);
-
-        anim.props_mut().insert(
-            kind,
-            AnimatedProp {
-                values: prop,
-                elapsed,
-                started_on: Instant::now(),
-                state: PropAnimState::Idle,
-                repeats_count: 0,
-            },
-        );
-        anim.begin();
-
-        ChangeFlags::PAINT
+        }
     }
 
-    fn process_deferred_update_messages(&mut self) -> ChangeFlags {
-        let mut flags = ChangeFlags::empty();
-
-        let msgs = DEFERRED_UPDATE_MESSAGES.with(|msgs| {
-            msgs.borrow_mut()
-                .remove(&self.view.id())
-                .unwrap_or_default()
+    pub(crate) fn handle_update_event(
+        &mut self,
+        event_loop: &EventLoopWindowTarget<UserEvent>,
+        control_flow: &mut ControlFlow,
+    ) {
+        let events = APP_UPDATE_EVENTS.with(|events| {
+            let mut events = events.borrow_mut();
+            std::mem::take(&mut *events)
         });
-        if msgs.is_empty() {
-            return flags;
-        }
-
-        let mut cx = UpdateCx {
-            app_state: &mut self.app_state,
-        };
-        for (id, state) in msgs {
-            let id_path = IDPATHS.with(|paths| paths.borrow().get(&id).cloned());
-            if let Some(id_path) = id_path {
-                flags |= self.view.update_main(&mut cx, &id_path.0, state);
-            }
-        }
-
-        flags
-    }
-
-    fn process_update_messages(&mut self) -> ChangeFlags {
-        let mut flags = ChangeFlags::empty();
-        loop {
-            let msgs = UPDATE_MESSAGES.with(|msgs| {
-                msgs.borrow_mut()
-                    .remove(&self.view.id())
-                    .unwrap_or_default()
-            });
-            if msgs.is_empty() {
-                break;
-            }
-            let mut cx = UpdateCx {
-                app_state: &mut self.app_state,
-            };
-            for msg in msgs {
-                match msg {
-                    UpdateMessage::RequestPaint => {
-                        flags |= ChangeFlags::PAINT;
-                    }
-                    UpdateMessage::RequestLayout { id } => {
-                        cx.app_state.request_layout(id);
-                    }
-                    UpdateMessage::Focus(id) => {
-                        let old = cx.app_state.focus;
-                        cx.app_state.focus = Some(id);
-
-                        if let Some(old_id) = old {
-                            // To remove the styles applied by the Focus selector
-                            if cx.app_state.has_style_for_sel(old_id, StyleSelector::Focus) {
-                                cx.app_state.request_layout(old_id);
-                            }
-                        }
-
-                        if cx.app_state.has_style_for_sel(id, StyleSelector::Focus) {
-                            cx.app_state.request_layout(id);
-                        }
-                    }
-                    UpdateMessage::Active(id) => {
-                        let old = cx.app_state.active;
-                        cx.app_state.active = Some(id);
-
-                        if let Some(old_id) = old {
-                            // To remove the styles applied by the Active selector
-                            if cx
-                                .app_state
-                                .has_style_for_sel(old_id, StyleSelector::Active)
-                            {
-                                cx.app_state.request_layout(old_id);
-                            }
-                        }
-
-                        if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                            cx.app_state.request_layout(id);
-                        }
-                    }
-                    UpdateMessage::Disabled { id, is_disabled } => {
-                        if is_disabled {
-                            cx.app_state.disabled.insert(id);
-                            cx.app_state.hovered.remove(&id);
-                        } else {
-                            cx.app_state.disabled.remove(&id);
-                        }
-                        cx.app_state.request_layout(id);
-                    }
-                    UpdateMessage::State { id, state } => {
-                        let id_path = IDPATHS.with(|paths| paths.borrow().get(&id).cloned());
-                        if let Some(id_path) = id_path {
-                            flags |= self.view.update_main(&mut cx, &id_path.0, state);
-                        }
-                    }
-                    UpdateMessage::BaseStyle { id, style } => {
-                        let state = cx.app_state.view_state(id);
-                        state.base_style = Some(style);
-                        cx.request_layout(id);
-                    }
-                    UpdateMessage::Style { id, style } => {
-                        let state = cx.app_state.view_state(id);
-                        state.style = style;
-                        cx.request_layout(id);
-                    }
-                    UpdateMessage::ResponsiveStyle { id, style, size } => {
-                        let state = cx.app_state.view_state(id);
-
-                        state.add_responsive_style(size, style);
-                    }
-                    UpdateMessage::StyleSelector {
-                        id,
-                        style,
-                        selector,
-                    } => {
-                        let state = cx.app_state.view_state(id);
-                        let style = Some(style);
-                        match selector {
-                            StyleSelector::Hover => state.hover_style = style,
-                            StyleSelector::Focus => state.focus_style = style,
-                            StyleSelector::FocusVisible => state.focus_visible_style = style,
-                            StyleSelector::Disabled => state.disabled_style = style,
-                            StyleSelector::Active => state.active_style = style,
-                        }
-                        cx.request_layout(id);
-                    }
-                    UpdateMessage::KeyboardNavigatable { id } => {
-                        cx.app_state.keyboard_navigatable.insert(id);
-                    }
-                    UpdateMessage::HandleTitleBar(val) => {
-                        self.handle.handle_titlebar(val);
-                        if val {
-                            self.prev_mouse_pos = MousePosState::Ready;
-                        } else {
-                            self.prev_mouse_pos = MousePosState::None;
-                        }
-                    }
-                    UpdateMessage::EventListener {
-                        id,
-                        listener,
-                        action,
-                    } => {
-                        let state = cx.app_state.view_state(id);
-                        state.event_listeners.insert(listener, action);
-                    }
-                    UpdateMessage::ResizeListener { id, action } => {
-                        let state = cx.app_state.view_state(id);
-                        state.resize_listener = Some(ResizeListener {
-                            window_origin: Point::ZERO,
-                            rect: Rect::ZERO,
-                            callback: action,
-                        });
-                    }
-                    UpdateMessage::OpenFile {
-                        options,
-                        file_info_action,
-                    } => {
-                        let token = self.handle.open_file(options);
-                        if let Some(token) = token {
-                            self.file_dialogs.insert(token, file_info_action);
-                        }
-                    }
-                    UpdateMessage::RequestTimer { deadline, action } => {
-                        let token = self.handle.request_timer(deadline);
-                        self.timers.insert(token, action);
-                    }
-                    UpdateMessage::Animation { id, animation } => {
-                        cx.app_state.animated.insert(id);
-                        let view_state = cx.app_state.view_state(id);
-                        view_state.animation = Some(animation);
-                    }
-                    UpdateMessage::WindowScale(scale) => {
-                        cx.app_state.scale = scale;
-                        cx.request_layout(self.view.id());
-                        let scale = self.handle.get_scale().unwrap_or_default();
-                        let scale = Scale::new(
-                            scale.x() * cx.app_state.scale,
-                            scale.y() * cx.app_state.scale,
-                        );
-                        self.paint_state.set_scale(scale);
-                    }
-                    UpdateMessage::ShowContextMenu { menu, pos } => {
-                        let menu = menu.popup();
-                        let platform_menu = menu.platform_menu();
-                        cx.app_state.contex_menu.clear();
-                        cx.app_state.update_context_menu(menu);
-                        self.handle.show_context_menu(platform_menu, pos);
-                    }
-                    UpdateMessage::RequestAnimFrame => self.handle.request_anim_frame(),
+        for event in events {
+            match event {
+                AppUpdateEvent::NewWindow { view_fn, config } => {
+                    self.new_window(event_loop, view_fn, config)
+                }
+                AppUpdateEvent::CloseWindow { window_id } => {
+                    self.close_window(window_id, control_flow);
+                }
+                AppUpdateEvent::RequestTimer { timer } => {
+                    self.request_timer(timer, control_flow);
+                }
+                #[cfg(target_os = "linux")]
+                AppUpdateEvent::MenuAction {
+                    window_id,
+                    action_id,
+                } => {
+                    let window_handle = match self.window_handles.get_mut(&window_id) {
+                        Some(window_handle) => window_handle,
+                        None => return,
+                    };
+                    window_handle.menu_action(action_id);
                 }
             }
         }
-        flags
     }
 
-    fn needs_layout(&mut self) -> bool {
-        self.app_state.view_state(self.view.id()).request_layout
-    }
-
-    fn has_deferred_update_messages(&self) -> bool {
-        DEFERRED_UPDATE_MESSAGES.with(|m| {
-            m.borrow()
-                .get(&self.view.id())
-                .map(|m| !m.is_empty())
-                .unwrap_or(false)
-        })
-    }
-
-    fn has_anim_update_messages(&mut self) -> bool {
-        ANIM_UPDATE_MESSAGES.with(|m| !m.borrow().is_empty())
-    }
-
-    pub fn process_update(&mut self) {
-        let mut flags = ChangeFlags::empty();
-        loop {
-            flags |= self.process_update_messages();
-            if !self.needs_layout()
-                && !self.has_deferred_update_messages()
-                && !self.has_anim_update_messages()
-            {
-                break;
-            }
-            flags |= ChangeFlags::LAYOUT;
-            self.layout();
-            flags |= self.process_deferred_update_messages();
-            flags |= self.process_anim_update_messages();
-        }
-
-        let glazier_cursor = match self.app_state.cursor {
-            Some(CursorStyle::Default) => glazier::Cursor::Arrow,
-            Some(CursorStyle::Pointer) => glazier::Cursor::Pointer,
-            Some(CursorStyle::Text) => glazier::Cursor::IBeam,
-            None => glazier::Cursor::Arrow,
-        };
-        self.handle.set_cursor(&glazier_cursor);
-
-        if !flags.is_empty() {
-            self.handle.invalidate();
-        }
-    }
-
-    pub fn event(&mut self, event: Event) {
-        let event = event.scale(self.app_state.scale);
-
-        let mut cx = EventCx {
-            app_state: &mut self.app_state,
+    pub(crate) fn handle_window_event(
+        &mut self,
+        window_id: winit::window::WindowId,
+        event: WindowEvent,
+        control_flow: &mut ControlFlow,
+    ) {
+        let window_handle = match self.window_handles.get_mut(&window_id) {
+            Some(window_handle) => window_handle,
+            None => return,
         };
 
-        let is_pointer_move = matches!(&event, Event::PointerMove(_));
-        let was_hovered = if is_pointer_move {
-            cx.app_state.cursor = None;
-            let was_hovered = cx.app_state.hovered.clone();
-            cx.app_state.hovered.clear();
-            Some(was_hovered)
-        } else {
-            None
+        match event {
+            WindowEvent::ActivationTokenDone { .. } => {}
+            WindowEvent::Resized(size) => {
+                let size: LogicalSize<f64> = size.to_logical(window_handle.scale);
+                let size = Size::new(size.width, size.height);
+                window_handle.size(size);
+            }
+            WindowEvent::Moved(position) => {
+                let position: LogicalPosition<f64> = position.to_logical(window_handle.scale);
+                let point = Point::new(position.x, position.y);
+                window_handle.position(point);
+            }
+            WindowEvent::CloseRequested => {
+                self.close_window(window_id, control_flow);
+            }
+            WindowEvent::Destroyed => {
+                self.close_window(window_id, control_flow);
+            }
+            WindowEvent::DroppedFile(_) => {}
+            WindowEvent::HoveredFile(_) => {}
+            WindowEvent::HoveredFileCancelled => {}
+            WindowEvent::Focused(focused) => {
+                window_handle.focused(focused);
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                window_handle.key_event(event);
+            }
+            WindowEvent::ModifiersChanged(modifiers) => {
+                window_handle.modifiers = modifiers.state();
+            }
+            WindowEvent::Ime(ime) => {
+                window_handle.ime(ime);
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let position: LogicalPosition<f64> = position.to_logical(window_handle.scale);
+                let point = Point::new(position.x, position.y);
+                window_handle.pointer_move(point);
+            }
+            WindowEvent::CursorEntered { .. } => {}
+            WindowEvent::CursorLeft { .. } => {}
+            WindowEvent::MouseWheel { delta, .. } => {
+                window_handle.mouse_wheel(delta);
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                window_handle.mouse_input(button, state);
+            }
+            WindowEvent::TouchpadMagnify { .. } => {}
+            WindowEvent::SmartMagnify { .. } => {}
+            WindowEvent::TouchpadRotate { .. } => {}
+            WindowEvent::TouchpadPressure { .. } => {}
+            WindowEvent::AxisMotion { .. } => {}
+            WindowEvent::Touch(_) => {}
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                window_handle.scale(scale_factor);
+            }
+            WindowEvent::ThemeChanged(theme) => {
+                window_handle.theme_changed(theme);
+            }
+            WindowEvent::Occluded(_) => {}
+            WindowEvent::MenuAction(id) => {
+                window_handle.menu_action(id);
+            }
+        }
+    }
+
+    pub(crate) fn redraw_requested(&mut self, window_id: winit::window::WindowId) {
+        if let Some(window_handle) = self.window_handles.get_mut(&window_id) {
+            window_handle.paint();
+        }
+    }
+
+    pub(crate) fn new_window(
+        &mut self,
+        event_loop: &EventLoopWindowTarget<UserEvent>,
+        view_fn: Box<dyn FnOnce(WindowId) -> Box<dyn View>>,
+        config: Option<WindowConfig>,
+    ) {
+        let mut window_builder = winit::window::WindowBuilder::new();
+        if let Some(config) = config {
+            if let Some(size) = config.size {
+                let size = if size.width == 0.0 || size.height == 0.0 {
+                    Size::new(800.0, 600.0)
+                } else {
+                    size
+                };
+                window_builder =
+                    window_builder.with_inner_size(LogicalSize::new(size.width, size.height));
+            }
+            if let Some(pos) = config.position {
+                window_builder = window_builder.with_position(LogicalPosition::new(pos.x, pos.y));
+            }
+            if let Some(show_titlebar) = config.show_titlebar {
+                #[cfg(target_os = "macos")]
+                if !show_titlebar {
+                    use winit::platform::macos::WindowBuilderExtMacOS;
+                    window_builder = window_builder
+                        .with_title_hidden(true)
+                        .with_titlebar_transparent(true)
+                        .with_fullsize_content_view(true);
+                }
+                #[cfg(not(target_os = "macos"))]
+                if !show_titlebar {
+                    window_builder = window_builder.with_decorations(false);
+                }
+            }
+        }
+        let result = window_builder.build(event_loop);
+        let window = match result {
+            Ok(window) => window,
+            Err(_) => return,
         };
+        let window_id = window.id();
+        let window_handle = WindowHandle::new(window, view_fn);
+        self.window_handles.insert(window_id, window_handle);
+    }
 
-        let is_pointer_down = matches!(&event, Event::PointerDown(_));
-        let was_focused = if is_pointer_down {
-            cx.app_state.focus.take()
-        } else {
-            cx.app_state.focus
-        };
+    fn close_window(
+        &mut self,
+        window_id: WindowId,
+        #[cfg(target_os = "macos")] _control_flow: &mut ControlFlow,
+        #[cfg(not(target_os = "macos"))] control_flow: &mut ControlFlow,
+    ) {
+        if let Some(handle) = self.window_handles.get_mut(&window_id) {
+            handle.window = None;
+            handle.destroy();
+        }
+        self.window_handles.remove(&window_id);
+        #[cfg(not(target_os = "macos"))]
+        if self.window_handles.is_empty() {
+            control_flow.set_exit();
+        }
+    }
 
-        if event.needs_focus() {
-            let mut processed = false;
+    pub(crate) fn idle(&mut self) {
+        while let Some(trigger) = { EXT_EVENT_HANDLER.queue.lock().pop_front() } {
+            trigger.notify();
+        }
+        for (_, handle) in self.window_handles.iter_mut() {
+            handle.process_update();
+        }
+    }
 
-            if !processed {
-                if let Some(id) = cx.app_state.focus {
-                    IDPATHS.with(|paths| {
-                        if let Some(id_path) = paths.borrow().get(&id) {
-                            processed |=
-                                self.view
-                                    .event_main(&mut cx, Some(&id_path.0), event.clone());
-                        }
-                    });
-                } else if let Some(listener) = event.listener() {
-                    if let Some(action) = cx.get_event_listener(self.view.id(), &listener) {
-                        processed |= (*action)(&event);
-                    }
-                }
+    fn request_timer(&mut self, timer: Timer, control_flow: &mut ControlFlow) {
+        self.timers.insert(timer.token, timer);
+        self.fire_timer(control_flow);
+    }
 
-                if !processed {
-                    if let Event::KeyDown(glazier::KeyEvent { key, mods, .. }) = &event {
-                        if key == &glazier::KbKey::Tab {
-                            let backwards = mods.contains(glazier::Modifiers::SHIFT);
-                            self.view.tab_navigation(cx.app_state, backwards);
-                        } else if let glazier::KbKey::Character(character) = key {
-                            // 'I' displays some debug information
-                            if character.eq_ignore_ascii_case("i") {
-                                self.view.debug_tree();
-                            }
-                        }
-                    }
-
-                    let keyboard_trigger_end = cx.app_state.keyboard_navigation
-                        && event.is_keyboard_trigger()
-                        && matches!(event, Event::KeyUp(_));
-                    if keyboard_trigger_end {
-                        if let Some(id) = cx.app_state.active {
-                            // To remove the styles applied by the Active selector
-                            if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                                cx.app_state.request_layout(id);
-                            }
-
-                            cx.app_state.active = None;
-                        }
-                    }
-                }
-            }
-        } else if cx.app_state.active.is_some() && event.is_pointer() {
-            let id = cx.app_state.active.unwrap();
-            IDPATHS.with(|paths| {
-                if let Some(id_path) = paths.borrow().get(&id) {
-                    self.view
-                        .event_main(&mut cx, Some(&id_path.0), event.clone());
-                }
-            });
-            if let Event::PointerUp(_) = &event {
-                // To remove the styles applied by the Active selector
-                if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                    cx.app_state.request_layout(id);
-                }
-
-                cx.app_state.active = None;
-            }
-        } else {
-            self.view.event_main(&mut cx, None, event.clone());
+    fn fire_timer(&mut self, control_flow: &mut ControlFlow) {
+        if self.timers.is_empty() {
+            return;
         }
 
-        if is_pointer_move {
-            let hovered = &cx.app_state.hovered.clone();
-            for id in was_hovered.unwrap().symmetric_difference(hovered) {
-                let view_state = cx.app_state.view_state(*id);
-                if view_state.hover_style.is_some()
-                    || view_state.active_style.is_some()
-                    || view_state.animation.is_some()
-                {
-                    cx.app_state.request_layout(*id);
+        let deadline = self.timers.values().map(|timer| timer.deadline).min();
+        if let Some(deadline) = deadline {
+            control_flow.set_wait_until(deadline);
+        }
+    }
+
+    pub(crate) fn handle_timer(&mut self, control_flow: &mut ControlFlow) {
+        let now = Instant::now();
+        let tokens: Vec<TimerToken> = self
+            .timers
+            .iter()
+            .filter_map(|(token, timer)| {
+                if timer.deadline <= now {
+                    Some(*token)
+                } else {
+                    None
                 }
-                if hovered.contains(id) {
-                    if let Some(action) = cx.get_event_listener(*id, &EventListner::PointerEnter) {
-                        (*action)(&event);
-                    }
-                } else if let Some(action) = cx.get_event_listener(*id, &EventListner::PointerLeave)
-                {
-                    (*action)(&event);
+            })
+            .collect();
+        if !tokens.is_empty() {
+            for token in tokens {
+                if let Some(timer) = self.timers.remove(&token) {
+                    (timer.action)(token);
                 }
             }
-        }
-        if was_focused != cx.app_state.focus {
-            if let Some(old_id) = was_focused {
-                // To remove the styles applied by the Focus selector
-                if cx.app_state.has_style_for_sel(old_id, StyleSelector::Focus)
-                    || cx
-                        .app_state
-                        .has_style_for_sel(old_id, StyleSelector::FocusVisible)
-                {
-                    cx.app_state.request_layout(old_id);
-                }
-            }
-
-            if let Some(id) = cx.app_state.focus {
-                // To apply the styles of the Focus selector
-                if cx.app_state.has_style_for_sel(id, StyleSelector::Focus)
-                    || cx
-                        .app_state
-                        .has_style_for_sel(id, StyleSelector::FocusVisible)
-                {
-                    cx.app_state.request_layout(id);
-                }
+            for (_, handle) in self.window_handles.iter_mut() {
+                handle.process_update();
             }
         }
-
-        self.process_update();
-    }
-
-    fn idle(&mut self) {
-        while let Some(id) = EXT_EVENT_HANDLER.queue.lock().pop_front() {
-            let write = WRITE_SIGNALS.with(|signals| signals.borrow_mut().get(&id).cloned());
-            if let Some(write) = write {
-                write.set(Some(()));
-            }
-        }
-        self.process_update();
-    }
-}
-
-impl<V: View> WinHandler for AppHandle<V> {
-    fn connect(&mut self, handle: &glazier::WindowHandle) {
-        self.paint_state.connect(handle);
-        self.handle = handle.clone();
-        let size = handle.get_size();
-        self.app_state.set_root_size(size);
-        if let Some(idle_handle) = handle.get_idle_handle() {
-            *EXT_EVENT_HANDLER.handle.lock() = Some(idle_handle);
-        }
-        self.idle();
-    }
-
-    fn scale(&mut self, scale: Scale) {
-        let scale = Scale::new(
-            scale.x() * self.app_state.scale,
-            scale.y() * self.app_state.scale,
-        );
-        self.paint_state.set_scale(scale);
-        self.handle.invalidate();
-    }
-
-    fn size(&mut self, size: glazier::kurbo::Size) {
-        self.app_state.update_scr_size_breakpt(size);
-        self.event(Event::WindowResized(size));
-        let scale = self.handle.get_scale().unwrap_or_default();
-        let scale = Scale::new(
-            scale.x() * self.app_state.scale,
-            scale.y() * self.app_state.scale,
-        );
-        self.paint_state.resize(scale, size / self.app_state.scale);
-        self.app_state.set_root_size(size);
-        self.layout();
-        self.process_update();
-        self.handle.invalidate();
-    }
-
-    fn position(&mut self, point: Point) {
-        self.event(Event::WindowMoved(point));
-    }
-
-    fn prepare_paint(&mut self) {}
-
-    fn paint(&mut self, _invalid: &glazier::Region) {
-        if !self.app_state.ids_with_anim_in_progress().is_empty() {
-            self.event(Event::AnimFrame);
-        }
-
-        self.paint();
-    }
-
-    fn key_down(&mut self, event: glazier::KeyEvent) -> bool {
-        assert_eq!(event.state, glazier::KeyState::Down);
-        self.event(Event::KeyDown(event));
-        true
-    }
-
-    fn key_up(&mut self, event: glazier::KeyEvent) {
-        assert_eq!(event.state, glazier::KeyState::Up);
-        self.event(Event::KeyUp(event));
-    }
-
-    fn pointer_down(&mut self, event: &glazier::PointerEvent) {
-        self.event(Event::PointerDown(event.clone()));
-    }
-
-    fn pointer_up(&mut self, event: &glazier::PointerEvent) {
-        self.prev_mouse_pos = MousePosState::None;
-        self.event(Event::PointerUp(event.clone()));
-    }
-
-    fn pointer_move(&mut self, event: &glazier::PointerEvent) {
-        match self.prev_mouse_pos {
-            MousePosState::None => {}
-            MousePosState::Ready => self.prev_mouse_pos = MousePosState::Some(event.pos),
-            MousePosState::Some(prev_pos) => {
-                let position_diff = event.pos - prev_pos;
-                let new_position = self.handle.get_position() + position_diff;
-                self.handle.set_position(new_position);
-            }
-        }
-        self.event(Event::PointerMove(event.clone()));
-    }
-
-    fn wheel(&mut self, event: &glazier::PointerEvent) {
-        self.event(Event::PointerWheel(event.clone()));
-    }
-
-    fn idle(&mut self, _token: glazier::IdleToken) {
-        self.idle();
-    }
-
-    fn command(&mut self, id: u32) {
-        if let Some(action) = self.app_state.contex_menu.get(&id) {
-            (*action)();
-            self.process_update();
-        }
-    }
-
-    fn as_any(&mut self) -> &mut dyn Any {
-        &mut self.app_state
-    }
-
-    fn open_file(&mut self, token: FileDialogToken, file: Option<FileInfo>) {
-        if let Some(action) = self.file_dialogs.remove(&token) {
-            action(file);
-        }
-    }
-
-    fn timer(&mut self, token: TimerToken) {
-        if let Some(action) = self.timers.remove(&token) {
-            action();
-        }
-        self.process_update();
-    }
-
-    fn request_close(&mut self) {
-        self.handle.close();
-    }
-
-    fn destroy(&mut self) {
-        self.event(Event::WindowClosed);
-        glazier::Application::global().quit();
+        self.fire_timer(control_flow);
     }
 }

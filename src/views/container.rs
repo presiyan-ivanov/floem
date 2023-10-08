@@ -1,25 +1,25 @@
+use kurbo::Rect;
+
 use crate::{
-    app_handle::AppContext,
     id::Id,
     view::{ChangeFlags, View},
 };
 
+/// A simple wrapper around another View. See [`container`]
 pub struct Container<V: View> {
     id: Id,
     child: V,
 }
 
-pub fn container<V: View>(child: impl FnOnce() -> V) -> Container<V> {
-    let cx = AppContext::get_current();
-    let id = cx.new_id();
-    let mut child_cx = cx;
-    child_cx.id = id;
-    AppContext::save();
-    AppContext::set_current(child_cx);
-    let child = child();
-    AppContext::restore();
-
-    Container { id, child }
+/// A simple wrapper around another View
+///
+/// A [`Container`] is useful for wrapping another [View](crate::view::View). This is often useful for allowing another
+/// set of styles completely separate from the View that is being wrapped.
+pub fn container<V: View>(child: V) -> Container<V> {
+    Container {
+        id: Id::next(),
+        child,
+    }
 }
 
 impl<V: View> View for Container<V> {
@@ -27,7 +27,15 @@ impl<V: View> View for Container<V> {
         self.id
     }
 
-    fn child(&mut self, id: Id) -> Option<&mut dyn View> {
+    fn child(&self, id: Id) -> Option<&dyn View> {
+        if self.child.id() == id {
+            Some(&self.child)
+        } else {
+            None
+        }
+    }
+
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
         if self.child.id() == id {
             Some(&mut self.child)
         } else {
@@ -35,7 +43,11 @@ impl<V: View> View for Container<V> {
         }
     }
 
-    fn children(&mut self) -> Vec<&mut dyn View> {
+    fn children(&self) -> Vec<&dyn View> {
+        vec![&self.child]
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
         vec![&mut self.child]
     }
 
@@ -55,8 +67,8 @@ impl<V: View> View for Container<V> {
         cx.layout_node(self.id, true, |cx| vec![self.child.layout_main(cx)])
     }
 
-    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) {
-        self.child.compute_layout_main(cx);
+    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
+        Some(self.child.compute_layout_main(cx))
     }
 
     fn event(

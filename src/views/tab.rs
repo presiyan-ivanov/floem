@@ -1,11 +1,11 @@
 use std::{hash::Hash, marker::PhantomData};
 
-use leptos_reactive::{create_effect, ScopeDisposer};
+use floem_reactive::{as_child_of_current_scope, create_effect, Scope};
+use kurbo::Rect;
 use smallvec::SmallVec;
 use taffy::style::Display;
 
 use crate::{
-    app_handle::AppContext,
     context::{EventCx, UpdateCx},
     id::Id,
     view::{ChangeFlags, View},
@@ -18,18 +18,16 @@ enum TabState<V> {
     Active(usize),
 }
 
-pub struct Tab<V, VF, T>
+pub struct Tab<V, T>
 where
     V: View,
-    VF: Fn(T) -> V + 'static,
     T: 'static,
 {
     id: Id,
     active: usize,
-    children: Vec<Option<(V, ScopeDisposer)>>,
-    view_fn: VF,
+    children: Vec<Option<(V, Scope)>>,
+    view_fn: Box<dyn Fn(T) -> (V, Scope)>,
     phatom: PhantomData<T>,
-    cx: AppContext,
 }
 
 pub fn tab<IF, I, T, KF, K, VF, V>(
@@ -37,7 +35,7 @@ pub fn tab<IF, I, T, KF, K, VF, V>(
     each_fn: IF,
     key_fn: KF,
     view_fn: VF,
-) -> Tab<V, VF, T>
+) -> Tab<V, T>
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
@@ -47,13 +45,9 @@ where
     V: View + 'static,
     T: 'static,
 {
-    let cx = AppContext::get_current();
-    let id = cx.new_id();
+    let id = Id::next();
 
-    let mut child_cx = cx;
-    child_cx.id = id;
-
-    create_effect(cx.scope, move |prev_hash_run| {
+    create_effect(move |prev_hash_run| {
         let items = each_fn();
         let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
         let hashed_items = items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
@@ -81,30 +75,40 @@ where
         HashRun(hashed_items)
     });
 
-    create_effect(cx.scope, move |_| {
+    create_effect(move |_| {
         let active = active_fn();
         id.update_state(TabState::Active::<T>(active), false);
     });
+
+    let view_fn = Box::new(as_child_of_current_scope(view_fn));
 
     Tab {
         id,
         active: 0,
         children: Vec::new(),
         view_fn,
-        phatom: PhantomData::default(),
-        cx: child_cx,
+        phatom: PhantomData,
     }
 }
 
-impl<V: View + 'static, VF, T> View for Tab<V, VF, T>
-where
-    VF: Fn(T) -> V + 'static,
-{
+impl<V: View + 'static, T> View for Tab<V, T> {
     fn id(&self) -> Id {
         self.id
     }
 
-    fn child(&mut self, id: Id) -> Option<&mut dyn View> {
+    fn child(&self, id: Id) -> Option<&dyn View> {
+        let child = self
+            .children
+            .iter()
+            .find(|v| v.as_ref().map(|(v, _)| v.id() == id).unwrap_or(false));
+        if let Some(child) = child {
+            child.as_ref().map(|(view, _)| view as &dyn View)
+        } else {
+            None
+        }
+    }
+
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
         let child = self
             .children
             .iter_mut()
@@ -116,7 +120,15 @@ where
         }
     }
 
-    fn children(&mut self) -> Vec<&mut dyn View> {
+    fn children(&self) -> Vec<&dyn View> {
+        self.children
+            .iter()
+            .filter_map(|child| child.as_ref())
+            .map(|child| &child.0 as &dyn View)
+            .collect()
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
         self.children
             .iter_mut()
             .filter_map(|child| child.as_mut())
@@ -136,10 +148,13 @@ where
         if let Ok(state) = state.downcast::<TabState<T>>() {
             match *state {
                 TabState::Diff(diff) => {
-                    AppContext::save();
-                    AppContext::set_current(self.cx);
-                    apply_diff(cx.app_state, *diff, &mut self.children, &self.view_fn);
-                    AppContext::restore();
+                    apply_diff(
+                        self.id,
+                        cx.app_state,
+                        *diff,
+                        &mut self.children,
+                        &self.view_fn,
+                    );
                 }
                 TabState::Active(active) => {
                     self.active = active;
@@ -163,7 +178,7 @@ where
                 .enumerate()
                 .filter_map(|(i, child)| {
                     let child_id = child.as_ref()?.0.id();
-                    let mut child_view = cx.app_state.view_state(child_id);
+                    let child_view = cx.app_state_mut().view_state(child_id);
                     if i != self.active {
                         // set display to none for non active child
                         child_view.style.display = Display::None.into();
@@ -178,12 +193,14 @@ where
         })
     }
 
-    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) {
+    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
+        let mut layout_rect = Rect::ZERO;
         for child in &mut self.children {
             if let Some((child, _)) = child.as_mut() {
-                child.compute_layout_main(cx);
+                layout_rect = layout_rect.union(child.compute_layout_main(cx));
             }
         }
+        Some(layout_rect)
     }
 
     fn event(

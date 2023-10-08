@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use floem_renderer::cosmic_text::{SubpixelBin, SwashCache, SwashImage, TextLayout};
 use floem_renderer::{tiny_skia, Renderer};
@@ -9,8 +11,9 @@ use vger::{PaintIndex, Vger};
 use wgpu::{Device, Queue, Surface, SurfaceConfiguration, TextureFormat};
 
 pub struct VgerRenderer {
-    device: Device,
-    queue: Queue,
+    device: Arc<Device>,
+    #[allow(unused)]
+    queue: Arc<Queue>,
     surface: Surface,
     vger: Vger,
     config: SurfaceConfiguration,
@@ -48,6 +51,8 @@ impl VgerRenderer {
             },
             None,
         ))?;
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
 
         let surface_caps = surface.get_capabilities(&adapter);
         let texture_format = surface_caps
@@ -67,7 +72,7 @@ impl VgerRenderer {
         };
         surface.configure(&device, &config);
 
-        let vger = vger::Vger::new(&device, texture_format);
+        let vger = vger::Vger::new(device.clone(), queue.clone(), texture_format);
 
         Ok(Self {
             device,
@@ -169,7 +174,7 @@ impl Renderer for VgerRenderer {
         } else if let Some(rect) = shape.as_rounded_rect() {
             let min = rect.origin();
             let max = min + rect.rect().size().to_vec2();
-            let radius = rect.radii().top_left as f32;
+            let radius = (rect.radii().top_left * self.scale) as f32;
             self.vger.stroke_rect(
                 self.vger_point(min),
                 self.vger_point(max),
@@ -203,19 +208,55 @@ impl Renderer for VgerRenderer {
         }
     }
 
-    fn fill<'b>(&mut self, path: &impl Shape, brush: impl Into<BrushRef<'b>>) {
+    fn fill<'b>(&mut self, path: &impl Shape, brush: impl Into<BrushRef<'b>>, blur_radius: f64) {
         let paint = match self.brush_to_paint(brush) {
             Some(paint) => paint,
             None => return,
         };
         if let Some(rect) = path.as_rect() {
-            self.vger.fill_rect(self.vger_rect(rect), 0.0, paint);
+            self.vger.fill_rect(
+                self.vger_rect(rect),
+                0.0,
+                paint,
+                (blur_radius * self.scale) as f32,
+            );
         } else if let Some(rect) = path.as_rounded_rect() {
             self.vger.fill_rect(
                 self.vger_rect(rect.rect()),
-                rect.radii().top_left as f32,
+                (rect.radii().top_left * self.scale) as f32,
                 paint,
+                (blur_radius * self.scale) as f32,
             );
+        } else if let Some(circle) = path.as_circle() {
+            self.vger.fill_circle(
+                self.vger_point(circle.center),
+                (circle.radius * self.scale) as f32,
+                paint,
+            )
+        } else {
+            let mut first = true;
+            for segment in path.path_segments(0.1) {
+                match segment {
+                    peniko::kurbo::PathSeg::Line(line) => {
+                        if first {
+                            first = false;
+                            self.vger.move_to(self.vger_point(line.p0));
+                        }
+                        self.vger
+                            .quad_to(self.vger_point(line.p1), self.vger_point(line.p1));
+                    }
+                    peniko::kurbo::PathSeg::Quad(quad) => {
+                        if first {
+                            first = false;
+                            self.vger.move_to(self.vger_point(quad.p0));
+                        }
+                        self.vger
+                            .quad_to(self.vger_point(quad.p1), self.vger_point(quad.p2));
+                    }
+                    peniko::kurbo::PathSeg::Cubic(_) => {}
+                }
+            }
+            self.vger.fill(paint);
         }
     }
 
@@ -318,9 +359,21 @@ impl Renderer for VgerRenderer {
         self.transform = transform;
     }
 
+    fn set_z_index(&mut self, z_index: i32) {
+        self.vger.set_z_index(z_index);
+    }
+
     fn clip(&mut self, shape: &impl Shape) {
-        let rect = shape.bounding_box();
-        self.vger.scissor(self.vger_rect(rect));
+        let (rect, radius) = if let Some(rect) = shape.as_rect() {
+            (rect, 0.0)
+        } else if let Some(rect) = shape.as_rounded_rect() {
+            (rect.rect(), rect.radii().top_left)
+        } else {
+            (shape.bounding_box(), 0.0)
+        };
+
+        self.vger
+            .scissor(self.vger_rect(rect), (radius * self.scale) as f32);
 
         let transform = self.transform.as_coeffs();
         let offset = Vec2::new(transform[4], transform[5]);
@@ -350,7 +403,7 @@ impl Renderer for VgerRenderer {
             depth_stencil_attachment: None,
         };
 
-        self.vger.encode(&self.device, &desc, &self.queue);
+        self.vger.encode(&desc);
         frame.present();
     }
 }

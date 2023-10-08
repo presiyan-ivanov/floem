@@ -1,30 +1,25 @@
+use floem_reactive::create_effect;
 use floem_renderer::Renderer;
-use glazier::{
-    kurbo::{Point, Rect, Size, Vec2},
-    PointerType,
-};
-use leptos_reactive::create_effect;
-use taffy::{
-    prelude::Node,
-    style::{Dimension, Position},
-};
-use vello::peniko::Color;
+use kurbo::{Point, Rect, Size, Vec2};
+use peniko::Color;
+use taffy::{prelude::Node, style::Position};
 
 use crate::{
-    app_handle::AppContext,
     context::{AppState, LayoutCx, PaintCx},
     event::Event,
     id::Id,
     style::{ComputedStyle, Style, StyleValue},
+    unit::PxPct,
     view::{ChangeFlags, View},
 };
 
 enum ScrollState {
-    EnsureVisble(Rect),
+    EnsureVisible(Rect),
     ScrollDelta(Vec2),
     ScrollTo(Point),
-    ScrollBarColor(Color),
     HiddenBar(bool),
+    PropagatePointerWheel(bool),
+    VerticalScrollAsHorizontal(bool),
 }
 
 /// Minimum length for any scrollbar to be when measured on that
@@ -44,6 +39,41 @@ enum BarHeldState {
     Horizontal(f64, Vec2),
 }
 
+pub struct ScrollBarStyle {
+    color: Color,
+    rounded: bool,
+    hide: bool,
+    thickness: f32,
+    edge_width: f32,
+}
+impl ScrollBarStyle {
+    pub const BASE: Self = ScrollBarStyle {
+        // 179 is 70% of 255 so a 70% alpha factor is the default
+        color: Color::rgba8(0, 0, 0, 179),
+        rounded: cfg!(target_os = "macos"),
+        thickness: 10.,
+        edge_width: 0.,
+        hide: false,
+    };
+
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+    pub fn rounded(mut self, rounded: bool) -> Self {
+        self.rounded = rounded;
+        self
+    }
+    pub fn thickness(mut self, thickness: f32) -> Self {
+        self.thickness = thickness;
+        self
+    }
+    pub fn edge_width(mut self, edge_width: f32) -> Self {
+        self.edge_width = edge_width;
+        self
+    }
+}
+
 pub struct Scroll<V: View> {
     id: Id,
     child: V,
@@ -56,24 +86,14 @@ pub struct Scroll<V: View> {
     onscroll: Option<Box<dyn Fn(Rect)>>,
     held: BarHeldState,
     virtual_node: Option<Node>,
-    hide_bar: bool,
-    opacity: f64,
-    scroll_bar_color: Color,
+    propagate_pointer_wheel: bool,
+    vertical_scroll_as_horizontal: bool,
+    scroll_bar_style: ScrollBarStyle,
 }
 
-pub fn scroll<V: View>(child: impl FnOnce() -> V) -> Scroll<V> {
-    let cx = AppContext::get_current();
-    let id = cx.new_id();
-
-    let mut child_cx = cx;
-    child_cx.id = id;
-    AppContext::save();
-    AppContext::set_current(child_cx);
-    let child = child();
-    AppContext::restore();
-
+pub fn scroll<V: View>(child: V) -> Scroll<V> {
     Scroll {
-        id,
+        id: Id::next(),
         child,
         size: Size::ZERO,
         actual_rect: Rect::ZERO,
@@ -82,44 +102,31 @@ pub fn scroll<V: View>(child: impl FnOnce() -> V) -> Scroll<V> {
         onscroll: None,
         held: BarHeldState::None,
         virtual_node: None,
-        hide_bar: false,
-        opacity: 0.7,
-        scroll_bar_color: Color::BLACK,
+        propagate_pointer_wheel: false,
+        vertical_scroll_as_horizontal: false,
+        scroll_bar_style: ScrollBarStyle::BASE,
     }
 }
 
 impl<V: View> Scroll<V> {
-    pub fn scroll_bar_color(self, color: impl Fn() -> Color + 'static) -> Self {
-        let cx = AppContext::get_current();
-        let id = self.id;
-        create_effect(cx.scope, move |_| {
-            let color = color();
-            id.update_state(ScrollState::ScrollBarColor(color), false);
-        });
-
-        self
-    }
-
     pub fn on_scroll(mut self, onscroll: impl Fn(Rect) + 'static) -> Self {
         self.onscroll = Some(Box::new(onscroll));
         self
     }
 
     pub fn on_ensure_visible(self, to: impl Fn() -> Rect + 'static) -> Self {
-        let cx = AppContext::get_current();
         let id = self.id;
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let rect = to();
-            id.update_state(ScrollState::EnsureVisble(rect), true);
+            id.update_state(ScrollState::EnsureVisible(rect), true);
         });
 
         self
     }
 
     pub fn on_scroll_delta(self, delta: impl Fn() -> Vec2 + 'static) -> Self {
-        let cx = AppContext::get_current();
         let id = self.id;
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             let delta = delta();
             id.update_state(ScrollState::ScrollDelta(delta), false);
         });
@@ -128,9 +135,8 @@ impl<V: View> Scroll<V> {
     }
 
     pub fn on_scroll_to(self, origin: impl Fn() -> Option<Point> + 'static) -> Self {
-        let cx = AppContext::get_current();
         let id = self.id;
-        create_effect(cx.scope, move |_| {
+        create_effect(move |_| {
             if let Some(origin) = origin() {
                 id.update_state(ScrollState::ScrollTo(origin), true);
             }
@@ -139,11 +145,26 @@ impl<V: View> Scroll<V> {
         self
     }
 
-    pub fn hide_bar(self, value: impl Fn() -> bool + 'static) -> Self {
-        let cx = AppContext::get_current();
+    pub fn hide_bar(self, hide: impl Fn() -> bool + 'static) -> Self {
         let id = self.id;
-        create_effect(cx.scope, move |_| {
-            id.update_state(ScrollState::HiddenBar(value()), false);
+        create_effect(move |_| {
+            id.update_state(ScrollState::HiddenBar(hide()), false);
+        });
+        self
+    }
+
+    pub fn propagate_pointer_wheel(self, value: impl Fn() -> bool + 'static) -> Self {
+        let id = self.id;
+        create_effect(move |_| {
+            id.update_state(ScrollState::PropagatePointerWheel(value()), false);
+        });
+        self
+    }
+
+    pub fn vertical_scroll_as_horizontal(self, value: impl Fn() -> bool + 'static) -> Self {
+        let id = self.id;
+        create_effect(move |_| {
+            id.update_state(ScrollState::VerticalScrollAsHorizontal(value()), false);
         });
         self
     }
@@ -224,20 +245,20 @@ impl<V: View> Scroll<V> {
 
         let style = app_state.get_computed_style(self.id);
         let padding_left = match style.padding_left {
-            taffy::style::LengthPercentage::Points(padding) => padding,
-            taffy::style::LengthPercentage::Percent(pct) => pct * layout.size.width,
+            PxPct::Px(padding) => padding as f32,
+            PxPct::Pct(pct) => pct as f32 * layout.size.width,
         };
         let padding_right = match style.padding_right {
-            taffy::style::LengthPercentage::Points(padding) => padding,
-            taffy::style::LengthPercentage::Percent(pct) => pct * layout.size.width,
+            PxPct::Px(padding) => padding as f32,
+            PxPct::Pct(pct) => pct as f32 * layout.size.width,
         };
         let padding_top = match style.padding_top {
-            taffy::style::LengthPercentage::Points(padding) => padding,
-            taffy::style::LengthPercentage::Percent(pct) => pct * layout.size.width,
+            PxPct::Px(padding) => padding as f32,
+            PxPct::Pct(pct) => pct as f32 * layout.size.width,
         };
         let padding_bottom = match style.padding_bottom {
-            taffy::style::LengthPercentage::Points(padding) => padding,
-            taffy::style::LengthPercentage::Percent(pct) => pct * layout.size.width,
+            PxPct::Px(padding) => padding as f32,
+            PxPct::Pct(pct) => pct as f32 * layout.size.width,
         };
         let mut actual_rect = self.size.to_rect();
         actual_rect.x0 += padding_left as f64;
@@ -302,13 +323,25 @@ impl<V: View> Scroll<V> {
     }
 
     fn draw_bars(&self, cx: &mut PaintCx) {
-        let edge_width = 0.0;
+        let edge_width = self.scroll_bar_style.edge_width as f64;
         let scroll_offset = self.child_viewport.origin().to_vec2();
+        let radius = |rect: Rect, vertical| {
+            if self.scroll_bar_style.rounded {
+                if vertical {
+                    (rect.x1 - rect.x0) / 2.
+                } else {
+                    (rect.y1 - rect.y0) / 2.
+                }
+            } else {
+                0.
+            }
+        };
 
-        let color = self.scroll_bar_color.with_alpha_factor(self.opacity as f32);
+        let color = self.scroll_bar_style.color;
         if let Some(bounds) = self.calc_vertical_bar_bounds(cx.app_state) {
             let rect = (bounds - scroll_offset).inset(-edge_width / 2.0);
-            cx.fill(&rect, color);
+            let rect = rect.to_rounded_rect(radius(rect, true));
+            cx.fill(&rect, color, 0.0);
             if edge_width > 0.0 {
                 cx.stroke(&rect, color, edge_width);
             }
@@ -317,7 +350,8 @@ impl<V: View> Scroll<V> {
         // Horizontal bar
         if let Some(bounds) = self.calc_horizontal_bar_bounds(cx.app_state) {
             let rect = (bounds - scroll_offset).inset(-edge_width / 2.0);
-            cx.fill(&rect, color);
+            let rect = rect.to_rounded_rect(radius(rect, false));
+            cx.fill(&rect, color, 0.0);
             if edge_width > 0.0 {
                 cx.stroke(&rect, color, edge_width);
             }
@@ -333,14 +367,15 @@ impl<V: View> Scroll<V> {
             return None;
         }
 
-        let bar_width = 10.0;
+        let bar_width = self.scroll_bar_style.thickness as f64;
         let bar_pad = 0.0;
 
         let percent_visible = viewport_size.height / content_size.height;
         let percent_scrolled = scroll_offset.y / (content_size.height - viewport_size.height);
 
         let length = (percent_visible * viewport_size.height).ceil();
-        let length = length.max(SCROLLBAR_MIN_SIZE);
+        // Vertical scroll bar must have ast least the same height as it's width
+        let length = length.max(self.scroll_bar_style.thickness as f64);
 
         let top_y_offset = ((viewport_size.height - length) * percent_scrolled).ceil();
         let bottom_y_offset = top_y_offset + length;
@@ -363,11 +398,7 @@ impl<V: View> Scroll<V> {
             return None;
         }
 
-        let bar_width = if viewport_size.height < 40.0 {
-            5.0
-        } else {
-            10.0
-        };
+        let bar_width = self.scroll_bar_style.thickness as f64;
         let bar_pad = 0.0;
 
         let percent_visible = viewport_size.width / content_size.width;
@@ -393,6 +424,48 @@ impl<V: View> Scroll<V> {
         let y1 = scroll_offset.y + viewport_size.height - bar_pad;
 
         Some(Rect::new(x0, y0, x1, y1))
+    }
+
+    fn click_vertical_bar_area(&mut self, app_state: &mut AppState, pos: Point) {
+        let new_y = (pos.y / self.actual_rect.height()) * self.child_size.height
+            - self.actual_rect.height() / 2.0;
+        let mut new_origin = self.child_viewport.origin();
+        new_origin.y = new_y;
+        self.scroll_to(app_state, new_origin);
+    }
+
+    fn click_horizontal_bar_area(&mut self, app_state: &mut AppState, pos: Point) {
+        let new_x = (pos.x / self.actual_rect.width()) * self.child_size.width
+            - self.actual_rect.width() / 2.0;
+        let mut new_origin = self.child_viewport.origin();
+        new_origin.x = new_x;
+        self.scroll_to(app_state, new_origin);
+    }
+
+    fn point_within_vertical_bar(&self, app_state: &mut AppState, pos: Point) -> bool {
+        let viewport_size = self.child_viewport.size();
+        let scroll_offset = self.child_viewport.origin().to_vec2();
+
+        if let Some(mut bounds) = self.calc_vertical_bar_bounds(app_state) {
+            // Stretch hitbox to edge of widget
+            bounds.x1 = scroll_offset.x + viewport_size.width;
+            pos.x >= bounds.x0 && pos.x <= bounds.x1
+        } else {
+            false
+        }
+    }
+
+    fn point_within_horizontal_bar(&self, app_state: &mut AppState, pos: Point) -> bool {
+        let viewport_size = self.child_viewport.size();
+        let scroll_offset = self.child_viewport.origin().to_vec2();
+
+        if let Some(mut bounds) = self.calc_horizontal_bar_bounds(app_state) {
+            // Stretch hitbox to edge of widget
+            bounds.y1 = scroll_offset.y + viewport_size.height;
+            pos.y >= bounds.y0 && pos.y <= bounds.y1
+        } else {
+            false
+        }
     }
 
     fn point_hits_vertical_bar(&self, app_state: &mut AppState, pos: Point) -> bool {
@@ -432,7 +505,15 @@ impl<V: View> View for Scroll<V> {
         self.id
     }
 
-    fn child(&mut self, id: Id) -> Option<&mut dyn View> {
+    fn child(&self, id: Id) -> Option<&dyn View> {
+        if self.child.id() == id {
+            Some(&self.child)
+        } else {
+            None
+        }
+    }
+
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
         if self.child.id() == id {
             Some(&mut self.child)
         } else {
@@ -440,7 +521,11 @@ impl<V: View> View for Scroll<V> {
         }
     }
 
-    fn children(&mut self) -> Vec<&mut dyn View> {
+    fn children(&self) -> Vec<&dyn View> {
+        vec![&self.child]
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
         vec![&mut self.child]
     }
 
@@ -455,7 +540,7 @@ impl<V: View> View for Scroll<V> {
     ) -> crate::view::ChangeFlags {
         if let Ok(state) = state.downcast::<ScrollState>() {
             match *state {
-                ScrollState::EnsureVisble(rect) => {
+                ScrollState::EnsureVisible(rect) => {
                     self.pan_to_visible(cx.app_state, rect);
                 }
                 ScrollState::ScrollDelta(delta) => {
@@ -464,11 +549,14 @@ impl<V: View> View for Scroll<V> {
                 ScrollState::ScrollTo(origin) => {
                     self.scroll_to(cx.app_state, origin);
                 }
-                ScrollState::ScrollBarColor(color) => {
-                    self.scroll_bar_color = color;
+                ScrollState::HiddenBar(hide) => {
+                    self.scroll_bar_style.hide = hide;
                 }
-                ScrollState::HiddenBar(value) => {
-                    self.hide_bar = value;
+                ScrollState::PropagatePointerWheel(value) => {
+                    self.propagate_pointer_wheel = value;
+                }
+                ScrollState::VerticalScrollAsHorizontal(value) => {
+                    self.vertical_scroll_as_horizontal = value;
                 }
             }
             cx.request_layout(self.id());
@@ -480,33 +568,54 @@ impl<V: View> View for Scroll<V> {
 
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
         cx.layout_node(self.id, true, |cx| {
+            if let Some(color) = cx.scroll_bar_color {
+                self.scroll_bar_style.color = color;
+            }
+            if let Some(rounded) = cx.scroll_bar_rounded {
+                self.scroll_bar_style.rounded = rounded;
+            }
+            if let Some(thickness) = cx.scroll_bar_thickness {
+                self.scroll_bar_style.thickness = thickness;
+            }
+            if let Some(edge_width) = cx.scroll_bar_edge_width {
+                self.scroll_bar_style.edge_width = edge_width;
+            }
+
             let child_id = self.child.id();
-            let mut child_view = cx.app_state.view_state(child_id);
+            let child_view = cx.app_state_mut().view_state(child_id);
             child_view.style.position = StyleValue::Val(Position::Absolute);
             let child_node = self.child.layout_main(cx);
 
             let virtual_style = Style::BASE
-                .width(Dimension::Points(self.child_size.width as f32))
-                .height(Dimension::Points(self.child_size.height as f32))
-                .min_width(Dimension::Points(0.0))
-                .min_height(Dimension::Points(0.0))
+                .width(self.child_size.width)
+                .height(self.child_size.height)
+                .min_width(0.0)
+                .min_height(0.0)
                 .compute(&ComputedStyle::default())
                 .to_taffy_style();
             if self.virtual_node.is_none() {
-                self.virtual_node =
-                    Some(cx.app_state.taffy.new_leaf(virtual_style.clone()).unwrap());
+                self.virtual_node = Some(
+                    cx.app_state_mut()
+                        .taffy
+                        .new_leaf(virtual_style.clone())
+                        .unwrap(),
+                );
             }
             let virtual_node = self.virtual_node.unwrap();
-            let _ = cx.app_state.taffy.set_style(virtual_node, virtual_style);
+            let _ = cx
+                .app_state_mut()
+                .taffy
+                .set_style(virtual_node, virtual_style);
 
             vec![virtual_node, child_node]
         })
     }
 
-    fn compute_layout(&mut self, cx: &mut LayoutCx) {
-        self.update_size(cx.app_state);
-        self.clamp_child_viewport(cx.app_state, self.child_viewport);
+    fn compute_layout(&mut self, cx: &mut LayoutCx) -> Option<Rect> {
+        self.update_size(cx.app_state_mut());
+        self.clamp_child_viewport(cx.app_state_mut(), self.child_viewport);
         self.child.compute_layout_main(cx);
+        None
     }
 
     fn event(
@@ -521,10 +630,23 @@ impl<V: View> View for Scroll<V> {
 
         match &event {
             Event::PointerDown(event) => {
-                if !self.hide_bar {
+                if !self.scroll_bar_style.hide && event.button.is_primary() {
+                    self.held = BarHeldState::None;
+
                     let pos = event.pos + scroll_offset;
 
-                    if self.point_hits_vertical_bar(cx.app_state, pos) {
+                    if self.point_within_vertical_bar(cx.app_state, pos) {
+                        if self.point_hits_vertical_bar(cx.app_state, pos) {
+                            self.held = BarHeldState::Vertical(
+                                // The bounds must be non-empty, because the point hits the scrollbar.
+                                event.pos.y,
+                                scroll_offset,
+                            );
+                            cx.update_active(self.id);
+                            return true;
+                        }
+                        self.click_vertical_bar_area(cx.app_state, event.pos);
+                        let scroll_offset = self.child_viewport.origin().to_vec2();
                         self.held = BarHeldState::Vertical(
                             // The bounds must be non-empty, because the point hits the scrollbar.
                             event.pos.y,
@@ -532,7 +654,18 @@ impl<V: View> View for Scroll<V> {
                         );
                         cx.update_active(self.id);
                         return true;
-                    } else if self.point_hits_horizontal_bar(cx.app_state, pos) {
+                    } else if self.point_within_horizontal_bar(cx.app_state, pos) {
+                        if self.point_hits_horizontal_bar(cx.app_state, pos) {
+                            self.held = BarHeldState::Horizontal(
+                                // The bounds must be non-empty, because the point hits the scrollbar.
+                                event.pos.x,
+                                scroll_offset,
+                            );
+                            cx.update_active(self.id);
+                            return true;
+                        }
+                        self.click_horizontal_bar_area(cx.app_state, event.pos);
+                        let scroll_offset = self.child_viewport.origin().to_vec2();
                         self.held = BarHeldState::Horizontal(
                             // The bounds must be non-empty, because the point hits the scrollbar.
                             event.pos.x,
@@ -540,14 +673,12 @@ impl<V: View> View for Scroll<V> {
                         );
                         cx.update_active(self.id);
                         return true;
-                    } else {
-                        self.held = BarHeldState::None;
                     }
                 }
             }
             Event::PointerUp(_event) => self.held = BarHeldState::None,
             Event::PointerMove(event) => {
-                if !self.hide_bar {
+                if !self.scroll_bar_style.hide {
                     if self.are_bars_held() {
                         match self.held {
                             BarHeldState::Vertical(offset, initial_scroll_offset) => {
@@ -572,8 +703,8 @@ impl<V: View> View for Scroll<V> {
                         }
                     } else {
                         let pos = event.pos + scroll_offset;
-                        if self.point_hits_vertical_bar(cx.app_state, pos)
-                            || self.point_hits_horizontal_bar(cx.app_state, pos)
+                        if self.point_within_vertical_bar(cx.app_state, pos)
+                            || self.point_within_horizontal_bar(cx.app_state, pos)
                         {
                             return true;
                         }
@@ -589,14 +720,22 @@ impl<V: View> View for Scroll<V> {
             return true;
         }
 
-        if let Event::PointerWheel(pointer_event) = event {
-            let delta = if let PointerType::Mouse(info) = pointer_event.pointer_type {
-                info.wheel_delta
+        if let Event::PointerWheel(pointer_event) = &event {
+            if let Some(listener) = event.listener() {
+                if let Some(action) = cx.get_event_listener(self.id, &listener) {
+                    if (*action)(&event) {
+                        return true;
+                    }
+                }
+            }
+            let delta = pointer_event.delta;
+            let delta = if self.vertical_scroll_as_horizontal && delta.x == 0.0 && delta.y != 0.0 {
+                Vec2::new(delta.y, delta.x)
             } else {
-                Vec2::ZERO
+                delta
             };
             self.clamp_child_viewport(cx.app_state, self.child_viewport + delta);
-            return true;
+            return !self.propagate_pointer_wheel;
         }
 
         false
@@ -604,12 +743,31 @@ impl<V: View> View for Scroll<V> {
 
     fn paint(&mut self, cx: &mut crate::context::PaintCx) {
         cx.save();
-        cx.clip(&self.actual_rect);
+        if let Some(color) = cx.scroll_bar_color {
+            self.scroll_bar_style.color = color;
+        }
+        if let Some(rounded) = cx.scroll_bar_rounded {
+            self.scroll_bar_style.rounded = rounded;
+        }
+        if let Some(thickness) = cx.scroll_bar_thickness {
+            self.scroll_bar_style.thickness = thickness;
+        }
+        if let Some(edge_width) = cx.scroll_bar_edge_width {
+            self.scroll_bar_style.edge_width = edge_width;
+        }
+        let style = cx.get_computed_style(self.id);
+        let radius = style.border_radius.0;
+        if radius > 0.0 {
+            let rect = self.actual_rect.to_rounded_rect(radius);
+            cx.clip(&rect);
+        } else {
+            cx.clip(&self.actual_rect);
+        }
         cx.offset((-self.child_viewport.x0, -self.child_viewport.y0));
         self.child.paint_main(cx);
         cx.restore();
 
-        if !self.hide_bar {
+        if !self.scroll_bar_style.hide {
             self.draw_bars(cx);
         }
     }

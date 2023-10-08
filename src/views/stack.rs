@@ -1,5 +1,6 @@
+use kurbo::Rect;
+
 use crate::{
-    app_handle::AppContext,
     context::{EventCx, UpdateCx},
     id::Id,
     view::{ChangeFlags, View},
@@ -11,18 +12,8 @@ pub struct Stack<VT> {
     children: VT,
 }
 
-pub fn stack<VT: ViewTuple + 'static>(children: impl FnOnce() -> VT) -> Stack<VT> {
-    let cx = AppContext::get_current();
-
-    let id = cx.id.new();
-
-    let mut children_cx = cx;
-    children_cx.id = id;
-    AppContext::save();
-    AppContext::set_current(children_cx);
-    let children = children();
-
-    AppContext::restore();
+pub fn stack<VT: ViewTuple + 'static>(children: VT) -> Stack<VT> {
+    let id = Id::next();
     Stack { id, children }
 }
 
@@ -31,12 +22,20 @@ impl<VT: ViewTuple + 'static> View for Stack<VT> {
         self.id
     }
 
-    fn child(&mut self, id: Id) -> Option<&mut dyn View> {
+    fn child(&self, id: Id) -> Option<&dyn View> {
         self.children.child(id)
     }
 
-    fn children(&mut self) -> Vec<&mut dyn View> {
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
+        self.children.child_mut(id)
+    }
+
+    fn children(&self) -> Vec<&dyn View> {
         self.children.children()
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
+        self.children.children_mut()
     }
 
     fn debug_name(&self) -> std::borrow::Cow<'static, str> {
@@ -76,7 +75,7 @@ impl<VT: ViewTuple + 'static> View for Stack<VT> {
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
         cx.layout_node(self.id, true, |cx| {
             let mut nodes = Vec::new();
-            self.children.foreach(&mut |view| {
+            self.children.foreach_mut(&mut |view| {
                 let node = view.layout_main(cx);
                 nodes.push(node);
                 false
@@ -85,15 +84,17 @@ impl<VT: ViewTuple + 'static> View for Stack<VT> {
         })
     }
 
-    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) {
-        self.children.foreach(&mut |view| {
-            view.compute_layout_main(cx);
+    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
+        let mut layout_rect = Rect::ZERO;
+        self.children.foreach_mut(&mut |view| {
+            layout_rect = layout_rect.union(view.compute_layout_main(cx));
             false
         });
+        Some(layout_rect)
     }
 
     fn paint(&mut self, cx: &mut crate::context::PaintCx) {
-        self.children.foreach(&mut |view| {
+        self.children.foreach_mut(&mut |view| {
             view.paint_main(cx);
             false
         });

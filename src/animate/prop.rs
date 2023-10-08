@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use vello::peniko::Color;
+use peniko::Color;
 
 use crate::animate::AnimDirection;
 

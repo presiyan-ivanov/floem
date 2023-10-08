@@ -8,59 +8,38 @@ use floem_renderer::{
     cosmic_text::{LineHeightValue, Style as FontStyle, Weight},
     Renderer as FloemRenderer,
 };
-use glazier::{
-    kurbo::{Affine, Point, Rect, Shape, Size, Vec2},
-    PointerEvent, Scale,
-};
+use kurbo::{Affine, Point, Rect, RoundedRect, Shape, Size, Vec2};
+use peniko::Color;
 use taffy::{
     prelude::{Layout, Node},
     style::{AvailableSpace, Display},
 };
-use vello::peniko::Color;
+use winit::window::CursorIcon;
 
 use crate::{
     animate::{AnimId, AnimPropKind, AnimValue, Animation, PersistMode},
-    app_handle::StyleSelector,
-    event::{Event, EventListner},
+    event::{Event, EventListener},
     id::Id,
     menu::Menu,
+    pointer::PointerInputEvent,
     responsive::{GridBreakpoints, ScreenSize, ScreenSizeBp},
-    style::{ComputedStyle, CursorStyle, Style},
-    AppContext,
+    style::{ComputedStyle, CursorStyle, Style, StyleSelector},
+    unit::{PxPctAuto, UnitExt},
 };
 
-thread_local! {
-    pub(crate) static APP_CONTEXT_STORE: std::cell::RefCell<Option<AppContextStore>> = Default::default();
-}
-
 pub type EventCallback = dyn Fn(&Event) -> bool;
-pub type ResizeCallback = dyn Fn(Point, Rect);
-
-pub struct AppContextStore {
-    pub cx: AppContext,
-    pub saved_cx: Vec<AppContext>,
-}
-
-impl AppContextStore {
-    pub fn save(&mut self) {
-        self.saved_cx.push(self.cx);
-    }
-
-    pub fn set_current(&mut self, cx: AppContext) {
-        self.cx = cx;
-    }
-
-    pub fn restore(&mut self) {
-        if let Some(cx) = self.saved_cx.pop() {
-            self.cx = cx;
-        }
-    }
-}
+pub type ResizeCallback = dyn Fn(Rect);
+pub type MenuCallback = dyn Fn() -> Menu;
 
 pub(crate) struct ResizeListener {
-    pub(crate) window_origin: Point,
     pub(crate) rect: Rect,
     pub(crate) callback: Box<ResizeCallback>,
+}
+
+/// The listener when the view is got moved to a different position in the window
+pub(crate) struct MoveListener {
+    pub(crate) window_origin: Point,
+    pub(crate) callback: Box<dyn Fn(Point)>,
 }
 
 pub struct ViewState {
@@ -68,19 +47,26 @@ pub struct ViewState {
     pub(crate) children_nodes: Vec<Node>,
     pub(crate) request_layout: bool,
     pub(crate) viewport: Option<Rect>,
+    pub(crate) layout_rect: Rect,
     pub(crate) animation: Option<Animation>,
     pub(crate) base_style: Option<Style>,
     pub(crate) style: Style,
+    pub(crate) dragging_style: Option<Style>,
     pub(crate) hover_style: Option<Style>,
     pub(crate) disabled_style: Option<Style>,
     pub(crate) focus_style: Option<Style>,
     pub(crate) focus_visible_style: Option<Style>,
     pub(crate) responsive_styles: HashMap<ScreenSizeBp, Vec<Style>>,
     pub(crate) active_style: Option<Style>,
+    pub(crate) combined_style: Style,
     pub(crate) computed_style: ComputedStyle,
-    pub(crate) event_listeners: HashMap<EventListner, Box<EventCallback>>,
+    pub(crate) event_listeners: HashMap<EventListener, Box<EventCallback>>,
+    pub(crate) context_menu: Option<Box<MenuCallback>>,
+    pub(crate) popout_menu: Option<Box<MenuCallback>>,
     pub(crate) resize_listener: Option<ResizeListener>,
-    pub(crate) last_pointer_down: Option<PointerEvent>,
+    pub(crate) move_listener: Option<MoveListener>,
+    pub(crate) cleanup_listener: Option<Box<dyn Fn()>>,
+    pub(crate) last_pointer_down: Option<PointerInputEvent>,
 }
 
 impl ViewState {
@@ -88,12 +74,15 @@ impl ViewState {
         Self {
             node: taffy.new_leaf(taffy::style::Style::DEFAULT).unwrap(),
             viewport: None,
-            animation: None,
+            layout_rect: Rect::ZERO,
             request_layout: true,
+            animation: None,
             base_style: None,
             style: Style::BASE,
+            combined_style: Style::BASE,
             computed_style: ComputedStyle::default(),
             hover_style: None,
+            dragging_style: None,
             disabled_style: None,
             focus_style: None,
             focus_visible_style: None,
@@ -101,7 +90,11 @@ impl ViewState {
             responsive_styles: HashMap::new(),
             children_nodes: Vec::new(),
             event_listeners: HashMap::new(),
+            context_menu: None,
+            popout_menu: None,
             resize_listener: None,
+            move_listener: None,
+            cleanup_listener: None,
             last_pointer_down: None,
         }
     }
@@ -192,10 +185,10 @@ impl ViewState {
 
                     match prop_kind {
                         AnimPropKind::Width => {
-                            computed_style = computed_style.width_px(val.unwrap_f32());
+                            computed_style = computed_style.width(PxPctAuto::Px(val.unwrap_f64()));
                         }
                         AnimPropKind::Height => {
-                            computed_style = computed_style.height_px(val.unwrap_f32());
+                            computed_style = computed_style.height(PxPctAuto::Px(val.unwrap_f64()));
                         }
                         AnimPropKind::Background => {
                             computed_style = computed_style.background(val.unwrap_color());
@@ -217,6 +210,7 @@ impl ViewState {
             }
         }
 
+        self.combined_style = computed_style.clone();
         self.computed_style = computed_style.compute(&ComputedStyle::default());
     }
 
@@ -230,7 +224,6 @@ impl ViewState {
                 .push(style.clone())
         }
     }
-
 }
 
 pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<AnimValue> {
@@ -249,9 +242,9 @@ pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<
             .background
             .unwrap_or(None)
             .map(|c| AnimValue::Color(c)),
-        AnimPropKind::BorderRadius => {
-            Some(AnimValue::Float(style.border_radius.unwrap_or(0.0) as f64))
-        }
+        AnimPropKind::BorderRadius => Some(AnimValue::Float(
+            style.border_radius.map(|br| br.0).unwrap_or(0.0) as f64,
+        )),
         AnimPropKind::BorderColor => {
             Some(AnimValue::Color(style.border_color.unwrap_or(Color::BLACK)))
         }
@@ -259,6 +252,14 @@ pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<
     }
 }
 
+pub struct DragState {
+    pub(crate) id: Id,
+    pub(crate) offset: Vec2,
+    pub(crate) released_at: Option<std::time::Instant>,
+}
+
+/// Encapsulates and owns the global state of the application,
+/// including the `ViewState` of each view.
 pub struct AppState {
     /// keyboard focus
     pub(crate) focus: Option<Id>,
@@ -270,17 +271,24 @@ pub struct AppState {
     pub(crate) scale: f64,
     pub taffy: taffy::Taffy,
     pub(crate) view_states: HashMap<Id, ViewState>,
+    stale_view_state: ViewState,
     pub(crate) disabled: HashSet<Id>,
-    pub(crate) keyboard_navigatable: HashSet<Id>,
+    pub(crate) keyboard_navigable: HashSet<Id>,
+    pub(crate) draggable: HashSet<Id>,
+    pub(crate) dragging: Option<DragState>,
+    pub(crate) drag_start: Option<(Id, Point)>,
+    pub(crate) dragging_over: HashSet<Id>,
     pub(crate) screen_size_bp: ScreenSizeBp,
-    pub(crate) grid_breakpts: GridBreakpoints,
+    pub(crate) grid_bps: GridBreakpoints,
     pub(crate) hovered: HashSet<Id>,
     /// This keeps track of all views that have an animation,
     /// regardless of the status of the animation
     pub(crate) animated: HashSet<Id>,
     pub(crate) cursor: Option<CursorStyle>,
+    pub(crate) last_cursor: CursorIcon,
     pub(crate) keyboard_navigation: bool,
-    pub(crate) contex_menu: HashMap<u32, Box<dyn Fn()>>,
+    pub(crate) window_menu: HashMap<usize, Box<dyn Fn()>>,
+    pub(crate) context_menu: HashMap<usize, Box<dyn Fn()>>,
 }
 
 impl Default for AppState {
@@ -300,20 +308,32 @@ impl AppState {
             scale: 1.0,
             root_size: Size::ZERO,
             screen_size_bp: ScreenSizeBp::Xs,
+            stale_view_state: ViewState::new(&mut taffy),
             taffy,
             view_states: HashMap::new(),
             animated: HashSet::new(),
             disabled: HashSet::new(),
-            keyboard_navigatable: HashSet::new(),
+            keyboard_navigable: HashSet::new(),
+            draggable: HashSet::new(),
+            dragging: None,
+            drag_start: None,
+            dragging_over: HashSet::new(),
             hovered: HashSet::new(),
             cursor: None,
+            last_cursor: CursorIcon::Default,
             keyboard_navigation: false,
-            grid_breakpts: GridBreakpoints::default(),
-            contex_menu: HashMap::new(),
+            grid_bps: GridBreakpoints::default(),
+            window_menu: HashMap::new(),
+            context_menu: HashMap::new(),
         }
     }
 
     pub fn view_state(&mut self, id: Id) -> &mut ViewState {
+        if !id.has_id_path() {
+            // if the id doesn't have a id path, that means it's been cleaned up,
+            // so we shouldn't create a new ViewState for this Id.
+            return &mut self.stale_view_state;
+        }
         self.view_states
             .entry(id)
             .or_insert_with(|| ViewState::new(&mut self.taffy))
@@ -336,8 +356,7 @@ impl AppState {
     pub fn is_hidden(&self, id: Id) -> bool {
         self.view_states
             .get(&id)
-            // TODO: this unwrap_or is wrong. The style might not specify it, but the underlying view style can
-            .map(|s| s.style.display.unwrap_or(Display::Flex) == Display::None)
+            .map(|s| s.computed_style.display == Display::None)
             .unwrap_or(false)
     }
 
@@ -368,6 +387,13 @@ impl AppState {
 
     pub fn is_active(&self, id: &Id) -> bool {
         self.active.map(|a| &a == id).unwrap_or(false)
+    }
+
+    pub fn is_dragging(&self) -> bool {
+        self.dragging
+            .as_ref()
+            .map(|d| d.released_at.is_none())
+            .unwrap_or(false)
     }
 
     pub fn get_interact_state(&self, id: &Id) -> InteractionState {
@@ -433,6 +459,10 @@ impl AppState {
             .copied()
     }
 
+    pub(crate) fn get_layout_rect(&mut self, id: Id) -> Rect {
+        self.view_state(id).layout_rect
+    }
+
     pub(crate) fn update_active(&mut self, id: Id) {
         if self.active.is_some() {
             // the first update_active wins, so if there's active set,
@@ -447,9 +477,9 @@ impl AppState {
         }
     }
 
-    pub(crate) fn update_scr_size_breakpt(&mut self, size: Size) {
-        let breakpt = self.grid_breakpts.get_width_breakpt(size.width);
-        self.screen_size_bp = breakpt;
+    pub(crate) fn update_screen_size_bp(&mut self, size: Size) {
+        let bp = self.grid_bps.get_width_bp(size.width);
+        self.screen_size_bp = bp;
     }
 
     pub(crate) fn clear_focus(&mut self) {
@@ -481,36 +511,36 @@ impl AppState {
             StyleSelector::FocusVisible => view_state.focus_visible_style.is_some(),
             StyleSelector::Disabled => view_state.disabled_style.is_some(),
             StyleSelector::Active => view_state.active_style.is_some(),
+            StyleSelector::Dragging => view_state.dragging_style.is_some(),
         }
     }
 
     // TODO: animated should be a HashMap<Id, AnimId>
     // so we don't have to loop through all view states
     pub(crate) fn get_view_id_by_anim_id(&self, anim_id: AnimId) -> Id {
-        self.view_states
+        *self
+            .view_states
             .iter()
-            .filter(|(_, vs)| {
+            .find(|(_, vs)| {
                 vs.animation
                     .as_ref()
                     .map(|a| a.id() == anim_id)
                     .unwrap_or(false)
             })
-            .nth(0)
             .unwrap()
             .0
-            .clone()
     }
 
-    pub(crate) fn update_context_menu(&mut self, mut menu: Menu) {
+    pub(crate) fn update_context_menu(&mut self, menu: &mut Menu) {
         if let Some(action) = menu.item.action.take() {
-            self.contex_menu.insert(menu.item.id as u32, action);
+            self.context_menu.insert(menu.item.id as usize, action);
         }
-        for child in menu.children {
+        for child in menu.children.iter_mut() {
             match child {
-                crate::menu::MenuEntry::Seperator => {}
-                crate::menu::MenuEntry::Item(mut item) => {
+                crate::menu::MenuEntry::Separator => {}
+                crate::menu::MenuEntry::Item(item) => {
                     if let Some(action) = item.action.take() {
-                        self.contex_menu.insert(item.id as u32, action);
+                        self.context_menu.insert(item.id as usize, action);
                     }
                 }
                 crate::menu::MenuEntry::SubMenu(m) => {
@@ -519,8 +549,45 @@ impl AppState {
             }
         }
     }
+
+    pub(crate) fn get_event_listener(
+        &self,
+        id: Id,
+        listener: &EventListener,
+    ) -> Option<&impl Fn(&Event) -> bool> {
+        self.view_states
+            .get(&id)
+            .and_then(|s| s.event_listeners.get(listener))
+    }
+
+    pub(crate) fn focus_changed(&mut self, old: Option<Id>, new: Option<Id>) {
+        if let Some(id) = new {
+            // To apply the styles of the Focus selector
+            if self.has_style_for_sel(id, StyleSelector::Focus)
+                || self.has_style_for_sel(id, StyleSelector::FocusVisible)
+            {
+                self.request_layout(id);
+            }
+            if let Some(action) = self.get_event_listener(id, &EventListener::FocusGained) {
+                (*action)(&Event::FocusGained);
+            }
+        }
+
+        if let Some(old_id) = old {
+            // To remove the styles applied by the Focus selector
+            if self.has_style_for_sel(old_id, StyleSelector::Focus)
+                || self.has_style_for_sel(old_id, StyleSelector::FocusVisible)
+            {
+                self.request_layout(old_id);
+            }
+            if let Some(action) = self.get_event_listener(old_id, &EventListener::FocusLost) {
+                (*action)(&Event::FocusLost);
+            }
+        }
+    }
 }
 
+/// A bundle of helper methods to be used by `View::event` handlers
 pub struct EventCx<'a> {
     pub(crate) app_state: &'a mut AppState,
 }
@@ -537,10 +604,6 @@ impl<'a> EventCx<'a> {
     #[allow(unused)]
     pub(crate) fn update_focus(&mut self, id: Id, keyboard_navigation: bool) {
         self.app_state.update_focus(id, keyboard_navigation);
-    }
-
-    pub fn get_style(&self, id: Id) -> Option<&Style> {
-        self.app_state.view_states.get(&id).map(|s| &s.style)
     }
 
     pub fn get_computed_style(&self, id: Id) -> Option<&ComputedStyle> {
@@ -568,25 +631,23 @@ impl<'a> EventCx<'a> {
             .map(|l| Size::new(l.size.width as f64, l.size.height as f64))
     }
 
-    pub(crate) fn has_event_listener(&self, id: Id, listner: EventListner) -> bool {
+    pub(crate) fn has_event_listener(&self, id: Id, listener: EventListener) -> bool {
         self.app_state
             .view_states
             .get(&id)
-            .map(|s| s.event_listeners.contains_key(&listner))
+            .map(|s| s.event_listeners.contains_key(&listener))
             .unwrap_or(false)
     }
 
     pub(crate) fn get_event_listener(
         &self,
         id: Id,
-        listner: &EventListner,
+        listener: &EventListener,
     ) -> Option<&impl Fn(&Event) -> bool> {
-        self.app_state
-            .view_states
-            .get(&id)
-            .and_then(|s| s.event_listeners.get(listner))
+        self.app_state.get_event_listener(id, listener)
     }
 
+    /// translate a window-positioned event to the local coordinate system of a view
     pub(crate) fn offset_event(&self, id: Id, event: Event) -> Event {
         let viewport = self
             .app_state
@@ -604,18 +665,23 @@ impl<'a> EventCx<'a> {
         }
     }
 
-    pub(crate) fn should_send(&mut self, id: Id, event: &Event) -> bool {
+    /// Used to determine if you should send an event to another view. This is basically a check for pointer events to see if the pointer is inside a child view and to make sure the current view isn't hidden or disabled.
+    /// Usually this is used if you want to propagate an event to a child view
+    pub fn should_send(&mut self, id: Id, event: &Event) -> bool {
         if self.app_state.is_hidden(id)
             || (self.app_state.is_disabled(&id) && !event.allow_disabled())
         {
             return false;
         }
         if let Some(point) = event.point() {
+            let layout_rect = self.app_state.get_layout_rect(id);
             if let Some(layout) = self.get_layout(id) {
-               if layout.location.x as f64 <= point.x
-                    && point.x <= (layout.location.x + layout.size.width) as f64
-                    && layout.location.y as f64 <= point.y
-                    && point.y <= (layout.location.y + layout.size.height) as f64
+                if layout_rect
+                    .with_origin(Point::new(
+                        layout.location.x as f64,
+                        layout.location.y as f64,
+                    ))
+                    .contains(point)
                 {
                     return true;
                 }
@@ -636,10 +702,16 @@ pub struct InteractionState {
     pub(crate) using_keyboard_navigation: bool,
 }
 
+/// Holds current layout state for given position in the tree.
+/// You'll use this in the `View::layout` implementation to call `layout_node` on children and to access any font
 pub struct LayoutCx<'a> {
-    pub(crate) app_state: &'a mut AppState,
+    app_state: &'a mut AppState,
     pub(crate) viewport: Option<Rect>,
     pub(crate) color: Option<Color>,
+    pub(crate) scroll_bar_color: Option<Color>,
+    pub(crate) scroll_bar_rounded: Option<bool>,
+    pub(crate) scroll_bar_thickness: Option<f32>,
+    pub(crate) scroll_bar_edge_width: Option<f32>,
     pub(crate) font_size: Option<f32>,
     pub(crate) font_family: Option<String>,
     pub(crate) font_weight: Option<Weight>,
@@ -648,6 +720,10 @@ pub struct LayoutCx<'a> {
     pub(crate) window_origin: Point,
     pub(crate) saved_viewports: Vec<Option<Rect>>,
     pub(crate) saved_colors: Vec<Option<Color>>,
+    pub(crate) saved_scroll_bar_colors: Vec<Option<Color>>,
+    pub(crate) saved_scroll_bar_roundeds: Vec<Option<bool>>,
+    pub(crate) saved_scroll_bar_thicknesses: Vec<Option<f32>>,
+    pub(crate) saved_scroll_bar_edge_widths: Vec<Option<f32>>,
     pub(crate) saved_font_sizes: Vec<Option<f32>>,
     pub(crate) saved_font_families: Vec<Option<String>>,
     pub(crate) saved_font_weights: Vec<Option<Weight>>,
@@ -657,12 +733,50 @@ pub struct LayoutCx<'a> {
 }
 
 impl<'a> LayoutCx<'a> {
+    pub(crate) fn new(app_state: &'a mut AppState) -> Self {
+        Self {
+            app_state,
+            viewport: None,
+            color: None,
+            font_size: None,
+            font_family: None,
+            font_weight: None,
+            font_style: None,
+            line_height: None,
+            window_origin: Point::ZERO,
+            saved_viewports: Vec::new(),
+            saved_colors: Vec::new(),
+            saved_font_sizes: Vec::new(),
+            saved_font_families: Vec::new(),
+            saved_font_weights: Vec::new(),
+            saved_font_styles: Vec::new(),
+            saved_line_heights: Vec::new(),
+            saved_window_origins: Vec::new(),
+            scroll_bar_color: None,
+            scroll_bar_rounded: None,
+            scroll_bar_thickness: None,
+            scroll_bar_edge_width: None,
+            saved_scroll_bar_colors: Vec::new(),
+            saved_scroll_bar_roundeds: Vec::new(),
+            saved_scroll_bar_thicknesses: Vec::new(),
+            saved_scroll_bar_edge_widths: Vec::new(),
+        }
+    }
+
     pub(crate) fn clear(&mut self) {
         self.viewport = None;
+        self.scroll_bar_color = None;
+        self.scroll_bar_rounded = None;
+        self.scroll_bar_thickness = None;
+        self.scroll_bar_edge_width = None;
         self.font_size = None;
         self.window_origin = Point::ZERO;
         self.saved_colors.clear();
         self.saved_viewports.clear();
+        self.saved_scroll_bar_colors.clear();
+        self.saved_scroll_bar_roundeds.clear();
+        self.saved_scroll_bar_thicknesses.clear();
+        self.saved_scroll_bar_edge_widths.clear();
         self.saved_font_sizes.clear();
         self.saved_font_families.clear();
         self.saved_font_weights.clear();
@@ -674,6 +788,12 @@ impl<'a> LayoutCx<'a> {
     pub fn save(&mut self) {
         self.saved_viewports.push(self.viewport);
         self.saved_colors.push(self.color);
+        self.saved_scroll_bar_colors.push(self.scroll_bar_color);
+        self.saved_scroll_bar_roundeds.push(self.scroll_bar_rounded);
+        self.saved_scroll_bar_thicknesses
+            .push(self.scroll_bar_thickness);
+        self.saved_scroll_bar_edge_widths
+            .push(self.scroll_bar_edge_width);
         self.saved_font_sizes.push(self.font_size);
         self.saved_font_families.push(self.font_family.clone());
         self.saved_font_weights.push(self.font_weight);
@@ -685,12 +805,40 @@ impl<'a> LayoutCx<'a> {
     pub fn restore(&mut self) {
         self.viewport = self.saved_viewports.pop().unwrap_or_default();
         self.color = self.saved_colors.pop().unwrap_or_default();
+        self.scroll_bar_color = self.saved_scroll_bar_colors.pop().unwrap_or_default();
+        self.scroll_bar_rounded = self.saved_scroll_bar_roundeds.pop().unwrap_or_default();
+        self.scroll_bar_thickness = self.saved_scroll_bar_thicknesses.pop().unwrap_or_default();
+        self.scroll_bar_edge_width = self.saved_scroll_bar_edge_widths.pop().unwrap_or_default();
         self.font_size = self.saved_font_sizes.pop().unwrap_or_default();
         self.font_family = self.saved_font_families.pop().unwrap_or_default();
         self.font_weight = self.saved_font_weights.pop().unwrap_or_default();
         self.font_style = self.saved_font_styles.pop().unwrap_or_default();
         self.line_height = self.saved_line_heights.pop().unwrap_or_default();
         self.window_origin = self.saved_window_origins.pop().unwrap_or_default();
+    }
+
+    pub fn app_state_mut(&mut self) -> &mut AppState {
+        self.app_state
+    }
+
+    pub fn app_state(&self) -> &AppState {
+        self.app_state
+    }
+
+    pub fn current_scroll_bar_color(&self) -> Option<Color> {
+        self.scroll_bar_color
+    }
+
+    pub fn current_scroll_bar_rounded(&self) -> Option<bool> {
+        self.scroll_bar_rounded
+    }
+
+    pub fn current_scroll_bar_thickness(&self) -> Option<f32> {
+        self.scroll_bar_thickness
+    }
+
+    pub fn current_scroll_bar_edge_width(&self) -> Option<f32> {
+        self.scroll_bar_edge_width
     }
 
     pub fn current_font_size(&self) -> Option<f32> {
@@ -740,19 +888,24 @@ impl<'a> LayoutCx<'a> {
             .unwrap()
     }
 
+    /// Responsible for invoking the recalculation of style and thus the layout and
+    /// creating or updating the layout of child nodes within the closure.
+    ///
+    /// You should ensure that all children are laid out within the closure and/or whatever
+    /// other work you need to do to ensure that the layout for the returned nodes is correct.
     pub fn layout_node(
         &mut self,
         id: Id,
         has_children: bool,
         mut children: impl FnMut(&mut LayoutCx) -> Vec<Node>,
     ) -> Node {
-        let view = self.app_state.view_state(id);
-        let node = view.node;
-        if !view.request_layout {
+        let view_state = self.app_state.view_state(id);
+        let node = view_state.node;
+        if !view_state.request_layout {
             return node;
         }
-        view.request_layout = false;
-        let style = view.computed_style.to_taffy_style();
+        view_state.request_layout = false;
+        let style = view_state.computed_style.to_taffy_style();
         let _ = self.app_state.taffy.set_style(node, style);
 
         if has_children {
@@ -771,27 +924,44 @@ impl<'a> LayoutCx<'a> {
             .get_mut(&id)
             .and_then(|s| s.resize_listener.as_mut())
     }
+
+    pub(crate) fn get_move_listener(&mut self, id: Id) -> Option<&mut MoveListener> {
+        self.app_state
+            .view_states
+            .get_mut(&id)
+            .and_then(|s| s.move_listener.as_mut())
+    }
 }
 
 pub struct PaintCx<'a> {
     pub(crate) app_state: &'a mut AppState,
     pub(crate) paint_state: &'a mut PaintState,
     pub(crate) transform: Affine,
-    pub(crate) clip: Option<Rect>,
+    pub(crate) clip: Option<RoundedRect>,
     pub(crate) color: Option<Color>,
+    pub(crate) scroll_bar_color: Option<Color>,
+    pub(crate) scroll_bar_rounded: Option<bool>,
+    pub(crate) scroll_bar_thickness: Option<f32>,
+    pub(crate) scroll_bar_edge_width: Option<f32>,
     pub(crate) font_size: Option<f32>,
     pub(crate) font_family: Option<String>,
     pub(crate) font_weight: Option<Weight>,
     pub(crate) font_style: Option<FontStyle>,
     pub(crate) line_height: Option<LineHeightValue>,
+    pub(crate) z_index: Option<i32>,
     pub(crate) saved_transforms: Vec<Affine>,
-    pub(crate) saved_clips: Vec<Option<Rect>>,
+    pub(crate) saved_clips: Vec<Option<RoundedRect>>,
     pub(crate) saved_colors: Vec<Option<Color>>,
+    pub(crate) saved_scroll_bar_colors: Vec<Option<Color>>,
+    pub(crate) saved_scroll_bar_roundeds: Vec<Option<bool>>,
+    pub(crate) saved_scroll_bar_thicknesses: Vec<Option<f32>>,
+    pub(crate) saved_scroll_bar_edge_widths: Vec<Option<f32>>,
     pub(crate) saved_font_sizes: Vec<Option<f32>>,
     pub(crate) saved_font_families: Vec<Option<String>>,
     pub(crate) saved_font_weights: Vec<Option<Weight>>,
     pub(crate) saved_font_styles: Vec<Option<FontStyle>>,
     pub(crate) saved_line_heights: Vec<Option<LineHeightValue>>,
+    pub(crate) saved_z_indexes: Vec<Option<i32>>,
 }
 
 impl<'a> PaintCx<'a> {
@@ -799,33 +969,65 @@ impl<'a> PaintCx<'a> {
         self.saved_transforms.push(self.transform);
         self.saved_clips.push(self.clip);
         self.saved_colors.push(self.color);
+        self.saved_scroll_bar_colors.push(self.scroll_bar_color);
+        self.saved_scroll_bar_roundeds.push(self.scroll_bar_rounded);
+        self.saved_scroll_bar_thicknesses
+            .push(self.scroll_bar_thickness);
+        self.saved_scroll_bar_edge_widths
+            .push(self.scroll_bar_edge_width);
         self.saved_font_sizes.push(self.font_size);
         self.saved_font_families.push(self.font_family.clone());
         self.saved_font_weights.push(self.font_weight);
         self.saved_font_styles.push(self.font_style);
         self.saved_line_heights.push(self.line_height);
+        self.saved_z_indexes.push(self.z_index);
     }
 
     pub fn restore(&mut self) {
         self.transform = self.saved_transforms.pop().unwrap_or_default();
         self.clip = self.saved_clips.pop().unwrap_or_default();
         self.color = self.saved_colors.pop().unwrap_or_default();
+        self.scroll_bar_color = self.saved_scroll_bar_colors.pop().unwrap_or_default();
+        self.scroll_bar_rounded = self.saved_scroll_bar_roundeds.pop().unwrap_or_default();
+        self.scroll_bar_thickness = self.saved_scroll_bar_thicknesses.pop().unwrap_or_default();
+        self.scroll_bar_edge_width = self.saved_scroll_bar_edge_widths.pop().unwrap_or_default();
         self.font_size = self.saved_font_sizes.pop().unwrap_or_default();
         self.font_family = self.saved_font_families.pop().unwrap_or_default();
         self.font_weight = self.saved_font_weights.pop().unwrap_or_default();
         self.font_style = self.saved_font_styles.pop().unwrap_or_default();
         self.line_height = self.saved_line_heights.pop().unwrap_or_default();
-        let renderer = self.paint_state.renderer.as_mut().unwrap();
-        renderer.transform(self.transform);
-        if let Some(rect) = self.clip {
-            renderer.clip(&rect);
+        self.z_index = self.saved_z_indexes.pop().unwrap_or_default();
+        self.paint_state.renderer.transform(self.transform);
+        if let Some(z_index) = self.z_index {
+            self.paint_state.renderer.set_z_index(z_index);
         } else {
-            renderer.clear_clip();
+            self.paint_state.renderer.set_z_index(0);
+        }
+        if let Some(rect) = self.clip {
+            self.paint_state.renderer.clip(&rect);
+        } else {
+            self.paint_state.renderer.clear_clip();
         }
     }
 
     pub fn current_color(&self) -> Option<Color> {
         self.color
+    }
+
+    pub fn current_scroll_bar_color(&self) -> Option<Color> {
+        self.scroll_bar_color
+    }
+
+    pub fn current_scroll_bar_rounded(&self) -> Option<bool> {
+        self.scroll_bar_rounded
+    }
+
+    pub fn current_scroll_bar_thickness(&self) -> Option<f32> {
+        self.scroll_bar_thickness
+    }
+
+    pub fn current_scroll_bar_edge_width(&self) -> Option<f32> {
+        self.scroll_bar_edge_width
     }
 
     pub fn current_font_size(&self) -> Option<f32> {
@@ -848,15 +1050,26 @@ impl<'a> PaintCx<'a> {
         self.app_state.get_computed_style(id)
     }
 
+    /// Clip the drawing area to the given shape.
     pub fn clip(&mut self, shape: &impl Shape) {
-        let rect = shape.bounding_box();
-        let rect = if let Some(existing) = self.clip {
-            existing.intersect(rect)
+        let rect = if let Some(rect) = shape.as_rect() {
+            rect.to_rounded_rect(0.0)
+        } else if let Some(rect) = shape.as_rounded_rect() {
+            rect
         } else {
+            let rect = shape.bounding_box();
+            rect.to_rounded_rect(0.0)
+        };
+
+        let rect = if let Some(existing) = self.clip {
+            let rect = existing.rect().intersect(rect.rect());
+            self.paint_state.renderer.clip(&rect);
+            rect.to_rounded_rect(0.0)
+        } else {
+            self.paint_state.renderer.clip(&shape);
             rect
         };
         self.clip = Some(rect);
-        self.paint_state.renderer.as_mut().unwrap().clip(&rect);
     }
 
     pub fn offset(&mut self, offset: (f64, f64)) {
@@ -864,13 +1077,13 @@ impl<'a> PaintCx<'a> {
         new[4] += offset.0;
         new[5] += offset.1;
         self.transform = Affine::new(new);
-        self.paint_state
-            .renderer
-            .as_mut()
-            .unwrap()
-            .transform(self.transform);
+        self.paint_state.renderer.transform(self.transform);
         if let Some(rect) = self.clip.as_mut() {
-            *rect = rect.with_origin(rect.origin() - Vec2::new(offset.0, offset.1));
+            let raidus = rect.radii();
+            *rect = rect
+                .rect()
+                .with_origin(rect.origin() - Vec2::new(offset.0, offset.1))
+                .to_rounded_rect(raidus);
         }
     }
 
@@ -881,15 +1094,14 @@ impl<'a> PaintCx<'a> {
             new[4] += offset.x as f64;
             new[5] += offset.y as f64;
             self.transform = Affine::new(new);
-            self.paint_state
-                .renderer
-                .as_mut()
-                .unwrap()
-                .transform(self.transform);
+            self.paint_state.renderer.transform(self.transform);
 
             if let Some(rect) = self.clip.as_mut() {
-                *rect =
-                    rect.with_origin(rect.origin() - Vec2::new(offset.x as f64, offset.y as f64));
+                let raidus = rect.radii();
+                *rect = rect
+                    .rect()
+                    .with_origin(rect.origin() - Vec2::new(offset.x as f64, offset.y as f64))
+                    .to_rounded_rect(raidus);
             }
 
             Size::new(layout.size.width as f64, layout.size.height as f64)
@@ -898,45 +1110,37 @@ impl<'a> PaintCx<'a> {
         }
     }
 
+    pub(crate) fn set_z_index(&mut self, z_index: i32) {
+        self.z_index = Some(z_index);
+        self.paint_state.renderer.set_z_index(z_index);
+    }
+
     pub fn is_focused(&self, id: Id) -> bool {
         self.app_state.is_focused(&id)
     }
 }
 
+// TODO: should this be private?
 pub struct PaintState {
-    pub(crate) renderer: Option<crate::renderer::Renderer>,
-    handle: glazier::WindowHandle,
-}
-
-impl Default for PaintState {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub(crate) renderer: crate::renderer::Renderer,
 }
 
 impl PaintState {
-    pub fn new() -> Self {
+    pub fn new<W>(window: &W, scale: f64, size: Size) -> Self
+    where
+        W: raw_window_handle::HasRawDisplayHandle + raw_window_handle::HasRawWindowHandle,
+    {
         Self {
-            renderer: None,
-            handle: Default::default(),
+            renderer: crate::renderer::Renderer::new(window, scale, size),
         }
     }
 
-    pub(crate) fn connect(&mut self, handle: &glazier::WindowHandle) {
-        self.handle = handle.clone();
-        self.renderer = Some(crate::renderer::Renderer::new(handle));
+    pub(crate) fn resize(&mut self, scale: f64, size: Size) {
+        self.renderer.resize(scale, size);
     }
 
-    pub(crate) fn resize(&mut self, scale: Scale, size: Size) {
-        if let Some(renderer) = self.renderer.as_mut() {
-            renderer.resize(scale, size);
-        }
-    }
-
-    pub(crate) fn set_scale(&mut self, scale: Scale) {
-        if let Some(renderer) = self.renderer.as_mut() {
-            renderer.set_scale(scale);
-        }
+    pub(crate) fn set_scale(&mut self, scale: f64) {
+        self.renderer.set_scale(scale);
     }
 }
 
@@ -945,6 +1149,8 @@ pub struct UpdateCx<'a> {
 }
 
 impl<'a> UpdateCx<'a> {
+    /// request that this node be laid out again
+    /// This will recursively request layout for all parents and set the `ChangeFlag::LAYOUT` at root
     pub fn request_layout(&mut self, id: Id) {
         self.app_state.request_layout(id);
     }
@@ -954,12 +1160,12 @@ impl Deref for PaintCx<'_> {
     type Target = crate::renderer::Renderer;
 
     fn deref(&self) -> &Self::Target {
-        self.paint_state.renderer.as_ref().unwrap()
+        &self.paint_state.renderer
     }
 }
 
 impl DerefMut for PaintCx<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.paint_state.renderer.as_mut().unwrap()
+        &mut self.paint_state.renderer
     }
 }
