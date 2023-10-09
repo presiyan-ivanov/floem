@@ -9,7 +9,9 @@ use crate::{
     views::{container, list, stack},
 };
 
-use super::{container_box, Decorators};
+use super::{
+    container_box, scroll, virtual_list, Decorators, VirtualListItemSize, VirtualListVector,
+};
 
 /// Headers/footers
 pub const DARK0_BG: Color = Color::rgb8(42, 43, 52);
@@ -18,7 +20,7 @@ pub const DARK1_BG: Color = Color::GHOST_WHITE;
 /// Main background
 pub const DARK2_BG: Color = Color::GHOST_WHITE;
 /// Selected option background
-pub const DARK3_BG: Color = Color::GHOST_WHITE;
+pub const DARK3_BG: Color = Color::LIGHT_GRAY;
 
 // TODO: style structure
 // TODO: let widths be percentages
@@ -50,7 +52,7 @@ where
     VH: View + 'static,
     U: 'static,
     ROWSF: Fn() -> ROWS + 'static,
-    ROWS: IntoIterator<Item = U> + 'static,
+    ROWS: VirtualListVector<U> + 'static,
     ROWKF: Fn(&U) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
     ROWVF: Fn(&T, &U) -> ROWV + 'static + Clone,
@@ -150,7 +152,7 @@ where
     KH: Eq + Hash + 'static,
     U: 'static,
     ROWSF: Fn() -> ROWS + 'static,
-    ROWS: IntoIterator<Item = U> + 'static,
+    ROWS: VirtualListVector<U> + 'static,
     ROWKF: Fn(&U) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
     ROWVF: Fn(&T, &U) -> ROWV + 'static + Clone,
@@ -161,31 +163,34 @@ where
     // The inner list is for each column in the table.
     // This seems a bit reversed from how you'd lay it out mentally, but it
     // matches how the header works better.
-    list(
-        move || rows_fn(),
-        move |x| row_key_fn(x),
-        move |x: U| {
-            let row_view_fn = row_view_fn.clone();
-            let header_fn = header_fn.clone();
-            let widths_fn = widths_fn.clone();
-            let header_key_fn = header_key_fn.clone();
-            // TODO(minor): Does this really need a container?
-            // container(move || {
-            let row_view_fn = row_view_fn.clone();
-            let widths_fn = widths_fn.clone();
-            list(
-                move || header_fn(),
-                move |x: &T| header_key_fn(x),
-                move |y: T| {
-                    let row_view_fn = row_view_fn.clone();
-                    let widths_fn = widths_fn.clone();
-                    let width = widths_fn(&y);
-                    table_row_entry(move |x, y| row_view_fn(x, y), &y, &x, width)
-                },
-            )
-        },
+    scroll(
+        virtual_list(
+            super::VirtualListDirection::Vertical,
+            VirtualListItemSize::Fixed(Box::new(|| 20.0)),
+            move || rows_fn(),
+            move |x| row_key_fn(x),
+            move |x: U| {
+                let row_view_fn = row_view_fn.clone();
+                let header_fn = header_fn.clone();
+                let widths_fn = widths_fn.clone();
+                let header_key_fn = header_key_fn.clone();
+                let row_view_fn = row_view_fn.clone();
+                let widths_fn = widths_fn.clone();
+                list(
+                    move || header_fn(),
+                    move |x: &T| header_key_fn(x),
+                    move |y: T| {
+                        let row_view_fn = row_view_fn.clone();
+                        let widths_fn = widths_fn.clone();
+                        let width = widths_fn(&y);
+                        table_row_entry(move |x, y| row_view_fn(x, y), &y, &x, width)
+                    },
+                )
+            },
+        )
+        .style(|s| s.flex_col()),
     )
-    .style(|s| s.flex_col())
+    .style(|s| s.width(100.pct()).height(95.pct()).border(1.0).margin_bottom(50.px()))
 }
 
 fn table_row_entry<T, U, VHF, V>(row_view_fn: VHF, x: &T, y: &U, width: f64) -> impl View
@@ -199,7 +204,7 @@ where
         s.background(DARK2_BG)
             .padding_horiz(10.0.px())
             .padding_vert(3.0.px())
-            .border_top(5.px())
+            .border_top(1.5.px())
             .border_bottom(0.8)
             .border_right(0.8)
             .border_color(DARK3_BG)

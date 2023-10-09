@@ -3,7 +3,7 @@ use floem::{
     peniko::Color,
     reactive::create_signal,
     view::View,
-    views::{table, Decorators, label},
+    views::{label, table, Decorators},
 };
 
 use crate::form::{form, form_item};
@@ -12,12 +12,13 @@ use crate::form::{form, form_item};
 enum ModTableEntry {
     /// Load order index
     Index,
-    Name,
-    Version,
-    Author,
-    LastUpdated,
-    // TODO: Should we have some inbuilt way in table to have a blank space? Eh.
-    Blank,
+    FoodName,
+    Calories,
+    TotalFats,
+    SaturatedFats,
+    SodiumMg,
+    CholesterolMg,
+    MoreActions,
 }
 
 fn mod_entry_text(x: &ModTableEntry, (idx, row): &(usize, ModRow)) -> impl View {
@@ -29,40 +30,47 @@ impl ModTableEntry {
     fn title(&self) -> &'static str {
         match self {
             Self::Index => "#",
-            Self::Name => "Name",
-            Self::Version => "Version",
-            Self::Author => "Author",
-            Self::LastUpdated => "Last Updated",
-            Self::Blank => "",
+            Self::FoodName => "Food",
+            Self::Calories => "Calories",
+            Self::TotalFats => "Fats",
+            Self::SaturatedFats => "Saturated Fats",
+            Self::SodiumMg => "Sodium (mg)",
+            Self::CholesterolMg => "Cholesterol (mg)",
+            Self::MoreActions => "",
         }
     }
-}
 
-const ACTIVE_MOD_TABLE_ENTRIES: [ModTableEntry; 6] = [
-    ModTableEntry::Index,
-    ModTableEntry::Name,
-    ModTableEntry::Version,
-    ModTableEntry::Author,
-    ModTableEntry::LastUpdated,
-    ModTableEntry::Blank,
-];
+    const ACTIVE_MOD_TABLE_ENTRIES: [ModTableEntry; 6] = [
+        Self::Index,
+        Self::FoodName,
+        Self::Calories,
+        Self::TotalFats,
+        Self::SaturatedFats,
+        Self::MoreActions,
+    ];
+}
 
 #[derive(Debug, Clone)]
 struct ModRow {
-    pub name: String,
-    pub version: String,
-    pub author: String,
-    pub last_updated: String,
+    pub idx: usize,
+    pub food_name: String,
+    pub calories: i32,
+    pub total_fats: f32,
+    pub saturated_fats: f32,
+    pub sodium_mg: f32,
+    pub cholesterol_mg: f32,
 }
 impl ModRow {
     fn value(&self, idx: usize, entry: ModTableEntry) -> String {
         match entry {
             ModTableEntry::Index => idx.to_string(),
-            ModTableEntry::Name => self.name.clone(),
-            ModTableEntry::Version => self.version.clone(),
-            ModTableEntry::Author => self.author.clone(),
-            ModTableEntry::LastUpdated => self.last_updated.clone(),
-            ModTableEntry::Blank => String::new(),
+            ModTableEntry::FoodName => self.food_name.clone(),
+            ModTableEntry::Calories => self.calories.to_string(),
+            ModTableEntry::TotalFats => self.total_fats.to_string(),
+            ModTableEntry::SaturatedFats => self.saturated_fats.to_string(),
+            ModTableEntry::SodiumMg => self.sodium_mg.to_string(),
+            ModTableEntry::CholesterolMg => self.cholesterol_mg.to_string(),
+            ModTableEntry::MoreActions => String::new(),
         }
     }
 }
@@ -89,11 +97,12 @@ fn mod_table_entry_sizes(x: &ModTableEntry) -> f64 {
     let base = 24.0;
     match x {
         ModTableEntry::Index => base * 2.,
-        ModTableEntry::Name => base * 6.,
-        ModTableEntry::Version => base * 6.,
-        ModTableEntry::Author => base * 6.,
-        ModTableEntry::LastUpdated => base * 6.,
-        ModTableEntry::Blank => base * 8.,
+        ModTableEntry::Calories => base * 6.,
+        ModTableEntry::FoodName => base * 6.,
+        ModTableEntry::SodiumMg => base * 6.,
+        ModTableEntry::SaturatedFats => base * 6.,
+        ModTableEntry::TotalFats => base * 8.,
+        _ => base,
     }
 }
 
@@ -141,22 +150,13 @@ pub fn label_view() -> impl View {
     let rows = im::Vector::from_iter(
         [
             ModRow {
-                name: "DndRebalancing".to_string(),
-                version: "1.0.0.0".to_string(),
-                author: "Zerd".to_string(),
-                last_updated: "11/5/2020".to_string(),
-            },
-            ModRow {
-                name: "8 More Short Rests".to_string(),
-                version: "-1.15".to_string(),
-                author: "Logos".to_string(),
-                last_updated: "11/5/2020".to_string(),
-            },
-            ModRow {
-                name: "Customizer".to_string(),
-                version: "1.0.0.0".to_string(),
-                author: "AlanaSP".to_string(),
-                last_updated: "12/1/2020".to_string(),
+                idx: 0,
+                food_name: "Dessert".to_string(),
+                calories: 240,
+                total_fats: 5.,
+                saturated_fats: 3.,
+                sodium_mg: 1.,
+                cholesterol_mg: 2.,
             },
         ]
         .into_iter()
@@ -194,7 +194,7 @@ pub fn label_view() -> impl View {
             //         ]
             //     })]),
             table(
-                move || ACTIVE_MOD_TABLE_ENTRIES,
+                move || ModTableEntry::ACTIVE_MOD_TABLE_ENTRIES,
                 Clone::clone,
                 mod_table_text,
                 move || rows.clone(),
