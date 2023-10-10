@@ -1,6 +1,7 @@
 use std::{hash::Hash, marker::PhantomData, sync::Arc};
 
 use peniko::Color;
+use taffy::style::AlignSelf;
 
 use crate::{
     style::Style,
@@ -14,13 +15,13 @@ use super::{
 };
 
 /// Headers/footers
-pub const DARK0_BG: Color = Color::rgb8(42, 43, 52);
+pub const DARK0_BG: Color = Color::BLACK;
 /// Inputs
 pub const DARK1_BG: Color = Color::GHOST_WHITE;
 /// Main background
 pub const DARK2_BG: Color = Color::GHOST_WHITE;
 /// Selected option background
-pub const DARK3_BG: Color = Color::LIGHT_GRAY;
+pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
 
 // TODO: style structure
 // TODO: let widths be percentages
@@ -67,23 +68,33 @@ where
     let header_key_fn2 = header_key_fn.clone();
     let widths_fn2 = widths_fn.clone();
 
-    stack((
-        table_header(
-            move || header_fn(),
-            move |x| header_key_fn(x),
-            move |x| header_view_fn(x),
-            move |x| widths_fn(x),
-        ),
-        table_rows(
-            move || header_fn2(),
-            move |x| header_key_fn2(x),
-            move || rows_fn(),
-            move |x| row_key_fn(x),
-            move |x, y| row_view_fn(x, y),
-            move |x| widths_fn2(x),
-        ),
-    ))
-    .base_style(|s| s.flex_col())
+    scroll(
+        stack((
+            table_header(
+                move || header_fn(),
+                move |x| header_key_fn(x),
+                move |x| header_view_fn(x),
+                move |x| widths_fn(x),
+            ),
+            table_rows(
+                move || header_fn2(),
+                move |x| header_key_fn2(x),
+                move || rows_fn(),
+                move |x| row_key_fn(x),
+                move |x, y| row_view_fn(x, y),
+                move |x| widths_fn2(x),
+            ),
+        ))
+        .base_style(|s| s.flex_col()),
+    )
+    .base_style(|s| {
+        s.width(1200.px())
+            .height(90.pct())
+            .border(1.0)
+            .border_color(Color::LIGHT_SLATE_GRAY)
+            .margin_left(20.px())
+            .margin_top(20.px())
+    })
 }
 
 fn table_header<T, HF, H, WF, KHF, KH, VHF, VH>(
@@ -129,7 +140,7 @@ where
             .padding_horiz(10.0.px())
             .padding_vert(3.0.px())
             .border_bottom(0.8)
-            .border_right(0.8)
+            // .border_right(0.8)
             .border_color(DARK3_BG)
             .width(width.px())
     })
@@ -176,6 +187,7 @@ where
                 let header_key_fn = header_key_fn.clone();
                 let row_view_fn = row_view_fn.clone();
                 let widths_fn = widths_fn.clone();
+
                 list(
                     move || header_fn(),
                     move |x: &T| header_key_fn(x),
@@ -190,7 +202,12 @@ where
         )
         .style(|s| s.flex_col()),
     )
-    .style(|s| s.width(100.pct()).height(95.pct()).border(1.0).margin_bottom(50.px()))
+    .style(|s| {
+        s.width(100.pct())
+            .height(95.pct())
+            .margin_bottom(50.px())
+            .padding_bottom(20.px())
+    })
 }
 
 fn table_row_entry<T, U, VHF, V>(row_view_fn: VHF, x: &T, y: &U, width: f64) -> impl View
@@ -203,11 +220,12 @@ where
     container(row_view_fn(&x, &y)).style(move |s| {
         s.background(DARK2_BG)
             .padding_horiz(10.0.px())
-            .padding_vert(3.0.px())
-            .border_top(1.5.px())
-            .border_bottom(0.8)
-            .border_right(0.8)
+            .padding_vert(10.0.px())
+            // .border_top(1.px())
+            .border_bottom(0.5)
             .border_color(DARK3_BG)
+            .background(Color::rgb(249.0, 249.0, 249.0))
+            .height(40.px())
             .width(width.px())
     })
 }
