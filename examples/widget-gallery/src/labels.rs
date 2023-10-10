@@ -193,15 +193,15 @@ pub fn label_view() -> impl View {
             //             })),
             //         ]
             //     })]),
-            table(
-                move || ModTableEntry::ACTIVE_MOD_TABLE_ENTRIES,
-                Clone::clone,
-                mod_table_text,
-                move || rows.clone(),
-                |(idx, _)| *idx,
-                mod_entry_text,
-                mod_table_entry_sizes,
-            ),
+            // table(
+            //     move || ModTableEntry::ACTIVE_MOD_TABLE_ENTRIES,
+            //     Clone::clone,
+            //     mod_table_text,
+            //     move || rows.clone(),
+            //     |(idx, _)| *idx,
+            //     mod_entry_text,
+            //     mod_table_entry_sizes,
+            // ),
             form_item("Simple Label:".to_string(), 120.0, || {
                 label(move || "This is a simple label".to_owned())
             }),

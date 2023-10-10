@@ -2,6 +2,7 @@ use floem::{
     cosmic_text::{Style as FontStyle, Weight},
     peniko::Color,
     reactive::create_signal,
+    style::Style,
     unit::UnitExt,
     view::View,
     views::{label, table, Decorators},
@@ -9,7 +10,7 @@ use floem::{
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum ModTableEntry {
+enum TableCol {
     /// Load order index
     Index,
     Title,
@@ -23,12 +24,16 @@ enum ModTableEntry {
     MoreActions,
 }
 
-fn mod_entry_text(x: &ModTableEntry, (idx, row): &(usize, ModRow)) -> impl View {
+fn body_cell_view(x: &TableCol, (idx, row): &(usize, ModRow)) -> impl View {
     let row_value = row.value(*idx, *x);
-    label(move || row_value.clone()).style(|s| s.font_size(14.0))
+    let num = idx.clone();
+    label(move || row_value.clone()).style(move |s| {
+        s.font_size(14.0).width(100.pct())
+            .apply_if(num % 2 == 0, |s| s.background(Color::WHITE_SMOKE))
+    })
 }
 
-impl ModTableEntry {
+impl TableCol {
     fn title(&self) -> &'static str {
         match self {
             Self::Index => "#",
@@ -44,7 +49,7 @@ impl ModTableEntry {
         }
     }
 
-    const ACTIVE_MOD_TABLE_ENTRIES: [ModTableEntry; 10] = [
+    const ACTIVE_MOD_TABLE_ENTRIES: [TableCol; 10] = [
         Self::Index,
         Self::Title,
         Self::Author,
@@ -72,34 +77,38 @@ struct ModRow {
     pub price: String,
 }
 impl ModRow {
-    fn value(&self, idx: usize, entry: ModTableEntry) -> String {
+    fn value(&self, idx: usize, entry: TableCol) -> String {
         match entry {
-            ModTableEntry::Index => idx.to_string(),
-            ModTableEntry::Title => self.title.clone(),
-            ModTableEntry::Author => self.author.to_string(),
-            ModTableEntry::Category => self.category_name.to_string(),
-            ModTableEntry::Stars => self.stars.to_string(),
-            ModTableEntry::Reviews => self.reviews.to_string(),
-            ModTableEntry::Seller => self.seller.to_string(),
-            ModTableEntry::PublishedOn => self.published_on.to_string(),
-            ModTableEntry::Price => self.price.to_string(),
-            ModTableEntry::MoreActions => "TODO".to_owned(),
+            TableCol::Index => idx.to_string(),
+            TableCol::Title => self.title.clone(),
+            TableCol::Author => self.author.to_string(),
+            TableCol::Category => self.category_name.to_string(),
+            TableCol::Stars => self.stars.to_string(),
+            TableCol::Reviews => self.reviews.to_string(),
+            TableCol::Seller => self.seller.to_string(),
+            TableCol::PublishedOn => self.published_on.to_string(),
+            TableCol::Price => self.price.to_string(),
+            TableCol::MoreActions => "TODO".to_owned(),
         }
     }
 }
 
-fn mod_table_entry_sizes(x: &ModTableEntry) -> f64 {
-    let base = 24.0;
-    match x {
-        ModTableEntry::Index => base * 3.,
-        ModTableEntry::Author | ModTableEntry::Seller | ModTableEntry::Category => base * 8.,
-        ModTableEntry::Title => base * 25.,
-        ModTableEntry::Stars | ModTableEntry::Reviews | ModTableEntry::Price => base * 4.,
-        _ => base * 5.,
-    }
-}
+// fn mod_table_entry_sizes(x: &ModTableEntry) -> Fn(&ModTableEntry) -> Style + 'static {
+//     let base = 24.0;
+//     match x {
+//         ModTableEntry::Index => Style::BASE.width(base * 3.),
+//         ModTableEntry::Author | ModTableEntry::Seller | ModTableEntry::Category => {
+//             Style::BASE.width(base * 8.).background(Color::RED)
+//         }
+//         ModTableEntry::Title => Style::BASE.width(base * 25.),
+//         ModTableEntry::Stars | ModTableEntry::Reviews | ModTableEntry::Price => {
+//             Style::BASE.width(base * 4.)
+//         }
+//         _ => Style::BASE.width(base * 5.),
+//     }
+// }
 
-fn mod_table_text(x: ModTableEntry) -> impl View {
+fn header_cell_view(x: TableCol) -> impl View {
     label(move || x.title().to_string())
         .style(|s| s.font_size(16.0).font_bold().padding_vert(15.px()))
 }
@@ -114,15 +123,24 @@ pub fn app_view() -> impl View {
         rows.push((idx + 1, row));
     }
     let rows: im::Vector<(usize, ModRow)> = rows.into();
+    let base = 24.0;
 
     table(
-        move || ModTableEntry::ACTIVE_MOD_TABLE_ENTRIES,
+        move || TableCol::ACTIVE_MOD_TABLE_ENTRIES,
         Clone::clone,
-        mod_table_text,
+        header_cell_view,
         move || rows.clone(),
         |(idx, _)| *idx,
-        mod_entry_text,
-        mod_table_entry_sizes,
+        body_cell_view,
+        move |col, s| match col {
+            TableCol::Index => s.width(base * 3.),
+            TableCol::Author | TableCol::Seller | TableCol::Category => {
+                s.width(base * 8.).background(Color::RED)
+            }
+            TableCol::Title => s.width(base * 25.),
+            TableCol::Stars | TableCol::Reviews | TableCol::Price => s.width(base * 4.),
+            _ => s.width(base * 5.),
+        },
     )
     // .style(|s| {
     //     s.border(1.0)
