@@ -68,33 +68,40 @@ where
     let header_key_fn2 = header_key_fn.clone();
     let widths_fn2 = widths_fn.clone();
 
-    scroll(
-        stack((
-            table_header(
-                move || header_fn(),
-                move |x| header_key_fn(x),
-                move |x| header_view_fn(x),
-                move |x| widths_fn(x),
-            ),
-            table_rows(
-                move || header_fn2(),
-                move |x| header_key_fn2(x),
-                move || rows_fn(),
-                move |x| row_key_fn(x),
-                move |x, y| row_view_fn(x, y),
-                move |x| widths_fn2(x),
-            ),
-        ))
-        .base_style(|s| s.flex_col()),
-    )
+    // horizontal scroll
+    // scroll(
+    stack((
+        table_header(
+            move || header_fn(),
+            move |x| header_key_fn(x),
+            move |x| header_view_fn(x),
+            move |x| widths_fn(x),
+        ),
+        table_rows(
+            move || header_fn2(),
+            move |x| header_key_fn2(x),
+            move || rows_fn(),
+            move |x| row_key_fn(x),
+            move |x, y| row_view_fn(x, y),
+            move |x| widths_fn2(x),
+        ),
+    ))
     .base_style(|s| {
-        s.width(1200.px())
-            .height(90.pct())
-            .border(1.0)
+        s.flex_col()
+            .margin_vert(20.px())
+            .margin_horiz(20.px())
+            .border(0.5.px())
             .border_color(Color::LIGHT_SLATE_GRAY)
-            .margin_left(20.px())
-            .margin_top(20.px())
     })
+    // )
+    // .base_style(|s| {
+    //     s.width(1200.px())
+    //         // .height(90.pct())
+    //         .border(1.0)
+    //         .border_color(Color::LIGHT_SLATE_GRAY)
+    //         .margin_left(20.px())
+    //         .margin_top(20.px())
+    // })
 }
 
 fn table_header<T, HF, H, WF, KHF, KH, VHF, VH>(
@@ -127,6 +134,7 @@ where
             table_header_entry(move |x| header_view_fn(x), x, width)
         },
     )
+    .style(|s| s.background(Color::rgb8(64, 135, 234)))
 }
 
 fn table_header_entry<T, VHF, V>(header_view_fn: VHF, x: T, width: f64) -> impl View
@@ -136,10 +144,10 @@ where
     V: View + 'static,
 {
     container(header_view_fn(x)).style(move |s| {
-        s.background(DARK1_BG)
-            .padding_horiz(10.0.px())
+        s.padding_horiz(10.0.px())
             .padding_vert(3.0.px())
-            .border_bottom(0.8)
+            .color(Color::WHITE_SMOKE)
+            .border_bottom(1.px())
             // .border_right(0.8)
             .border_color(DARK3_BG)
             .width(width.px())
@@ -169,15 +177,16 @@ where
     ROWVF: Fn(&T, &U) -> ROWV + 'static + Clone,
     ROWV: View + 'static,
 {
-    // A list of lists.
-    // The outer list is for each row in the table.
-    // The inner list is for each column in the table.
-    // This seems a bit reversed from how you'd lay it out mentally, but it
-    // matches how the header works better.
+    //Vertical scroll
     scroll(
+        // A list of lists.
+        // The outer list is for each row in the table.
+        // The inner list is for each column in the table.
+        // This seems a bit reversed from how you'd lay it out mentally, but it
+        // matches how the header works better.
         virtual_list(
             super::VirtualListDirection::Vertical,
-            VirtualListItemSize::Fixed(Box::new(|| 20.0)),
+            VirtualListItemSize::Fixed(Box::new(|| 40.0)),
             move || rows_fn(),
             move |x| row_key_fn(x),
             move |x: U| {
@@ -204,7 +213,7 @@ where
     )
     .style(|s| {
         s.width(100.pct())
-            .height(95.pct())
+            .height(97.pct())
             .margin_bottom(50.px())
             .padding_bottom(20.px())
     })
@@ -224,7 +233,7 @@ where
             // .border_top(1.px())
             .border_bottom(0.5)
             .border_color(DARK3_BG)
-            .background(Color::rgb(249.0, 249.0, 249.0))
+            // .background(Color::rgb(249.0, 249.0, 249.0))
             .height(40.px())
             .width(width.px())
     })
