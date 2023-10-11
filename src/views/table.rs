@@ -32,7 +32,7 @@ pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
 // `header_view_fn`: The actual view that should be displayed. Typically just a label.
 //
 // `widths_fn`: Maps a key to the width of the table column
-pub fn table<COL, HF, TH, CSF, HKF, FK, THCV, THV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
+pub fn table<COL, HF, TH, CSF, HKF, HK, THCV, THV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
     header_fn: HF,
     header_key_fn: HKF,
     th_content_view_fn: THCV,
@@ -46,8 +46,8 @@ where
     HF: Fn() -> TH + 'static,
     TH: IntoIterator<Item = COL> + 'static,
     CSF: Fn(&COL, Style) -> Style + 'static,
-    HKF: Fn(&COL) -> FK + 'static,
-    FK: Eq + Hash + 'static,
+    HKF: Fn(&COL) -> HK + 'static,
+    HK: Eq + Hash + 'static,
     THCV: Fn(COL) -> THV + 'static,
     THV: View + 'static,
     TD: 'static,
