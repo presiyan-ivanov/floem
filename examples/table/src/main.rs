@@ -2,10 +2,10 @@ use floem::{
     cosmic_text::{Style as FontStyle, Weight},
     peniko::Color,
     reactive::create_signal,
-    style::Style,
+    style::{Style, TextOverflow},
     unit::UnitExt,
     view::View,
-    views::{label, table, Decorators},
+    views::{label, table, td, th, Decorators, Label},
 };
 use serde::Deserialize;
 
@@ -24,15 +24,15 @@ enum TableCol {
     MoreActions,
 }
 
-fn td_view(x: &TableCol, (idx, row): &(usize, ModRow)) -> impl View {
-    let row_value = row.value(*idx, *x);
-    let num = idx.clone();
-    label(move || row_value.clone()).style(move |s| {
-        s.font_size(14.0)
-            .width(100.pct())
-            .apply_if(num % 2 == 0, |s| s.background(Color::WHITE_SMOKE))
-    })
-}
+// fn td_view(x: &TableCol, (idx, row): &(usize, ModRow)) -> impl View {
+//     let row_value = row.value(*idx, *x);
+//     let num = idx.clone();
+//     label(move || row_value.clone()).style(move |s| {
+//         s.font_size(14.0)
+//             .width(100.pct())
+//             .apply_if(num % 2 == 0, |s| s.background(Color::WHITE_SMOKE))
+//     })
+// }
 
 impl TableCol {
     fn title(&self) -> &'static str {
@@ -109,11 +109,6 @@ impl ModRow {
 //     }
 // }
 
-fn th_view(x: TableCol) -> impl View {
-    label(move || x.title().to_string())
-        .style(|s| s.font_size(16.0).font_bold().padding_vert(15.px()))
-}
-
 pub fn app_view() -> impl View {
     let mut rdr = csv::Reader::from_path("./kindle_data-v2.csv").unwrap();
     let mut rows = vec![];
@@ -130,18 +125,22 @@ pub fn app_view() -> impl View {
         move || TableCol::ALL_COLUMNS,
         Clone::clone,
         move |col| {
-            label(move || col.title().to_string())
-                .style(|s| s.font_size(16.0).font_bold().padding_vert(15.px()))
+            th(Box::new(label(move || col.title().to_string()).style(
+                |s| s.font_size(16.0).font_bold().padding_vert(15.px()),
+            )))
         },
         move || rows.clone(),
         |(idx, _)| *idx,
         move |x: &TableCol, (idx, row): &(usize, ModRow)| {
             let row_value = row.value(*idx, *x);
             let num = idx.clone();
-            label(move || row_value.clone()).style(move |s| {
-                s.font_size(14.0)
-                    .width(100.pct())
-                    .apply_if(num % 2 == 0, |s| s.background(Color::WHITE_SMOKE))
+            let stars_column_color =
+                matches!(x, TableCol::Stars) && row.stars.parse::<f32>().unwrap() > 4.0;
+            td(label(move || row_value.clone()).style(move |s| s.font_size(14.0))).style(move |s| {
+                s.apply_if(stars_column_color, |s| {
+                    s.background(Color::LIGHT_GREEN)
+                        .text_overflow(TextOverflow::Ellipsis)
+                })
             })
         },
         move |col, s| match col {
@@ -149,7 +148,7 @@ pub fn app_view() -> impl View {
             TableCol::Author | TableCol::Seller | TableCol::Category => {
                 s.width(base * 8.).background(Color::RED)
             }
-            TableCol::Title => s.width(base * 25.),
+            TableCol::Title => s.width(base * 10.),
             TableCol::Stars | TableCol::Reviews | TableCol::Price => s.width(base * 4.),
             _ => s.width(base * 5.),
         },

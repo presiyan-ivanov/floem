@@ -9,7 +9,7 @@ use crate::{
     views::{container, list, stack},
 };
 
-use super::{scroll, virtual_list, Decorators, VirtualListItemSize, VirtualListVector};
+use super::{scroll, virtual_list, Decorators, Label, VirtualListItemSize, VirtualListVector};
 
 /// Headers/footers
 pub const DARK0_BG: Color = Color::BLACK;
@@ -19,6 +19,172 @@ pub const DARK1_BG: Color = Color::GHOST_WHITE;
 pub const DARK2_BG: Color = Color::GHOST_WHITE;
 /// Selected option background
 pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
+
+use kurbo::Rect;
+
+use crate::{id::Id, view::ChangeFlags};
+
+pub struct Th<V: View> {
+    id: Id,
+    child: V,
+}
+
+pub fn th<V: View>(child: V) -> Th<V> {
+    Th {
+        id: Id::next(),
+        child,
+    }
+}
+
+impl<V: View> View for Th<V> {
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn child(&self, id: Id) -> Option<&dyn View> {
+        if self.child.id() == id {
+            Some(&self.child)
+        } else {
+            None
+        }
+    }
+
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
+        if self.child.id() == id {
+            Some(&mut self.child)
+        } else {
+            None
+        }
+    }
+
+    fn children(&self) -> Vec<&dyn View> {
+        vec![&self.child]
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
+        vec![&mut self.child]
+    }
+
+    fn debug_name(&self) -> std::borrow::Cow<'static, str> {
+        "Th".into()
+    }
+
+    fn update(
+        &mut self,
+        _cx: &mut crate::context::UpdateCx,
+        _state: Box<dyn std::any::Any>,
+    ) -> crate::view::ChangeFlags {
+        ChangeFlags::empty()
+    }
+
+    fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
+        cx.layout_node(self.id, true, |cx| vec![self.child.layout_main(cx)])
+    }
+
+    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
+        Some(self.child.compute_layout_main(cx))
+    }
+
+    fn event(
+        &mut self,
+        cx: &mut crate::context::EventCx,
+        id_path: Option<&[Id]>,
+        event: crate::event::Event,
+    ) -> bool {
+        if cx.should_send(self.child.id(), &event) {
+            self.child.event_main(cx, id_path, event)
+        } else {
+            false
+        }
+    }
+
+    fn paint(&mut self, cx: &mut crate::context::PaintCx) {
+        self.child.paint_main(cx);
+    }
+}
+
+pub struct Td<V: View> {
+    id: Id,
+    child: V,
+}
+
+pub fn td<V: View>(child: V) -> Td<V> {
+    Td {
+        id: Id::next(),
+        child,
+    }
+}
+
+impl<V: View> View for Td<V> {
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn child(&self, id: Id) -> Option<&dyn View> {
+        if self.child.id() == id {
+            Some(&self.child)
+        } else {
+            None
+        }
+    }
+
+    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
+        if self.child.id() == id {
+            Some(&mut self.child)
+        } else {
+            None
+        }
+    }
+
+    fn children(&self) -> Vec<&dyn View> {
+        vec![&self.child]
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn View> {
+        vec![&mut self.child]
+    }
+
+    fn debug_name(&self) -> std::borrow::Cow<'static, str> {
+        "Td".into()
+    }
+
+    fn update(
+        &mut self,
+        _cx: &mut crate::context::UpdateCx,
+        _state: Box<dyn std::any::Any>,
+    ) -> crate::view::ChangeFlags {
+        ChangeFlags::empty()
+    }
+
+    fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
+        cx.layout_node(self.id, true, |cx| vec![self.child.layout_main(cx)])
+    }
+
+    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
+        Some(self.child.compute_layout_main(cx))
+    }
+
+    fn event(
+        &mut self,
+        cx: &mut crate::context::EventCx,
+        id_path: Option<&[Id]>,
+        event: crate::event::Event,
+    ) -> bool {
+        if cx.should_send(self.child.id(), &event) {
+            self.child.event_main(cx, id_path, event)
+        } else {
+            false
+        }
+    }
+
+    fn paint(&mut self, cx: &mut crate::context::PaintCx) {
+        self.child.paint_main(cx);
+    }
+}
+
+pub trait TableDimension {}
+
+impl TableDimension for Td<Label> {}
 
 // TODO: style structure
 // TODO: let widths be percentages
@@ -30,7 +196,7 @@ pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
 // `header_view_fn`: The actual view that should be displayed. Typically just a label.
 //
 // `widths_fn`: Maps a key to the width of the table column
-pub fn table<COL, HF, TH, CSF, HKF, HK, THCV, THV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
+pub fn table<COL, HF, TH, CSF, HKF, HK, THCV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
     header_fn: HF,
     header_key_fn: HKF,
     th_content_view_fn: THCV,
@@ -47,15 +213,14 @@ where
     CSF: Fn(&COL, Style) -> Style + 'static,
     HKF: Fn(&COL) -> HK + 'static,
     HK: Eq + Hash + 'static,
-    THCV: Fn(COL) -> THV + 'static,
-    THV: View + 'static,
+    THCV: Fn(COL) -> Th<Box<dyn View>> + 'static,
     TD: 'static,
     ROWSF: Fn() -> ROWS + 'static,
     ROWS: VirtualListVector<TD> + 'static,
     ROWKF: Fn(&TD) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
     TDCVF: Fn(&COL, &TD) -> ROWV + 'static + Clone,
-    ROWV: View + 'static,
+    ROWV: TableDimension + View + 'static,
 {
     let header_fn = Arc::new(header_fn);
     let header_key_fn = Arc::new(header_key_fn);
@@ -199,6 +364,7 @@ where
                 let row_view_fn = row_view_fn.clone();
                 let widths_fn = widths_fn.clone();
 
+                // row
                 list(
                     move || header_fn(),
                     move |x: &COL| header_key_fn(x),
@@ -209,6 +375,7 @@ where
                         td_view(move |x, y| row_view_fn(x, y), &y, &x, width, row_height_px)
                     },
                 )
+                .style(move |s| s.height(row_height_px))
             },
         )
         .style(|s| s.flex_col()),
@@ -234,5 +401,5 @@ where
     VHF: Fn(&TD, &U) -> V + 'static,
     V: View + 'static,
 {
-    container(row_view_fn(&x, &y)).style(move |s| s.apply(style.clone()).height(row_height_px))
+    container(row_view_fn(&x, &y)).style(move |s| s.apply(style.clone())).base_style(|s| s.background(Color::YELLOW))
 }
