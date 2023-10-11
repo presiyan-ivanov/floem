@@ -9,9 +9,7 @@ use crate::{
     views::{container, list, stack},
 };
 
-use super::{
-    scroll, virtual_list, Decorators, VirtualListItemSize, VirtualListVector,
-};
+use super::{scroll, virtual_list, Decorators, VirtualListItemSize, VirtualListVector};
 
 /// Headers/footers
 pub const DARK0_BG: Color = Color::BLACK;
@@ -40,6 +38,7 @@ pub fn table<COL, HF, TH, CSF, HKF, HK, THCV, THV, ROWSF, ROWS, TD, ROWKF, ROWK,
     row_key_fn: ROWKF,
     td_content_view_fn: TDCVF,
     widths_fn: CSF,
+    row_height_px: f64,
 ) -> impl View
 where
     COL: 'static,
@@ -83,6 +82,7 @@ where
             move |x| row_key_fn(x),
             move |x, y| td_content_view_fn(x, y),
             move |x| widths_fn2(x, Style::BASE),
+            row_height_px,
         ),
     ))
     .base_style(|s| {
@@ -162,6 +162,7 @@ fn tbody<COL, HF, H, WF, HKF, KH, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, TDC>(
     row_key_fn: ROWKF,
     td_content_view_fn: TDCVF,
     widths_fn: WF,
+    row_height_px: f64,
 ) -> impl View
 where
     COL: 'static,
@@ -187,7 +188,7 @@ where
         // matches how the header works better.
         virtual_list(
             super::VirtualListDirection::Vertical,
-            VirtualListItemSize::Fixed(Box::new(|| 40.0)),
+            VirtualListItemSize::Fixed(Box::new(move || row_height_px)),
             move || rows_fn(),
             move |x| row_key_fn(x),
             move |x: TD| {
@@ -205,7 +206,7 @@ where
                         let row_view_fn = row_view_fn.clone();
                         let widths_fn = widths_fn.clone();
                         let width = widths_fn(&y);
-                        td_view(move |x, y| row_view_fn(x, y), &y, &x, width)
+                        td_view(move |x, y| row_view_fn(x, y), &y, &x, width, row_height_px)
                     },
                 )
             },
@@ -220,12 +221,18 @@ where
     })
 }
 
-fn td_view<TD, U, VHF, V>(row_view_fn: VHF, x: &TD, y: &U, style: Style) -> impl View
+fn td_view<TD, U, VHF, V>(
+    row_view_fn: VHF,
+    x: &TD,
+    y: &U,
+    style: Style,
+    row_height_px: f64,
+) -> impl View
 where
     TD: 'static,
     U: 'static,
     VHF: Fn(&TD, &U) -> V + 'static,
     V: View + 'static,
 {
-    container(row_view_fn(&x, &y)).style(move |s| s.apply(style.clone()).height(40.px()))
+    container(row_view_fn(&x, &y)).style(move |s| s.apply(style.clone()).height(row_height_px))
 }

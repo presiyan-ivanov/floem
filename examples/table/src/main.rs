@@ -24,11 +24,12 @@ enum TableCol {
     MoreActions,
 }
 
-fn td_content_view(x: &TableCol, (idx, row): &(usize, ModRow)) -> impl View {
+fn td_view(x: &TableCol, (idx, row): &(usize, ModRow)) -> impl View {
     let row_value = row.value(*idx, *x);
     let num = idx.clone();
     label(move || row_value.clone()).style(move |s| {
-        s.font_size(14.0).width(100.pct())
+        s.font_size(14.0)
+            .width(100.pct())
             .apply_if(num % 2 == 0, |s| s.background(Color::WHITE_SMOKE))
     })
 }
@@ -49,7 +50,7 @@ impl TableCol {
         }
     }
 
-    const ACTIVE_MOD_TABLE_ENTRIES: [TableCol; 10] = [
+    const ALL_COLUMNS: [TableCol; 10] = [
         Self::Index,
         Self::Title,
         Self::Author,
@@ -108,7 +109,7 @@ impl ModRow {
 //     }
 // }
 
-fn th_content_view(x: TableCol) -> impl View {
+fn th_view(x: TableCol) -> impl View {
     label(move || x.title().to_string())
         .style(|s| s.font_size(16.0).font_bold().padding_vert(15.px()))
 }
@@ -126,12 +127,23 @@ pub fn app_view() -> impl View {
     let base = 24.0;
 
     table(
-        move || TableCol::ACTIVE_MOD_TABLE_ENTRIES,
+        move || TableCol::ALL_COLUMNS,
         Clone::clone,
-        th_content_view,
+        move |col| {
+            label(move || col.title().to_string())
+                .style(|s| s.font_size(16.0).font_bold().padding_vert(15.px()))
+        },
         move || rows.clone(),
         |(idx, _)| *idx,
-        td_content_view,
+        move |x: &TableCol, (idx, row): &(usize, ModRow)| {
+            let row_value = row.value(*idx, *x);
+            let num = idx.clone();
+            label(move || row_value.clone()).style(move |s| {
+                s.font_size(14.0)
+                    .width(100.pct())
+                    .apply_if(num % 2 == 0, |s| s.background(Color::WHITE_SMOKE))
+            })
+        },
         move |col, s| match col {
             TableCol::Index => s.width(base * 3.),
             TableCol::Author | TableCol::Seller | TableCol::Category => {
@@ -141,6 +153,7 @@ pub fn app_view() -> impl View {
             TableCol::Stars | TableCol::Reviews | TableCol::Price => s.width(base * 4.),
             _ => s.width(base * 5.),
         },
+        40.0,
     )
     // .style(|s| {
     //     s.border(1.0)
