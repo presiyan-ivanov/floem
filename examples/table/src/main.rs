@@ -24,7 +24,7 @@ enum TableCol {
     MoreActions,
 }
 
-fn body_cell_view(x: &TableCol, (idx, row): &(usize, ModRow)) -> impl View {
+fn td_content_view(x: &TableCol, (idx, row): &(usize, ModRow)) -> impl View {
     let row_value = row.value(*idx, *x);
     let num = idx.clone();
     label(move || row_value.clone()).style(move |s| {
@@ -108,7 +108,7 @@ impl ModRow {
 //     }
 // }
 
-fn header_cell_view(x: TableCol) -> impl View {
+fn th_content_view(x: TableCol) -> impl View {
     label(move || x.title().to_string())
         .style(|s| s.font_size(16.0).font_bold().padding_vert(15.px()))
 }
@@ -128,10 +128,10 @@ pub fn app_view() -> impl View {
     table(
         move || TableCol::ACTIVE_MOD_TABLE_ENTRIES,
         Clone::clone,
-        header_cell_view,
+        th_content_view,
         move || rows.clone(),
         |(idx, _)| *idx,
-        body_cell_view,
+        td_content_view,
         move |col, s| match col {
             TableCol::Index => s.width(base * 3.),
             TableCol::Author | TableCol::Seller | TableCol::Category => {

@@ -33,13 +33,13 @@ pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
 // `header_view_fn`: The actual view that should be displayed. Typically just a label.
 //
 // `widths_fn`: Maps a key to the width of the table column
-pub fn table<T, HF, H, CSF, HKF, KH, VHF, VH, ROWSF, ROWS, U, ROWKF, ROWK, ROWVF, ROWV>(
+pub fn table<T, HF, H, CSF, HKF, KH, THCV, VH, ROWSF, ROWS, U, ROWKF, ROWK, TDCVF, ROWV>(
     header_fn: HF,
     header_key_fn: HKF,
-    header_view_fn: VHF,
+    th_content_view_fn: THCV,
     rows_fn: ROWSF,
     row_key_fn: ROWKF,
-    row_view_fn: ROWVF,
+    td_content_view_fn: TDCVF,
     widths_fn: CSF,
 ) -> impl View
 where
@@ -49,19 +49,19 @@ where
     CSF: Fn(&T, Style) -> Style + 'static,
     HKF: Fn(&T) -> KH + 'static,
     KH: Eq + Hash + 'static,
-    VHF: Fn(T) -> VH + 'static,
+    THCV: Fn(T) -> VH + 'static,
     VH: View + 'static,
     U: 'static,
     ROWSF: Fn() -> ROWS + 'static,
     ROWS: VirtualListVector<U> + 'static,
     ROWKF: Fn(&U) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
-    ROWVF: Fn(&T, &U) -> ROWV + 'static + Clone,
+    TDCVF: Fn(&T, &U) -> ROWV + 'static + Clone,
     ROWV: View + 'static,
 {
     let header_fn = Arc::new(header_fn);
     let header_key_fn = Arc::new(header_key_fn);
-    let header_view_fn = Arc::new(header_view_fn);
+    let header_view_fn = Arc::new(th_content_view_fn);
     let widths_fn = Arc::new(widths_fn);
 
     let header_fn2 = header_fn.clone();
@@ -71,18 +71,18 @@ where
     // horizontal scroll
     // scroll(
     stack((
-        table_header(
+        thead(
             move || header_fn(),
             move |x| header_key_fn(x),
             move |x| header_view_fn(x),
             move |x| widths_fn(x, Style::BASE),
         ),
-        table_rows(
+        tbody(
             move || header_fn2(),
             move |x| header_key_fn2(x),
             move || rows_fn(),
             move |x| row_key_fn(x),
-            move |x, y| row_view_fn(x, y),
+            move |x, y| td_content_view_fn(x, y),
             move |x| widths_fn2(x, Style::BASE),
         ),
     ))
@@ -104,10 +104,10 @@ where
     // })
 }
 
-fn table_header<T, HF, H, WF, KHF, KH, VHF, VH>(
+fn thead<T, HF, H, WF, KHF, KH, VHF, VH>(
     header_fn: HF,
     header_key_fn: KHF,
-    header_view_fn: VHF,
+    th_content_view_fn: VHF,
     style_fn: WF,
 ) -> impl View
 where
@@ -122,20 +122,21 @@ where
 {
     let header_fn = Arc::new(header_fn);
     let header_key_fn = Arc::new(header_key_fn);
-    let header_view_fn = Arc::new(header_view_fn);
+    let header_view_fn = Arc::new(th_content_view_fn);
 
+    // for each column(th)
     list(
         move || header_fn(),
         move |x| header_key_fn(x),
         move |x| {
             let header_view_fn = header_view_fn.clone();
-            table_header_entry(move |x| header_view_fn(x), style_fn(&x), x)
+            th_view(move |x| header_view_fn(x), style_fn(&x), x)
         },
     )
     .style(|s| s.background(Color::rgb8(64, 135, 234)))
 }
 
-fn table_header_entry<T, VHF, V>(header_view_fn: VHF, style: Style, x: T) -> impl View
+fn th_view<T, VHF, V>(th_content_view_fn: VHF, style: Style, x: T) -> impl View
 where
     T: 'static,
     VHF: Fn(T) -> V + 'static,
@@ -144,7 +145,7 @@ where
     V: View + 'static,
 {
     // let styles = style_fn(&x);
-    container(header_view_fn(x)).style(move |s| {
+    container(th_content_view_fn(x)).style(move |s| {
         s.padding_horiz(10.0.px())
             .padding_vert(3.0.px())
             .color(Color::WHITE_SMOKE)
@@ -155,12 +156,12 @@ where
     })
 }
 
-fn table_rows<T, HF, H, WF, KHF, KH, ROWSF, ROWS, U, ROWKF, ROWK, ROWVF, ROWV>(
+fn tbody<T, HF, H, WF, KHF, KH, ROWSF, ROWS, U, ROWKF, ROWK, TDCVF, TDC>(
     header_fn: HF,
     header_key_fn: KHF,
     rows_fn: ROWSF,
     row_key_fn: ROWKF,
-    row_view_fn: ROWVF,
+    td_content_view_fn: TDCVF,
     widths_fn: WF,
 ) -> impl View
 where
@@ -175,13 +176,13 @@ where
     ROWS: VirtualListVector<U> + 'static,
     ROWKF: Fn(&U) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
-    ROWVF: Fn(&T, &U) -> ROWV + 'static + Clone,
-    ROWV: View + 'static,
+    TDCVF: Fn(&T, &U) -> TDC + 'static + Clone,
+    TDC: View + 'static,
 {
     //Vertical scroll
     scroll(
         // A list of lists.
-        // The outer list is for each row in the table.
+        // The outer (virtual) list is for each row in the table.
         // The inner list is for each column in the table.
         // This seems a bit reversed from how you'd lay it out mentally, but it
         // matches how the header works better.
@@ -191,7 +192,7 @@ where
             move || rows_fn(),
             move |x| row_key_fn(x),
             move |x: U| {
-                let row_view_fn = row_view_fn.clone();
+                let row_view_fn = td_content_view_fn.clone();
                 let header_fn = header_fn.clone();
                 let widths_fn = widths_fn.clone();
                 let header_key_fn = header_key_fn.clone();
@@ -205,7 +206,7 @@ where
                         let row_view_fn = row_view_fn.clone();
                         let widths_fn = widths_fn.clone();
                         let width = widths_fn(&y);
-                        table_row_entry(move |x, y| row_view_fn(x, y), &y, &x, width)
+                        td_view(move |x, y| row_view_fn(x, y), &y, &x, width)
                     },
                 )
             },
@@ -220,7 +221,7 @@ where
     })
 }
 
-fn table_row_entry<T, U, VHF, V>(row_view_fn: VHF, x: &T, y: &U, style: Style) -> impl View
+fn td_view<T, U, VHF, V>(row_view_fn: VHF, x: &T, y: &U, style: Style) -> impl View
 where
     T: 'static,
     U: 'static,
@@ -228,11 +229,4 @@ where
     V: View + 'static,
 {
     container(row_view_fn(&x, &y)).style(move |s| s.apply(style.clone()).height(40.px()))
-    //     s.background(DARK2_BG)
-    //         .padding_horiz(10.0.px())
-    //         .padding_vert(10.0.px())
-    //         .border_bottom(0.5)
-    //         .border_color(DARK3_BG)
-    //         // .width(width.px())
-    // })
 }
