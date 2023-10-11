@@ -1,7 +1,6 @@
-use std::{hash::Hash, marker::PhantomData, sync::Arc};
+use std::{hash::Hash, sync::Arc};
 
 use peniko::Color;
-use taffy::style::AlignSelf;
 
 use crate::{
     style::Style,
@@ -11,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    container_box, scroll, virtual_list, Decorators, VirtualListItemSize, VirtualListVector,
+    scroll, virtual_list, Decorators, VirtualListItemSize, VirtualListVector,
 };
 
 /// Headers/footers
@@ -33,7 +32,7 @@ pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
 // `header_view_fn`: The actual view that should be displayed. Typically just a label.
 //
 // `widths_fn`: Maps a key to the width of the table column
-pub fn table<T, HF, H, CSF, HKF, KH, THCV, VH, ROWSF, ROWS, U, ROWKF, ROWK, TDCVF, ROWV>(
+pub fn table<COL, HF, TH, CSF, HKF, FK, THCV, THV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
     header_fn: HF,
     header_key_fn: HKF,
     th_content_view_fn: THCV,
@@ -43,20 +42,20 @@ pub fn table<T, HF, H, CSF, HKF, KH, THCV, VH, ROWSF, ROWS, U, ROWKF, ROWK, TDCV
     widths_fn: CSF,
 ) -> impl View
 where
-    T: 'static,
-    HF: Fn() -> H + 'static,
-    H: IntoIterator<Item = T> + 'static,
-    CSF: Fn(&T, Style) -> Style + 'static,
-    HKF: Fn(&T) -> KH + 'static,
-    KH: Eq + Hash + 'static,
-    THCV: Fn(T) -> VH + 'static,
-    VH: View + 'static,
-    U: 'static,
+    COL: 'static,
+    HF: Fn() -> TH + 'static,
+    TH: IntoIterator<Item = COL> + 'static,
+    CSF: Fn(&COL, Style) -> Style + 'static,
+    HKF: Fn(&COL) -> FK + 'static,
+    FK: Eq + Hash + 'static,
+    THCV: Fn(COL) -> THV + 'static,
+    THV: View + 'static,
+    TD: 'static,
     ROWSF: Fn() -> ROWS + 'static,
-    ROWS: VirtualListVector<U> + 'static,
-    ROWKF: Fn(&U) -> ROWK + 'static,
+    ROWS: VirtualListVector<TD> + 'static,
+    ROWKF: Fn(&TD) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
-    TDCVF: Fn(&T, &U) -> ROWV + 'static + Clone,
+    TDCVF: Fn(&COL, &TD) -> ROWV + 'static + Clone,
     ROWV: View + 'static,
 {
     let header_fn = Arc::new(header_fn);
@@ -104,21 +103,21 @@ where
     // })
 }
 
-fn thead<T, HF, H, WF, KHF, KH, VHF, VH>(
+fn thead<COL, HF, TH, WF, HKF, HK, HVF, HV>(
     header_fn: HF,
-    header_key_fn: KHF,
-    th_content_view_fn: VHF,
+    header_key_fn: HKF,
+    th_content_view_fn: HVF,
     style_fn: WF,
 ) -> impl View
 where
-    T: 'static,
-    HF: Fn() -> H + 'static,
-    H: IntoIterator<Item = T>,
-    WF: Fn(&T) -> Style + 'static,
-    KHF: Fn(&T) -> KH + 'static,
-    KH: Eq + Hash + 'static,
-    VHF: Fn(T) -> VH + 'static,
-    VH: View + 'static,
+    COL: 'static,
+    HF: Fn() -> TH + 'static,
+    TH: IntoIterator<Item = COL>,
+    WF: Fn(&COL) -> Style + 'static,
+    HKF: Fn(&COL) -> HK + 'static,
+    HK: Eq + Hash + 'static,
+    HVF: Fn(COL) -> HV + 'static,
+    HV: View + 'static,
 {
     let header_fn = Arc::new(header_fn);
     let header_key_fn = Arc::new(header_key_fn);
@@ -156,27 +155,27 @@ where
     })
 }
 
-fn tbody<T, HF, H, WF, KHF, KH, ROWSF, ROWS, U, ROWKF, ROWK, TDCVF, TDC>(
+fn tbody<COL, HF, H, WF, HKF, KH, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, TDC>(
     header_fn: HF,
-    header_key_fn: KHF,
+    header_key_fn: HKF,
     rows_fn: ROWSF,
     row_key_fn: ROWKF,
     td_content_view_fn: TDCVF,
     widths_fn: WF,
 ) -> impl View
 where
-    T: 'static,
+    COL: 'static,
     HF: Fn() -> H + 'static + Clone,
-    H: IntoIterator<Item = T>,
-    WF: Fn(&T) -> Style + 'static + Clone,
-    KHF: Fn(&T) -> KH + 'static + Clone,
+    H: IntoIterator<Item = COL>,
+    WF: Fn(&COL) -> Style + 'static + Clone,
+    HKF: Fn(&COL) -> KH + 'static + Clone,
     KH: Eq + Hash + 'static,
-    U: 'static,
+    TD: 'static,
     ROWSF: Fn() -> ROWS + 'static,
-    ROWS: VirtualListVector<U> + 'static,
-    ROWKF: Fn(&U) -> ROWK + 'static,
+    ROWS: VirtualListVector<TD> + 'static,
+    ROWKF: Fn(&TD) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
-    TDCVF: Fn(&T, &U) -> TDC + 'static + Clone,
+    TDCVF: Fn(&COL, &TD) -> TDC + 'static + Clone,
     TDC: View + 'static,
 {
     //Vertical scroll
@@ -191,7 +190,7 @@ where
             VirtualListItemSize::Fixed(Box::new(|| 40.0)),
             move || rows_fn(),
             move |x| row_key_fn(x),
-            move |x: U| {
+            move |x: TD| {
                 let row_view_fn = td_content_view_fn.clone();
                 let header_fn = header_fn.clone();
                 let widths_fn = widths_fn.clone();
@@ -201,8 +200,8 @@ where
 
                 list(
                     move || header_fn(),
-                    move |x: &T| header_key_fn(x),
-                    move |y: T| {
+                    move |x: &COL| header_key_fn(x),
+                    move |y: COL| {
                         let row_view_fn = row_view_fn.clone();
                         let widths_fn = widths_fn.clone();
                         let width = widths_fn(&y);
@@ -221,11 +220,11 @@ where
     })
 }
 
-fn td_view<T, U, VHF, V>(row_view_fn: VHF, x: &T, y: &U, style: Style) -> impl View
+fn td_view<TD, U, VHF, V>(row_view_fn: VHF, x: &TD, y: &U, style: Style) -> impl View
 where
-    T: 'static,
+    TD: 'static,
     U: 'static,
-    VHF: Fn(&T, &U) -> V + 'static,
+    VHF: Fn(&TD, &U) -> V + 'static,
     V: View + 'static,
 {
     container(row_view_fn(&x, &y)).style(move |s| s.apply(style.clone()).height(40.px()))
