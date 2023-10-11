@@ -132,16 +132,17 @@ pub fn app_view() -> impl View {
         move || rows.clone(),
         |(idx, _)| *idx,
         move |x: &TableCol, (idx, row): &(usize, ModRow)| {
-            let row_value = row.value(*idx, *x);
+            let cell_value = row.value(*idx, *x);
             let num = idx.clone();
             let stars_column_color =
                 matches!(x, TableCol::Stars) && row.stars.parse::<f32>().unwrap() > 4.0;
-            td(label(move || row_value.clone()).style(move |s| s.font_size(14.0))).style(move |s| {
-                s.apply_if(stars_column_color, |s| {
+            td(label(move || cell_value.clone()).style(move |s| s.font_size(14.0))).style(
+                move |s| {
                     s.background(Color::LIGHT_GREEN)
-                        .text_overflow(TextOverflow::Ellipsis)
-                })
-            })
+
+                    // s.apply_if(stars_column_color, |s| s.background(Color::LIGHT_GREEN))
+                },
+            )
         },
         move |col, s| match col {
             TableCol::Index => s.width(base * 3.),

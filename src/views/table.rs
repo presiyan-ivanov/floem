@@ -1,15 +1,18 @@
 use std::{hash::Hash, sync::Arc};
 
+use floem_reactive::as_child_of_current_scope;
 use peniko::Color;
 
 use crate::{
-    style::Style,
+    style::{Style, ComputedStyle},
     unit::UnitExt,
     view::View,
     views::{container, list, stack},
 };
 
-use super::{scroll, virtual_list, Decorators, Label, VirtualListItemSize, VirtualListVector};
+use super::{
+    scroll, virtual_list, Container, Decorators, Label, VirtualListItemSize, VirtualListVector,
+};
 
 /// Headers/footers
 pub const DARK0_BG: Color = Color::BLACK;
@@ -105,13 +108,16 @@ impl<V: View> View for Th<V> {
 
 pub struct Td<V: View> {
     id: Id,
-    child: V,
+    child: Container<V>,
 }
 
 pub fn td<V: View>(child: V) -> Td<V> {
+    let container = container(child);
+    let container_id = container.id();
+
     Td {
         id: Id::next(),
-        child,
+        child: container,
     }
 }
 
@@ -157,7 +163,13 @@ impl<V: View> View for Td<V> {
     }
 
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
-        cx.layout_node(self.id, true, |cx| vec![self.child.layout_main(cx)])
+        cx.layout_node(self.id, true, |cx| {
+            let child_node = &cx.app_state().view_state(self.child.id()).node;
+            // let style = cx.get_computed_style(self.id);
+            cx.app_state_mut().taffy.set_style(*child_node, ComputedStyle::default().to_taffy_style());
+
+            vec![self.child.layout_main(cx)]
+        })
     }
 
     fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
@@ -401,5 +413,7 @@ where
     VHF: Fn(&TD, &U) -> V + 'static,
     V: View + 'static,
 {
-    container(row_view_fn(&x, &y)).style(move |s| s.apply(style.clone())).base_style(|s| s.background(Color::YELLOW))
+    container(row_view_fn(&x, &y).style(|s| s.width(100.pct())))
+        .style(move |s| s.apply(style.clone()))
+        .base_style(|s| s.background(Color::YELLOW))
 }
