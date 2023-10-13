@@ -1,18 +1,15 @@
 use std::{hash::Hash, sync::Arc};
 
-use floem_reactive::as_child_of_current_scope;
 use peniko::Color;
 
 use crate::{
-    style::{Style, ComputedStyle},
+    style::Style,
     unit::UnitExt,
     view::View,
     views::{container, list, stack},
 };
 
-use super::{
-    scroll, virtual_list, Container, Decorators, Label, VirtualListItemSize, VirtualListVector,
-};
+use super::{scroll, virtual_list, Decorators, VirtualListItemSize, VirtualListVector, Td, Th};
 
 /// Headers/footers
 pub const DARK0_BG: Color = Color::BLACK;
@@ -22,181 +19,6 @@ pub const DARK1_BG: Color = Color::GHOST_WHITE;
 pub const DARK2_BG: Color = Color::GHOST_WHITE;
 /// Selected option background
 pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
-
-use kurbo::Rect;
-
-use crate::{id::Id, view::ChangeFlags};
-
-pub struct Th<V: View> {
-    id: Id,
-    child: V,
-}
-
-pub fn th<V: View>(child: V) -> Th<V> {
-    Th {
-        id: Id::next(),
-        child,
-    }
-}
-
-impl<V: View> View for Th<V> {
-    fn id(&self) -> Id {
-        self.id
-    }
-
-    fn child(&self, id: Id) -> Option<&dyn View> {
-        if self.child.id() == id {
-            Some(&self.child)
-        } else {
-            None
-        }
-    }
-
-    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
-        if self.child.id() == id {
-            Some(&mut self.child)
-        } else {
-            None
-        }
-    }
-
-    fn children(&self) -> Vec<&dyn View> {
-        vec![&self.child]
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut dyn View> {
-        vec![&mut self.child]
-    }
-
-    fn debug_name(&self) -> std::borrow::Cow<'static, str> {
-        "Th".into()
-    }
-
-    fn update(
-        &mut self,
-        _cx: &mut crate::context::UpdateCx,
-        _state: Box<dyn std::any::Any>,
-    ) -> crate::view::ChangeFlags {
-        ChangeFlags::empty()
-    }
-
-    fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
-        cx.layout_node(self.id, true, |cx| vec![self.child.layout_main(cx)])
-    }
-
-    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
-        Some(self.child.compute_layout_main(cx))
-    }
-
-    fn event(
-        &mut self,
-        cx: &mut crate::context::EventCx,
-        id_path: Option<&[Id]>,
-        event: crate::event::Event,
-    ) -> bool {
-        if cx.should_send(self.child.id(), &event) {
-            self.child.event_main(cx, id_path, event)
-        } else {
-            false
-        }
-    }
-
-    fn paint(&mut self, cx: &mut crate::context::PaintCx) {
-        self.child.paint_main(cx);
-    }
-}
-
-pub struct Td<V: View> {
-    id: Id,
-    child: Container<V>,
-}
-
-pub fn td<V: View>(child: V) -> Td<V> {
-    let container = container(child);
-    let container_id = container.id();
-
-    Td {
-        id: Id::next(),
-        child: container,
-    }
-}
-
-impl<V: View> View for Td<V> {
-    fn id(&self) -> Id {
-        self.id
-    }
-
-    fn child(&self, id: Id) -> Option<&dyn View> {
-        if self.child.id() == id {
-            Some(&self.child)
-        } else {
-            None
-        }
-    }
-
-    fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
-        if self.child.id() == id {
-            Some(&mut self.child)
-        } else {
-            None
-        }
-    }
-
-    fn children(&self) -> Vec<&dyn View> {
-        vec![&self.child]
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut dyn View> {
-        vec![&mut self.child]
-    }
-
-    fn debug_name(&self) -> std::borrow::Cow<'static, str> {
-        "Td".into()
-    }
-
-    fn update(
-        &mut self,
-        _cx: &mut crate::context::UpdateCx,
-        _state: Box<dyn std::any::Any>,
-    ) -> crate::view::ChangeFlags {
-        ChangeFlags::empty()
-    }
-
-    fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
-        cx.layout_node(self.id, true, |cx| {
-            let child_node = &cx.app_state().view_state(self.child.id()).node;
-            // let style = cx.get_computed_style(self.id);
-            cx.app_state_mut().taffy.set_style(*child_node, ComputedStyle::default().to_taffy_style());
-
-            vec![self.child.layout_main(cx)]
-        })
-    }
-
-    fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
-        Some(self.child.compute_layout_main(cx))
-    }
-
-    fn event(
-        &mut self,
-        cx: &mut crate::context::EventCx,
-        id_path: Option<&[Id]>,
-        event: crate::event::Event,
-    ) -> bool {
-        if cx.should_send(self.child.id(), &event) {
-            self.child.event_main(cx, id_path, event)
-        } else {
-            false
-        }
-    }
-
-    fn paint(&mut self, cx: &mut crate::context::PaintCx) {
-        self.child.paint_main(cx);
-    }
-}
-
-pub trait TableDimension {}
-
-impl TableDimension for Td<Label> {}
 
 // TODO: style structure
 // TODO: let widths be percentages
@@ -208,10 +30,10 @@ impl TableDimension for Td<Label> {}
 // `header_view_fn`: The actual view that should be displayed. Typically just a label.
 //
 // `widths_fn`: Maps a key to the width of the table column
-pub fn table<COL, HF, TH, CSF, HKF, HK, THCV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
+pub fn table<COL, HF, TH, CSF, HKF, HK, HCV, THCV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
     header_fn: HF,
     header_key_fn: HKF,
-    th_content_view_fn: THCV,
+    th_content_view_fn: HCV,
     rows_fn: ROWSF,
     row_key_fn: ROWKF,
     td_content_view_fn: TDCVF,
@@ -225,14 +47,17 @@ where
     CSF: Fn(&COL, Style) -> Style + 'static,
     HKF: Fn(&COL) -> HK + 'static,
     HK: Eq + Hash + 'static,
-    THCV: Fn(COL) -> Th<Box<dyn View>> + 'static,
+    HCV: Fn(COL) -> Th<THCV> + 'static,
+    THCV: View + 'static,
+    Th<THCV>: View + Sized,
     TD: 'static,
     ROWSF: Fn() -> ROWS + 'static,
     ROWS: VirtualListVector<TD> + 'static,
     ROWKF: Fn(&TD) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
-    TDCVF: Fn(&COL, &TD) -> ROWV + 'static + Clone,
-    ROWV: TableDimension + View + 'static,
+    TDCVF: Fn(&COL, &TD) -> Td<ROWV> + 'static + Clone,
+    ROWV: View + 'static,
+    Td<ROWV>: View + Sized
 {
     let header_fn = Arc::new(header_fn);
     let header_key_fn = Arc::new(header_key_fn);
@@ -293,8 +118,9 @@ where
     WF: Fn(&COL) -> Style + 'static,
     HKF: Fn(&COL) -> HK + 'static,
     HK: Eq + Hash + 'static,
-    HVF: Fn(COL) -> HV + 'static,
+    HVF: Fn(COL) -> Th<HV> + 'static,
     HV: View + 'static,
+    Th<HV>: View + Sized,
 {
     let header_fn = Arc::new(header_fn);
     let header_key_fn = Arc::new(header_key_fn);
@@ -315,10 +141,10 @@ where
 fn th_view<T, VHF, V>(th_content_view_fn: VHF, style: Style, x: T) -> impl View
 where
     T: 'static,
-    VHF: Fn(T) -> V + 'static,
-    VHF: Fn(T) -> V + 'static,
+    VHF: Fn(T) -> Th<V> + 'static,
     // CSF: Fn(&T) -> Style + 'static,
     V: View + 'static,
+    Th<V>: View + Sized,
 {
     // let styles = style_fn(&x);
     container(th_content_view_fn(x)).style(move |s| {
@@ -353,8 +179,9 @@ where
     ROWS: VirtualListVector<TD> + 'static,
     ROWKF: Fn(&TD) -> ROWK + 'static,
     ROWK: Eq + Hash + 'static,
-    TDCVF: Fn(&COL, &TD) -> TDC + 'static + Clone,
+    TDCVF: Fn(&COL, &TD) -> Td<TDC> + 'static + Clone,
     TDC: View + 'static,
+    Td<TDC>: View + Sized
 {
     //Vertical scroll
     scroll(
@@ -410,10 +237,11 @@ fn td_view<TD, U, VHF, V>(
 where
     TD: 'static,
     U: 'static,
-    VHF: Fn(&TD, &U) -> V + 'static,
+    VHF: Fn(&TD, &U) -> Td<V> + 'static,
     V: View + 'static,
+    Td<V>: View + Sized
 {
-    container(row_view_fn(&x, &y).style(|s| s.width(100.pct())))
+    container(row_view_fn(&x, &y).base_style(|s| s.width(100.pct())))
         .style(move |s| s.apply(style.clone()))
         .base_style(|s| s.background(Color::YELLOW))
 }

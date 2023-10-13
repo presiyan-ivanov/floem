@@ -50,7 +50,7 @@ impl TableCol {
         }
     }
 
-    const ALL_COLUMNS: [TableCol; 10] = [
+    const ALL: [TableCol; 10] = [
         Self::Index,
         Self::Title,
         Self::Author,
@@ -65,7 +65,7 @@ impl TableCol {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct ModRow {
+struct BookRow {
     pub title: String,
     pub author: String,
     pub category_name: String,
@@ -77,7 +77,7 @@ struct ModRow {
     pub reviews: String,
     pub price: String,
 }
-impl ModRow {
+impl BookRow {
     fn value(&self, idx: usize, entry: TableCol) -> String {
         match entry {
             TableCol::Index => idx.to_string(),
@@ -115,34 +115,25 @@ pub fn app_view() -> impl View {
     for (idx, result) in rdr.deserialize().enumerate() {
         // Notice that we need to provide a type hint for automatic
         // deserialization.
-        let row: ModRow = result.unwrap();
+        let row: BookRow = result.unwrap();
         rows.push((idx + 1, row));
     }
-    let rows: im::Vector<(usize, ModRow)> = rows.into();
+    let rows: im::Vector<(usize, BookRow)> = rows.into();
     let base = 24.0;
 
     table(
-        move || TableCol::ALL_COLUMNS,
+        move || TableCol::ALL,
         Clone::clone,
         move |col| {
-            th(Box::new(label(move || col.title().to_string()).style(
-                |s| s.font_size(16.0).font_bold().padding_vert(15.px()),
-            )))
+            th(label(move || "X".clone()).style(move |s| s.font_size(14.0)))
+                .style(move |s| s.background(Color::LIGHT_GREEN).padding_horiz(20.px()))
         },
         move || rows.clone(),
         |(idx, _)| *idx,
-        move |x: &TableCol, (idx, row): &(usize, ModRow)| {
+        move |x: &TableCol, (idx, row): &(usize, BookRow)| {
             let cell_value = row.value(*idx, *x);
-            let num = idx.clone();
-            let stars_column_color =
-                matches!(x, TableCol::Stars) && row.stars.parse::<f32>().unwrap() > 4.0;
-            td(label(move || cell_value.clone()).style(move |s| s.font_size(14.0))).style(
-                move |s| {
-                    s.background(Color::LIGHT_GREEN)
-
-                    // s.apply_if(stars_column_color, |s| s.background(Color::LIGHT_GREEN))
-                },
-            )
+            td(label(move || cell_value.clone()).style(move |s| s.font_size(14.0)))
+                .style(move |s| s.background(Color::LIGHT_GREEN).padding_horiz(20.px()))
         },
         move |col, s| match col {
             TableCol::Index => s.width(base * 3.),
