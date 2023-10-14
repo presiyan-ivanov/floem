@@ -1,11 +1,11 @@
 use floem::{
     cosmic_text::{Style as FontStyle, Weight},
     peniko::Color,
-    reactive::create_signal,
+    reactive::{create_rw_signal, create_signal, RwSignal},
     style::{Style, TextOverflow},
     unit::UnitExt,
     view::View,
-    views::{label, table, td, th, Decorators, Label},
+    views::{body, head, label, table, tbl, td, th, tr, Decorators, Label},
 };
 use serde::Deserialize;
 
@@ -118,7 +118,7 @@ pub fn app_view() -> impl View {
         let row: BookRow = result.unwrap();
         rows.push((idx + 1, row));
     }
-    let rows: im::Vector<(usize, BookRow)> = rows.into();
+    let rows: RwSignal<im::Vector<(usize, BookRow)>> = create_rw_signal(rows.into());
     let base = 24.0;
 
     // table(
@@ -148,23 +148,22 @@ pub fn app_view() -> impl View {
     // )
 
     tbl(
-        thead(tr(
+        head(tr((
             th(label(move || "Title")),
-            th(move || "Author"),
-            th(move || "Rating"),
-        )),
-        tbody(
+            th(label(move || "Author")),
+            th(label(move || "Rating")),
+        ))),
+        body(
             move || rows.get(),
-            move |row: BookRow| *row.title,
+            move |row: BookRow| row.title.to_string(),
             move |row: BookRow| {
-                tr(
+                tr((
                     td(label(move || row.title)),
                     td(label(move || row.author)),
                     td(label(move || row.stars)),
-                )
+                ))
             },
-        ),
-        tfoot(label("Footer")),
+        ), // tfoot(label("Footer")),
     )
     // .style(|s| {
     //     s.border(1.0)
