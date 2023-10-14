@@ -57,6 +57,9 @@ pub use drag_resize_window_area::*;
 mod table;
 pub use table::*;
 
+mod tbl;
+pub use tbl::*;
+
 mod td;
 pub use td::*;
 
