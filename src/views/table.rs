@@ -31,7 +31,7 @@ pub const DARK3_BG: Color = Color::rgb8(137, 137, 137);
 //
 // `widths_fn`: Maps a key to the width of the table column
 pub fn table<COL, HF, TH, CSF, HKF, HK, HCV, THCV, ROWSF, ROWS, TD, ROWKF, ROWK, TDCVF, ROWV>(
-    header_fn: HF,
+    header_col_fn: HF,
     header_key_fn: HKF,
     th_content_view_fn: HCV,
     rows_fn: ROWSF,
@@ -59,7 +59,7 @@ where
     ROWV: View + 'static,
     Td<ROWV>: View + Sized
 {
-    let header_fn = Arc::new(header_fn);
+    let header_fn = Arc::new(header_col_fn);
     let header_key_fn = Arc::new(header_key_fn);
     let header_view_fn = Arc::new(th_content_view_fn);
     let widths_fn = Arc::new(widths_fn);

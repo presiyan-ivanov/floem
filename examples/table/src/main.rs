@@ -121,30 +121,50 @@ pub fn app_view() -> impl View {
     let rows: im::Vector<(usize, BookRow)> = rows.into();
     let base = 24.0;
 
-    table(
-        move || TableCol::ALL,
-        Clone::clone,
-        move |col| {
-            th(label(move || "X".clone()).style(move |s| s.font_size(14.0)))
-                .style(move |s| s.background(Color::LIGHT_GREEN).padding_horiz(20.px()))
-        },
-        move || rows.clone(),
-        |(idx, _)| *idx,
-        move |x: &TableCol, (idx, row): &(usize, BookRow)| {
-            let cell_value = row.value(*idx, *x);
-            td(label(move || cell_value.clone()).style(move |s| s.font_size(14.0)))
-                .style(move |s| s.background(Color::LIGHT_GREEN).padding_horiz(20.px()))
-        },
-        move |col, s| match col {
-            TableCol::Index => s.width(base * 3.),
-            TableCol::Author | TableCol::Seller | TableCol::Category => {
-                s.width(base * 8.).background(Color::RED)
-            }
-            TableCol::Title => s.width(base * 10.),
-            TableCol::Stars | TableCol::Reviews | TableCol::Price => s.width(base * 4.),
-            _ => s.width(base * 5.),
-        },
-        40.0,
+    // table(
+    //     move || TableCol::ALL,
+    //     Clone::clone,
+    //     move |col| {
+    //         th(label(move || col.title()).style(move |s| s.font_size(14.0)))
+    //             .style(move |s| s.background(Color::LIGHT_GREEN).padding_horiz(20.px()))
+    //     },
+    //     move || rows.clone(),
+    //     |(idx, _)| *idx,
+    //     move |x: &TableCol, (idx, row): &(usize, BookRow)| {
+    //         let cell_value = row.value(*idx, *x);
+    //         td(label(move || cell_value.clone()).style(move |s| s.font_size(14.0)))
+    //             .style(move |s| s.background(Color::LIGHT_GREEN).padding_horiz(20.px()))
+    //     },
+    //     move |col, s| match col {
+    //         TableCol::Index => s.width(base * 3.),
+    //         TableCol::Author | TableCol::Seller | TableCol::Category => {
+    //             s.width(base * 8.).background(Color::RED)
+    //         }
+    //         TableCol::Title => s.width(base * 10.),
+    //         TableCol::Stars | TableCol::Reviews | TableCol::Price => s.width(base * 4.),
+    //         _ => s.width(base * 5.),
+    //     },
+    //     40.0,
+    // )
+
+    tbl(
+        thead(tr(
+            th(label(move || "Title")),
+            th(move || "Author"),
+            th(move || "Rating"),
+        )),
+        tbody(
+            move || rows.get(),
+            move |row: BookRow| *row.title,
+            move |row: BookRow| {
+                tr(
+                    td(label(move || row.title)),
+                    td(label(move || row.author)),
+                    td(label(move || row.stars)),
+                )
+            },
+        ),
+        tfoot(label("Footer")),
     )
     // .style(|s| {
     //     s.border(1.0)

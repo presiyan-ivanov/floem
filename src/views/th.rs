@@ -26,19 +26,27 @@ impl<V: View + 'static> View for Th<V> {
     }
 
     fn child(&self, id: Id) -> Option<&dyn View> {
-        self.child.child(id)
+        if self.child.id() == id {
+            Some(&self.child)
+        } else {
+            None
+        }
     }
 
     fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
-        self.child.child_mut(id)
+        if self.child.id() == id {
+            Some(&mut self.child)
+        } else {
+            None
+        }
     }
 
     fn children(&self) -> Vec<&dyn View> {
-        self.child.children()
+        vec![&self.child]
     }
 
     fn children_mut(&mut self) -> Vec<&mut dyn View> {
-        self.child.children_mut()
+        vec![&mut self.child]
     }
 
     fn debug_name(&self) -> std::borrow::Cow<'static, str> {
