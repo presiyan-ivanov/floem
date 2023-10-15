@@ -6,7 +6,7 @@ use std::{
 
 use floem_reactive::Scope;
 use kurbo::{Point, Size, Vec2};
-use winit::window::ResizeDirection;
+use winit::window::{ResizeDirection, WindowId};
 
 use crate::{
     app::{add_app_update_event, AppUpdateEvent},
@@ -80,6 +80,11 @@ impl TimerToken {
     pub const fn into_raw(self) -> u64 {
         self.0
     }
+}
+
+pub fn request_animation_frame(window_id: WindowId) {
+    println!("action.rs: req anim frame");
+    add_app_update_event(AppUpdateEvent::RequestAnimationFrame { window_id });
 }
 
 pub fn exec_after(duration: Duration, action: impl FnOnce(TimerToken) + 'static) -> TimerToken {

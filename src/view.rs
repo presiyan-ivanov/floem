@@ -83,7 +83,7 @@
 //!
 //!
 
-use std::any::Any;
+use std::{any::Any, time::Duration};
 
 use bitflags::bitflags;
 use floem_renderer::Renderer;
@@ -96,6 +96,7 @@ use crate::{
     event::{Event, EventListener},
     id::Id,
     style::{ComputedStyle, Style},
+    views::Decorators,
 };
 
 bitflags! {
@@ -626,7 +627,15 @@ pub trait View {
                 }
             }
             Event::AnimFrame => {
-                // self.id().request_anim_frame();
+                println!("anim frame event.");
+                let has_anim_in_progress = cx
+                    .app_state
+                    .view_states
+                    .get(&self.id())
+                    .map(|vs| &vs.animation)
+                    .map(|a| a.as_ref().is_some_and(|a| a.is_in_progress()))
+                    .unwrap_or(false);
+
                 let requires_layout = cx
                     .app_state
                     .view_state(id)
@@ -635,12 +644,18 @@ pub trait View {
                     .map(|anim| anim.requires_layout())
                     .unwrap_or(false);
 
-                if true {
-                    cx.app_state.request_layout(self.id());
-                }
-                // else {
-                //     cx.app_state.request_paint();
-                // }
+                // if req_layout..
+                self.id().request_layout();
+
+                self.id().request_paint();
+
+                let id = self.id();
+                exec_after(Duration::from_millis(16), move |_| {
+                    println!("req anim frame from view");
+                    id.request_anim_frame();
+                    // id.request_paint();
+                });
+                return true;
             }
             _ => (),
         }
@@ -686,6 +701,17 @@ pub trait View {
             .map(|rect| rect.rect().intersect(size.to_rect()).is_empty())
             .unwrap_or(false);
         if !is_empty {
+            if let Some(anim) = cx.app_state.view_state(id).animation.as_ref() {
+                // if anim.is_idle() {
+                //     cx.
+                // }
+
+                if !anim.is_completed() {
+                    let view_style = self.view_style();
+                    cx.app_state.compute_style(self.id(), view_style);
+                }
+            }
+
             let style = cx.app_state.get_computed_style(id).clone();
 
             if let Some(z_index) = style.z_index {

@@ -44,6 +44,9 @@ pub(crate) enum AppUpdateEvent {
     RequestTimer {
         timer: Timer,
     },
+    RequestAnimationFrame {
+        window_id: WindowId
+    },
     #[cfg(target_os = "linux")]
     MenuAction {
         window_id: WindowId,
@@ -129,6 +132,7 @@ impl Application {
                 winit::event::Event::Resumed => {}
                 winit::event::Event::AboutToWait => {}
                 winit::event::Event::RedrawRequested(window_id) => {
+                    println!("redraw req");
                     handle.redraw_requested(window_id);
                 }
                 winit::event::Event::LoopExiting => {

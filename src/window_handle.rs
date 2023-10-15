@@ -405,8 +405,11 @@ impl WindowHandle {
         // This will be reworked once we change from request_layout to request_paint
         // let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
         // if let Some(id) = id {
-        //     exec_after(Duration::from_millis(1000), move |_| {
+        //     exec_after(Duration::from_millis(16), move |_| {
+        //         println!("req anim frame from win_handle: layout");
         //         id.request_anim_frame();
+        //         // id.request_layout();
+        //         // id.request_paint();
         //     });
         // }
     }
@@ -671,6 +674,7 @@ impl WindowHandle {
                         cx.app_state.animated.insert(id);
                         let view_state = cx.app_state.view_state(id);
                         view_state.animation = Some(animation);
+                        self.request_anim_frame();
                     }
                     UpdateMessage::WindowScale(scale) => {
                         cx.app_state.scale = scale;
@@ -699,14 +703,7 @@ impl WindowHandle {
                         self.show_context_menu(menu, platform_menu, pos);
                     }
                     UpdateMessage::RequestAnimFrame => {
-                        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
-                        if let Some(id) = id {
-                            exec_after(Duration::from_millis(1), move |_| {
-                                id.request_anim_frame();
-                            });
-                        }
-
-                        self.event(Event::AnimFrame);
+                        self.request_anim_frame();
                     }
                     UpdateMessage::WindowMenu { menu } => {
                         // let platform_menu = menu.platform_menu();
@@ -882,6 +879,7 @@ impl WindowHandle {
             },
         );
         anim.begin();
+        self.request_anim_frame();
 
         ChangeFlags::PAINT
     }
@@ -947,6 +945,24 @@ impl WindowHandle {
             }
             self.app_state.last_cursor = cursor;
         }
+    }
+
+    fn request_anim_frame(&mut self) {
+        println!("win handle: req anim frame");
+
+        if let Some(window) = self.window.as_ref() {
+            window.request_redraw();
+        }
+
+        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
+        if let Some(id) = id {
+            println!("win handle: requesting anim frame");
+            exec_after(Duration::from_millis(16), move |_| {
+                id.request_anim_frame();
+            });
+        }
+
+        // self.event(Event::AnimFrame);
     }
 
     fn request_paint(&self) {

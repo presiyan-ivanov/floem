@@ -50,7 +50,8 @@ fn app_view() -> impl View {
                     })
                     .easing_fn(EasingFn::Quartic)
                     .ease_in_out()
-                    .duration(Duration::from_secs(1)),
+                    .duration(Duration::from_secs(1))
+                    .repeat_forever(true),
             ),)
     })
     .style(|s| {
@@ -60,30 +61,30 @@ fn app_view() -> impl View {
             .size(400.0, 400.0)
             .color(Color::BLACK)
     })
-    .animation(
-        animation()
-            .width(move || {
-                if counter.get() % 2.0 == 0.0 {
-                    400.0
-                } else {
-                    600.0
-                }
-            })
-            .height(move || {
-                if counter.get() % 2.0 == 0.0 {
-                    200.0
-                } else {
-                    500.0
-                }
-            })
-            .border_color(|| Color::CYAN)
-            .color(|| Color::CYAN)
-            .background(|| Color::LAVENDER)
-            .easing_fn(EasingFn::Cubic)
-            .ease_in_out()
-            .auto_reverse()
-            .duration(Duration::from_secs(2)),
-    )
+    // .animation(
+    //     animation()
+    //         .width(move || {
+    //             if counter.get() % 2.0 == 0.0 {
+    //                 400.0
+    //             } else {
+    //                 600.0
+    //             }
+    //         })
+    //         .height(move || {
+    //             if counter.get() % 2.0 == 0.0 {
+    //                 200.0
+    //             } else {
+    //                 500.0
+    //             }
+    //         })
+    //         .border_color(|| Color::CYAN)
+    //         .color(|| Color::CYAN)
+    //         .background(|| Color::LAVENDER)
+    //         .easing_fn(EasingFn::Cubic)
+    //         .ease_in_out()
+    //         .auto_reverse()
+    //         .duration(Duration::from_secs(2)),
+    // )
 }
 
 fn main() {

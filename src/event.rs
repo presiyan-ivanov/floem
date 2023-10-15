@@ -85,10 +85,9 @@ impl Event {
             | Event::WindowClosed
             | Event::WindowResized(_)
             | Event::WindowMoved(_) 
-            | Event::WindowMoved(_)
             | Event::WindowMaximizeChanged(_)
             | Event::WindowGotFocus
-            | Event::WindowLostFocus => false,
+            | Event::WindowLostFocus
             | Event::AnimFrame => false,
             Event::KeyDown(_) | Event::KeyUp(_) => true,
         }

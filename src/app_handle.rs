@@ -69,6 +69,10 @@ impl ApplicationHandle {
                 AppUpdateEvent::RequestTimer { timer } => {
                     self.request_timer(timer, control_flow);
                 }
+                AppUpdateEvent::RequestAnimationFrame { window_id }=> {
+                    println!("app handle: req anim frame.");
+                    self.redraw_requested(window_id);
+                }
                 #[cfg(target_os = "linux")]
                 AppUpdateEvent::MenuAction {
                     window_id,
@@ -272,6 +276,7 @@ impl ApplicationHandle {
                     (timer.action)(token);
                 }
             }
+            println!("timer hit, process update");
             for (_, handle) in self.window_handles.iter_mut() {
                 handle.process_update();
             }
