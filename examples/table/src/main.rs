@@ -1,11 +1,7 @@
 use floem::{
-    cosmic_text::{Style as FontStyle, Weight},
-    peniko::Color,
-    reactive::{create_rw_signal, create_signal, RwSignal},
-    style::{Style, TextOverflow},
-    unit::UnitExt,
+    reactive::{create_rw_signal, RwSignal},
     view::View,
-    views::{body, head, label, table, tbl, td, th, tr, Decorators, Label},
+    views::{body, head, label, tbl, td, th, tr, Decorators}, peniko::Color, unit::UnitExt,
 };
 use serde::Deserialize;
 
@@ -149,27 +145,31 @@ pub fn app_view() -> impl View {
 
     tbl(
         head(tr((
+            th(label(move || "#")),
             th(label(move || "Title")),
             th(label(move || "Author")),
             th(label(move || "Rating")),
         ))),
         body(
             move || rows.get(),
-            move |row: BookRow| row.title.to_string(),
-            move |row: BookRow| {
+            move |(idx, _)| idx.clone(),
+            move |(idx, row)| {
                 tr((
-                    td(label(move || row.title)),
-                    td(label(move || row.author)),
-                    td(label(move || row.stars)),
+                    td(label(move || idx)),
+                    td(label(move || row.title.clone())),
+                    td(label(move || row.author.clone())),
+                    td(label(move || row.stars.clone())),
                 ))
             },
         ), // tfoot(label("Footer")),
     )
-    // .style(|s| {
-    //     s.border(1.0)
-    //         .border_color(Color::rgb(137., 137., 137.))
-    //         .margin_horiz(20.px())
-    // })
+    .style(|s| {
+        s.border(1.0)
+            .width(1000.px())
+            .height(1000.px())
+            .border_color(Color::rgb(137., 137., 137.))
+            .margin_horiz(20.px())
+    })
 }
 
 fn main() {

@@ -1,7 +1,7 @@
-use floem_reactive::as_child_of_current_scope;
+use floem_reactive::{as_child_of_current_scope, create_effect};
 use kurbo::{Rect, Shape};
 
-use std::{hash::Hash};
+use std::hash::Hash;
 
 use crate::{
     context::{EventCx, UpdateCx},
@@ -12,13 +12,18 @@ use crate::{
 
 use floem_reactive::Scope;
 
-use super::{scroll, virtual_list, VirtualListItemSize};
+use super::{
+    scroll, virtual_list, Label, Td, Th, VirtualList, VirtualListItemSize, VirtualListVector,
+};
 
 // trait ValidTable {}
 //
 // impl ValidTable for Tbl<Head<Row<impl TableCell>>, Body<Row<impl TableCell>>>{}
 
-pub trait TableCell {}
+pub trait TableCell: ViewTuple {}
+
+impl TableCell for (Td<Label>, Td<Label>, Td<Label>, Td<Label>) {}
+impl TableCell for (Th<Label>, Th<Label>, Th<Label>, Th<Label>) {}
 // impl TableCell for Td<impl View> {}
 
 pub struct Tbl<Head: View, Body: View> {
@@ -27,10 +32,10 @@ pub struct Tbl<Head: View, Body: View> {
     body: Body,
 }
 
-pub fn tbl<V: View + 'static, R>(
-    head: Head<Row<impl ViewTuple + 'static>>,
-    body: Body<Row<impl ViewTuple + 'static>, R>,
-) -> Tbl<Head<Row<impl ViewTuple>>, Body<Row<impl ViewTuple>, R>> {
+pub fn tbl<R>(
+    head: Head<Row<impl TableCell + 'static>>,
+    body: Body<Row<impl TableCell + 'static>, R>,
+) -> Tbl<Head<Row<impl TableCell>>, Body<Row<impl TableCell>, R>> {
     Tbl {
         id: Id::next(),
         head,
@@ -38,17 +43,31 @@ pub fn tbl<V: View + 'static, R>(
     }
 }
 
-impl<TC: TableCell + ViewTuple + 'static, R> View for Tbl<Head<Row<TC>>, Body<Row<TC>, R>> {
+impl<TH: TableCell + 'static, TD: TableCell, R: 'static> View
+    for Tbl<Head<Row<TH>>, Body<Row<TD>, R>>
+{
     fn id(&self) -> Id {
         self.id
     }
 
     fn child(&self, id: Id) -> Option<&dyn View> {
-        None
+        if self.head.id() == id {
+            Some(&self.head)
+        } else if self.body.id() == id {
+            Some(&self.body)
+        } else {
+            None
+        }
     }
 
     fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
-        None
+        if self.head.id() == id {
+            Some(&mut self.head)
+        } else if self.body.id() == id {
+            Some(&mut self.body)
+        } else {
+            None
+        }
     }
 
     fn children(&self) -> Vec<&dyn View> {
@@ -73,6 +92,7 @@ impl<TC: TableCell + ViewTuple + 'static, R> View for Tbl<Head<Row<TC>>, Body<Ro
 
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
         cx.layout_node(self.id, true, |cx| {
+            println!("layout main");
             vec![self.head.layout_main(cx), self.body.layout_main(cx)]
         })
     }
@@ -91,6 +111,8 @@ impl<TC: TableCell + ViewTuple + 'static, R> View for Tbl<Head<Row<TC>>, Body<Ro
     ) -> bool {
         if cx.should_send(self.head.id(), &event) {
             self.head.event_main(cx, id_path, event)
+        } else if cx.should_send(self.body.id(), &event) {
+            self.body.event_main(cx, id_path, event)
         } else {
             false
         }
@@ -156,7 +178,10 @@ impl<V: ViewTuple + 'static> View for Head<Row<V>> {
     }
 
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
-        cx.layout_node(self.id, true, |cx| vec![self.child.layout_main(cx)])
+        cx.layout_node(self.id, true, |cx| {
+            println!("head: lay");
+            vec![self.child.layout_main(cx)]
+        })
     }
 
     fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
@@ -188,9 +213,10 @@ where
 {
     id: Id,
     view_fn: Box<dyn Fn(ROW) -> (V, Scope)>,
+    child: VirtualList<V, ROW>,
 }
 
-pub fn body<V, ROWS, ERF, ROW, KF, K, VF, RV>(
+pub fn body<V, ROWS, ERF, ROW, KF, K, VF>(
     // child: V,
     each_row_fn: ERF,
     key_fn: KF,
@@ -198,35 +224,40 @@ pub fn body<V, ROWS, ERF, ROW, KF, K, VF, RV>(
 ) -> Body<V, ROW>
 where
     V: View,
-    ERF: Fn() -> ROW + 'static,
+    ERF: Fn() -> ROWS + 'static,
     KF: Fn(&ROW) -> K + 'static,
     K: Hash + Eq + 'static,
     ROWS: VirtualListVector<ROW>,
     VF: Fn(ROW) -> V + 'static + Clone,
 {
+    println!("body called");
     let mut items_vector = each_row_fn();
+    dbg!(items_vector.total_len());
 
-    let view_fn = Box::new(as_child_of_current_scope(view_fn));
-    scroll(
-        virtual_list(
-            super::VirtualListDirection::Vertical,
-            VirtualListItemSize::Fixed(Box::new(move || 40.0)),
-            move || each_row_fn(),
-            move |x| key_fn(x),
-            move |x| view_fn(x)
-        )
-        // .style(|s| s.flex_col()),
-    )
-    .style(|s| {
-        s.width(100.pct())
-            .height(97.pct())
-            .margin_bottom(50.px())
-            .padding_bottom(20.px())
-    });
+    let scoped_view_fn = Box::new(as_child_of_current_scope(view_fn.clone()));
+
+    // create_effect(move |items_vector| {
+    // scroll(
+    let list = virtual_list(
+        super::VirtualListDirection::Vertical,
+        VirtualListItemSize::Fixed(Box::new(move || 40.0)),
+        move || each_row_fn(),
+        move |x| key_fn(x),
+        move |x| view_fn(x),
+    );
+    // .style(|s| s.flex_col()),
+    // )});
+    // .style(|s| {
+    //     s.width(100.pct())
+    //         .height(97.pct())
+    //         .margin_bottom(50.px())
+    //         .padding_bottom(20.px())
+    // });
 
     Body {
         id: Id::next(),
-        view_fn,
+        child: list,
+        view_fn: scoped_view_fn,
     }
 }
 
@@ -236,43 +267,27 @@ impl<V: View, R> View for Body<V, R> {
     }
 
     fn child(&self, id: Id) -> Option<&dyn View> {
-        let child = self
-            .children
-            .iter()
-            .find(|v| v.as_ref().map(|(v, _)| v.id() == id).unwrap_or(false));
-        if let Some(child) = child {
-            child.as_ref().map(|(view, _)| view as &dyn View)
+        if self.child.id() == id {
+            Some(&self.child)
         } else {
             None
         }
     }
 
     fn child_mut(&mut self, id: Id) -> Option<&mut dyn View> {
-        let child = self
-            .children
-            .iter_mut()
-            .find(|v| v.as_ref().map(|(v, _)| v.id() == id).unwrap_or(false));
-        if let Some(child) = child {
-            child.as_mut().map(|(view, _)| view as &mut dyn View)
+        if self.child.id() == id {
+            Some(&mut self.child)
         } else {
             None
         }
     }
 
     fn children(&self) -> Vec<&dyn View> {
-        self.children
-            .iter()
-            .filter_map(|child| child.as_ref())
-            .map(|child| &child.0 as &dyn View)
-            .collect()
+        vec![&self.child]
     }
 
     fn children_mut(&mut self) -> Vec<&mut dyn View> {
-        self.children
-            .iter_mut()
-            .filter_map(|child| child.as_mut())
-            .map(|child| &mut child.0 as &mut dyn View)
-            .collect()
+        vec![&mut self.child]
     }
 
     fn debug_name(&self) -> std::borrow::Cow<'static, str> {
@@ -288,7 +303,11 @@ impl<V: View, R> View for Body<V, R> {
     }
 
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
-        cx.layout_node(self.id, true, |cx| vec![self.child.layout_main(cx)])
+        cx.layout_node(self.id, true, |cx| {
+            println!("body lay, children len: {}", self.child.children().len());
+
+            vec![self.child.layout_main(cx)]
+        })
     }
 
     fn compute_layout(&mut self, cx: &mut crate::context::LayoutCx) -> Option<Rect> {
