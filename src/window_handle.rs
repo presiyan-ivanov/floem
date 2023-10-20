@@ -267,6 +267,16 @@ impl WindowHandle {
             cx.app_state.focus_changed(was_focused, cx.app_state.focus);
         }
 
+        if let Event::AnimFrame = &event {
+            let id = cx
+                .app_state
+                .ids_with_anim_in_progress()
+                .get(0)
+                .cloned()
+                .unwrap();
+            cx.app_state.request_layout(id);
+        }
+
         self.process_update();
     }
 
@@ -399,19 +409,6 @@ impl WindowHandle {
 
         cx.clear();
         self.view.compute_layout_main(&mut cx);
-
-        // Currently we only need one ID with animation in progress to request layout, which will
-        // advance the all the animations in progress.
-        // This will be reworked once we change from request_layout to request_paint
-        // let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
-        // if let Some(id) = id {
-        //     exec_after(Duration::from_millis(16), move |_| {
-        //         println!("req anim frame from win_handle: layout");
-        //         id.request_anim_frame();
-        //         // id.request_layout();
-        //         // id.request_paint();
-        //     });
-        // }
     }
 
     pub fn paint(&mut self) {
@@ -948,21 +945,16 @@ impl WindowHandle {
     }
 
     fn request_anim_frame(&mut self) {
-        println!("win handle: req anim frame");
-
-        if let Some(window) = self.window.as_ref() {
-            window.request_redraw();
-        }
+        self.request_paint();
 
         let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
         if let Some(id) = id {
-            println!("win handle: requesting anim frame");
-            exec_after(Duration::from_millis(16), move |_| {
+            exec_after(Duration::from_millis(1), move |_| {
                 id.request_anim_frame();
             });
         }
 
-        // self.event(Event::AnimFrame);
+        self.event(Event::AnimFrame);
     }
 
     fn request_paint(&self) {

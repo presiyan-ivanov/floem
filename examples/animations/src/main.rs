@@ -50,9 +50,33 @@ fn app_view() -> impl View {
                     })
                     .easing_fn(EasingFn::Quartic)
                     .ease_in_out()
-                    .duration(Duration::from_secs(1))
+                    .duration(Duration::from_secs(2))
+                    .auto_reverse()
                     .repeat_forever(true),
             ),)
+            .animation(|a| {
+                a.opacity(
+                    move|| if is_hovered.get() {1.0} else {0.7},
+                    |opt| {
+                        opt.quartic_ease(Duration::from_secs(1), ease_in_out())
+                            // skip running initially
+                            .enabled(signal_updates.get() > 1)
+                    }
+                )
+                a.scale(
+                    move || if is_hovered.get() { 1.0 } else { 1.3 },
+                    |opt| {
+                        opt.spring_ease(Spring{mass: 1.0, friction: 120.0, tension: 120.0})
+                    },
+                )
+                .background(move || {
+                    if is_hovered.get() {
+                        Color::DEEP_PINK
+                    } else {
+                        Color::DARK_ORANGE
+                    }
+                }, |_|)
+            })
     })
     .style(|s| {
         s.border(5.0)

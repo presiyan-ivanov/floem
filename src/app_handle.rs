@@ -58,6 +58,7 @@ impl ApplicationHandle {
             let mut events = events.borrow_mut();
             std::mem::take(&mut *events)
         });
+
         for event in events {
             match event {
                 AppUpdateEvent::NewWindow { view_fn, config } => {
@@ -276,7 +277,6 @@ impl ApplicationHandle {
                     (timer.action)(token);
                 }
             }
-            println!("timer hit, process update");
             for (_, handle) in self.window_handles.iter_mut() {
                 handle.process_update();
             }

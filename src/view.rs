@@ -627,7 +627,6 @@ pub trait View {
                 }
             }
             Event::AnimFrame => {
-                println!("anim frame event.");
                 let has_anim_in_progress = cx
                     .app_state
                     .view_states
@@ -648,13 +647,13 @@ pub trait View {
                 self.id().request_layout();
 
                 self.id().request_paint();
-
-                let id = self.id();
-                exec_after(Duration::from_millis(16), move |_| {
-                    println!("req anim frame from view");
-                    id.request_anim_frame();
-                    // id.request_paint();
-                });
+                //
+                // let id = self.id();
+                // exec_after(Duration::from_millis(16), move |_| {
+                //     println!("req anim frame from view");
+                //     id.request_anim_frame();
+                //     // id.request_paint();
+                // });
                 return true;
             }
             _ => (),

@@ -132,7 +132,6 @@ impl Application {
                 winit::event::Event::Resumed => {}
                 winit::event::Event::AboutToWait => {}
                 winit::event::Event::RedrawRequested(window_id) => {
-                    println!("redraw req");
                     handle.redraw_requested(window_id);
                 }
                 winit::event::Event::LoopExiting => {

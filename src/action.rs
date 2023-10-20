@@ -83,7 +83,6 @@ impl TimerToken {
 }
 
 pub fn request_animation_frame(window_id: WindowId) {
-    println!("action.rs: req anim frame");
     add_app_update_event(AppUpdateEvent::RequestAnimationFrame { window_id });
 }
 
