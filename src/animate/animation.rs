@@ -5,14 +5,17 @@ use super::{
 use std::{borrow::BorrowMut, collections::HashMap, time::Duration, time::Instant};
 
 use floem_reactive::create_effect;
+use once_cell::sync::Lazy;
 use peniko::Color;
+
+// pub(crate) static BASE_ANIM: Lazy<Animation> = Lazy::new(|| Animation::default());
 
 #[derive(Clone, Debug)]
 pub struct Animation {
     pub(crate) id: AnimId,
     pub(crate) state: AnimState,
     pub(crate) easing: Easing,
-    pub(crate) persist_mode: PersistMode,
+    pub(crate) persist_mode: FillMode,
     pub(crate) duration: Duration,
     pub(crate) repeat_mode: RepeatMode,
     pub(crate) repeat_count: usize,
@@ -30,7 +33,7 @@ pub enum RepeatMode {
     // but will never reach [`AnimState::Completed`]
     /// Repeat the animation forever
     LoopForever,
-    /// How many passes do we want, i.e. how many times do we repeat the animation?
+    /// How many times do we repeat the animation?
     /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0
     /// and increment `repeat_count`. This process is repeated until `repeat_count >= times`, and
     /// then the animation is set to [`AnimState::Completed`].
@@ -38,22 +41,28 @@ pub enum RepeatMode {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub enum PersistMode {
-    None,
-    Keep,
-    AutoReverse
+/// Determines if the styles of the animation are frozen or removed once its it has completed.
+pub enum FillMode {
+    ///The styles applied by the animation are removed when the animation is completed.
+    Removed,
+    ///The styles applied by the animation remain visible after the animation is completed.
+    Forwards,
+
+    AutoReverse,
 }
 
-pub fn animation() -> Animation {
-    Animation {
-        id: AnimId::next(),
-        state: AnimState::Idle,
-        easing: Easing::default(),
-        duration: Duration::from_secs(1),
-        repeat_mode: RepeatMode::Times(1),
-        persist_mode: PersistMode::Keep,
-        repeat_count: 0,
-        animated_props: HashMap::new(),
+impl Default for Animation {
+    fn default() -> Self {
+        dbg!(Animation {
+            id: AnimId::next(),
+            state: AnimState::Idle,
+            easing: Easing::default(),
+            duration: Duration::from_secs(1),
+            repeat_mode: RepeatMode::Times(1),
+            persist_mode: FillMode::Removed,
+            repeat_count: 0,
+            animated_props: HashMap::new(),
+        })
     }
 }
 
@@ -101,7 +110,7 @@ impl Animation {
     }
 
     pub fn is_auto_reverse(&self) -> bool {
-        matches!(self.persist_mode, PersistMode::AutoReverse)
+        matches!(self.persist_mode, FillMode::AutoReverse)
     }
 
     // pub fn is_playing_reverse(&self) -> bool {
@@ -203,18 +212,12 @@ impl Animation {
         self
     }
 
-    pub fn persists(mut self, persist: bool) -> Self {
-        self.persist_mode = if persist {PersistMode::Keep} else {PersistMode::None};
-        self
-    }
-
     pub fn auto_reverse(mut self) -> Self {
-        self.persist_mode = PersistMode::AutoReverse;
+        self.persist_mode = FillMode::AutoReverse;
         self
     }
 
-    /// Should the animation repeat forever?
-    pub fn repeat_forever(mut self, repeat: bool) -> Self {
+    pub fn repeats_forever(mut self, repeat: bool) -> Self {
         self.repeat_mode = if repeat {
             RepeatMode::LoopForever
         } else {

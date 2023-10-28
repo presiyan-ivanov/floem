@@ -17,7 +17,7 @@ use taffy::{
 use winit::window::CursorIcon;
 
 use crate::{
-    animate::{AnimId, AnimPropKind, AnimValue, Animation, PersistMode},
+    animate::{AnimId, AnimPropKind, AnimValue, Animation, FillMode},
     event::{Event, EventListener},
     id::Id,
     menu::Menu,
@@ -159,13 +159,13 @@ impl ViewState {
         'anim: {
             if let Some(animation) = self.animation.as_mut() {
                 match animation.persist_mode {
-                    PersistMode::None | PersistMode::AutoReverse => {
+                    FillMode::Removed | FillMode::AutoReverse => {
                         if animation.is_completed() {
                             break 'anim;
                         }
                     }
                     // Continue applying the style changes even if the animation is completed
-                    PersistMode::Keep => {}
+                    FillMode::Forwards => {}
                 }
 
                 for (prop_kind, prop) in animation.props() {
@@ -282,9 +282,7 @@ pub struct AppState {
     pub(crate) screen_size_bp: ScreenSizeBp,
     pub(crate) grid_bps: GridBreakpoints,
     pub(crate) hovered: HashSet<Id>,
-    /// This keeps track of all views that have an animation,
-    /// regardless of the status of the animation
-    pub(crate) animated: HashSet<Id>,
+    pub(crate) animated: HashMap<Id, Animation>,
     pub(crate) cursor: Option<CursorStyle>,
     pub(crate) last_cursor: CursorIcon,
     pub(crate) keyboard_navigation: bool,
@@ -518,17 +516,19 @@ impl AppState {
 
     // TODO: animated should be a HashMap<Id, AnimId>
     // so we don't have to loop through all view states
-    pub(crate) fn get_view_id_by_anim_id(&self, anim_id: AnimId) -> Id {
+    pub(crate) fn get_view_id_by_anim_id(&mut self, anim_id: AnimId) -> Id {
+        self.animated.
         *self
             .view_states
-            .iter()
+            .iter_mut()
             .find(|(_, vs)| {
+                dbg!(vs.animation.as_ref());
                 vs.animation
                     .as_ref()
                     .map(|a| a.id() == anim_id)
                     .unwrap_or(false)
             })
-            .unwrap()
+            .expect(&format!("Animation with ID {:?} not found", anim_id))
             .0
     }
 

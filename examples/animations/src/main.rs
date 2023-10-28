@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use floem::{
-    animate::{animation, EasingFn},
+    animate::EasingFn,
     event::EventListener,
     peniko::Color,
     reactive::create_signal,
@@ -36,9 +36,8 @@ fn app_view() -> impl View {
                     .size(120.0, 120.0)
             })
             .active_style(|s| s.color(Color::BLACK))
-            .animation(
-                animation()
-                    .border_radius(move || if is_hovered.get() { 1.0 } else { 40.0 })
+            .animation(move |a| {
+                a.border_radius(move || if is_hovered.get() { 1.0 } else { 40.0 })
                     .border_color(|| Color::CYAN)
                     .color(|| Color::CYAN)
                     .background(move || {
@@ -50,33 +49,10 @@ fn app_view() -> impl View {
                     })
                     .easing_fn(EasingFn::Quartic)
                     .ease_in_out()
-                    .duration(Duration::from_secs(2))
+                    .duration(Duration::from_secs(1))
                     .auto_reverse()
-                    .repeat_forever(true),
-            ),)
-            .animation(|a| {
-                a.opacity(
-                    move|| if is_hovered.get() {1.0} else {0.7},
-                    |opt| {
-                        opt.quartic_ease(Duration::from_secs(1), ease_in_out())
-                            // skip running initially
-                            .enabled(signal_updates.get() > 1)
-                    }
-                )
-                a.scale(
-                    move || if is_hovered.get() { 1.0 } else { 1.3 },
-                    |opt| {
-                        opt.spring_ease(Spring{mass: 1.0, friction: 120.0, tension: 120.0})
-                    },
-                )
-                .background(move || {
-                    if is_hovered.get() {
-                        Color::DEEP_PINK
-                    } else {
-                        Color::DARK_ORANGE
-                    }
-                }, |_|)
-            })
+                    .repeats_forever(true)
+            }),)
     })
     .style(|s| {
         s.border(5.0)
@@ -85,30 +61,29 @@ fn app_view() -> impl View {
             .size(400.0, 400.0)
             .color(Color::BLACK)
     })
-    // .animation(
-    //     animation()
-    //         .width(move || {
-    //             if counter.get() % 2.0 == 0.0 {
-    //                 400.0
-    //             } else {
-    //                 600.0
-    //             }
-    //         })
-    //         .height(move || {
-    //             if counter.get() % 2.0 == 0.0 {
-    //                 200.0
-    //             } else {
-    //                 500.0
-    //             }
-    //         })
-    //         .border_color(|| Color::CYAN)
-    //         .color(|| Color::CYAN)
-    //         .background(|| Color::LAVENDER)
-    //         .easing_fn(EasingFn::Cubic)
-    //         .ease_in_out()
-    //         .auto_reverse()
-    //         .duration(Duration::from_secs(2)),
-    // )
+    .animation(move |a| {
+        a.width(move || {
+            if counter.get() % 2.0 == 0.0 {
+                400.0
+            } else {
+                600.0
+            }
+        })
+        .height(move || {
+            if counter.get() % 2.0 == 0.0 {
+                200.0
+            } else {
+                500.0
+            }
+        })
+        .border_color(|| Color::CYAN)
+        .color(|| Color::CYAN)
+        .background(|| Color::LAVENDER)
+        .easing_fn(EasingFn::Cubic)
+        .ease_in_out()
+        .auto_reverse()
+        .duration(Duration::from_secs(2))
+    })
 }
 
 fn main() {

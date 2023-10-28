@@ -201,10 +201,10 @@ pub trait Decorators: View + Sized {
         self
     }
 
-    fn animation(self, anim: Animation) -> Self {
+    fn animation(self, anim_fn: impl Fn(Animation) -> Animation + 'static) -> Self {
         let id = self.id();
         create_effect(move |_| {
-            id.update_animation(anim.clone());
+            id.update_animation(anim_fn(Animation::default()));
         });
         self
     }
