@@ -191,6 +191,7 @@ pub trait View {
     ///
     /// You shouldn't need to implement this.
     fn layout_main(&mut self, cx: &mut LayoutCx) -> Node {
+        println!("layout main");
         cx.save();
 
         let view_style = self.view_style();
@@ -693,6 +694,8 @@ pub trait View {
             return;
         }
 
+        println!("paint main");
+
         cx.save();
         let size = cx.transform(id);
         let is_empty = cx
@@ -705,7 +708,7 @@ pub trait View {
                 //     cx.
                 // }
 
-                if !anim.is_completed() {
+                if anim.can_advance() {
                     let view_style = self.view_style();
                     cx.app_state.compute_style(self.id(), view_style);
                 }

@@ -158,14 +158,8 @@ impl ViewState {
 
         'anim: {
             if let Some(animation) = self.animation.as_mut() {
-                match animation.persist_mode {
-                    FillMode::Removed | FillMode::AutoReverse => {
-                        if animation.is_completed() {
-                            break 'anim;
-                        }
-                    }
-                    // Continue applying the style changes even if the animation is completed
-                    FillMode::Forwards => {}
+                if !animation.can_advance() {
+                    break 'anim;
                 }
 
                 for (prop_kind, prop) in animation.props() {
@@ -282,7 +276,7 @@ pub struct AppState {
     pub(crate) screen_size_bp: ScreenSizeBp,
     pub(crate) grid_bps: GridBreakpoints,
     pub(crate) hovered: HashSet<Id>,
-    pub(crate) animated: HashMap<Id, Animation>,
+    pub(crate) animated: HashMap<Id, AnimId>,
     pub(crate) cursor: Option<CursorStyle>,
     pub(crate) last_cursor: CursorIcon,
     pub(crate) keyboard_navigation: bool,
@@ -310,7 +304,7 @@ impl AppState {
             stale_view_state: ViewState::new(&mut taffy),
             taffy,
             view_states: HashMap::new(),
-            animated: HashSet::new(),
+            animated: HashMap::new(),
             disabled: HashSet::new(),
             keyboard_navigable: HashSet::new(),
             draggable: HashSet::new(),
@@ -342,13 +336,16 @@ impl AppState {
         self.animated
             .clone()
             .into_iter()
-            .filter(|id| {
-                let anim = &self.view_state(*id).animation;
-                if let Some(anim) = anim {
-                    return !anim.is_completed();
-                }
-                false
+            .filter(|(id, _)| {
+                let can_advance = &self
+                    .view_state(*id)
+                    .animation
+                    .as_ref()
+                    .map(|a| !a.is_completed())
+                    .unwrap_or(false);
+                *can_advance
             })
+            .map(|(id, _)| id)
             .collect()
     }
 
@@ -411,6 +408,7 @@ impl AppState {
     }
 
     pub(crate) fn compute_style(&mut self, id: Id, view_style: Option<Style>) {
+        println!("compute style");
         let interact_state = self.get_interact_state(&id);
         let screen_size_bp = self.screen_size_bp;
         let view_state = self.view_state(id);
@@ -514,22 +512,11 @@ impl AppState {
         }
     }
 
-    // TODO: animated should be a HashMap<Id, AnimId>
-    // so we don't have to loop through all view states
-    pub(crate) fn get_view_id_by_anim_id(&mut self, anim_id: AnimId) -> Id {
-        self.animated.
-        *self
-            .view_states
-            .iter_mut()
-            .find(|(_, vs)| {
-                dbg!(vs.animation.as_ref());
-                vs.animation
-                    .as_ref()
-                    .map(|a| a.id() == anim_id)
-                    .unwrap_or(false)
-            })
-            .expect(&format!("Animation with ID {:?} not found", anim_id))
-            .0
+    pub(crate) fn get_view_id_by_anim_id(&mut self, anim_id: &AnimId) -> Option<Id> {
+        self.animated
+            .iter()
+            .find(|(_, a_id)| *a_id == anim_id)
+            .map(|(id, _)| *id)
     }
 
     pub(crate) fn update_context_menu(&mut self, menu: &mut Menu) {

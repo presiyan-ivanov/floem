@@ -8,17 +8,16 @@ use floem_reactive::create_effect;
 use once_cell::sync::Lazy;
 use peniko::Color;
 
-// pub(crate) static BASE_ANIM: Lazy<Animation> = Lazy::new(|| Animation::default());
-
 #[derive(Clone, Debug)]
 pub struct Animation {
     pub(crate) id: AnimId,
     pub(crate) state: AnimState,
     pub(crate) easing: Easing,
-    pub(crate) persist_mode: FillMode,
+    pub(crate) fill_mode: FillMode,
     pub(crate) duration: Duration,
     pub(crate) repeat_mode: RepeatMode,
     pub(crate) repeat_count: usize,
+    pub(crate) is_auto_reverse: bool,
     pub(crate) animated_props: HashMap<AnimPropKind, AnimatedProp>,
 }
 
@@ -31,7 +30,6 @@ pub(crate) fn assert_valid_time(time: f64) {
 pub enum RepeatMode {
     // Once started, the animation will juggle between [`AnimState::PassInProgress`] and [`AnimState::PassFinished`],
     // but will never reach [`AnimState::Completed`]
-    /// Repeat the animation forever
     LoopForever,
     /// How many times do we repeat the animation?
     /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0
@@ -47,22 +45,19 @@ pub enum FillMode {
     Removed,
     ///The styles applied by the animation remain visible after the animation is completed.
     Forwards,
-
-    AutoReverse,
 }
 
-impl Default for Animation {
-    fn default() -> Self {
-        dbg!(Animation {
-            id: AnimId::next(),
-            state: AnimState::Idle,
-            easing: Easing::default(),
-            duration: Duration::from_secs(1),
-            repeat_mode: RepeatMode::Times(1),
-            persist_mode: FillMode::Removed,
-            repeat_count: 0,
-            animated_props: HashMap::new(),
-        })
+pub(crate) fn next() -> Animation {
+    Animation {
+        id: AnimId::next(),
+        state: AnimState::Idle,
+        easing: Easing::default(),
+        duration: Duration::from_secs(1),
+        repeat_mode: RepeatMode::Times(1),
+        fill_mode: FillMode::Removed,
+        repeat_count: 0,
+        is_auto_reverse: false,
+        animated_props: HashMap::new(),
     }
 }
 
@@ -110,7 +105,7 @@ impl Animation {
     }
 
     pub fn is_auto_reverse(&self) -> bool {
-        matches!(self.persist_mode, FillMode::AutoReverse)
+        self.is_auto_reverse
     }
 
     // pub fn is_playing_reverse(&self) -> bool {
@@ -212,12 +207,17 @@ impl Animation {
         self
     }
 
-    pub fn auto_reverse(mut self) -> Self {
-        self.persist_mode = FillMode::AutoReverse;
+    pub fn fill_mode(mut self, fill_mode: FillMode) -> Self {
+        self.fill_mode = fill_mode;
         self
     }
 
-    pub fn repeats_forever(mut self, repeat: bool) -> Self {
+    pub fn auto_reverse(mut self, auto_reverse: bool) -> Self {
+        self.is_auto_reverse = auto_reverse;
+        self
+    }
+
+    pub fn repeat_forever(mut self, repeat: bool) -> Self {
         self.repeat_mode = if repeat {
             RepeatMode::LoopForever
         } else {
@@ -226,8 +226,8 @@ impl Animation {
         self
     }
 
-    /// How many passes(loops) of the animation do we want?
-    pub fn repeat_times(mut self, times: usize) -> Self {
+    /// Repeats the animation for a specific number of times.
+    pub fn repeat_count(mut self, times: usize) -> Self {
         self.repeat_mode = RepeatMode::Times(times);
         self
     }
@@ -336,5 +336,17 @@ impl Animation {
     pub(crate) fn requires_layout(&self) -> bool {
         self.animated_props.contains_key(&AnimPropKind::Width)
             || self.animated_props.contains_key(&AnimPropKind::Height)
+    }
+
+    pub(crate) fn can_advance(&self) -> bool {
+        if self.is_auto_reverse && self.is_completed() {
+            return false;
+        }
+
+        match self.fill_mode {
+            FillMode::Removed => return !self.is_completed(),
+            // Continue applying the style changes even if the animation is completed
+            FillMode::Forwards => return true,
+        }
     }
 }

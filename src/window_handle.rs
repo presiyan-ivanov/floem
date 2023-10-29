@@ -268,13 +268,9 @@ impl WindowHandle {
         }
 
         if let Event::AnimFrame = &event {
-            let id = cx
-                .app_state
-                .ids_with_anim_in_progress()
-                .get(0)
-                .cloned()
-                .unwrap();
-            cx.app_state.request_layout(id);
+            if let Some(id) = cx.app_state.ids_with_anim_in_progress().get(0).cloned() {
+                cx.app_state.request_layout(id);
+            }
         }
 
         self.process_update();
@@ -668,7 +664,8 @@ impl WindowHandle {
                         state.cleanup_listener = Some(action);
                     }
                     UpdateMessage::Animation { id, animation } => {
-                        cx.app_state.animated.insert(id);
+                        dbg!(id, animation.id);
+                        cx.app_state.animated.insert(id, animation.id);
                         let view_state = cx.app_state.view_state(id);
                         view_state.animation = Some(animation);
                         self.request_anim_frame();
@@ -777,8 +774,10 @@ impl WindowHandle {
                     kind,
                     val,
                 } => {
-                    let view_id = self.app_state.get_view_id_by_anim_id(anim_id);
-                    flags |= self.process_update_anim_prop(view_id, kind, val);
+                    let view_id = self.app_state.get_view_id_by_anim_id(&anim_id);
+                    if let Some(view_id) = view_id {
+                        flags |= self.process_update_anim_prop(view_id, kind, val);
+                    }
                 }
             }
         }
