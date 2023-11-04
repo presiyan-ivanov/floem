@@ -276,7 +276,7 @@ pub struct AppState {
     pub(crate) screen_size_bp: ScreenSizeBp,
     pub(crate) grid_bps: GridBreakpoints,
     pub(crate) hovered: HashSet<Id>,
-    pub(crate) animated: HashMap<Id, AnimId>,
+    pub(crate) animated: HashMap<AnimId, Id>,
     pub(crate) cursor: Option<CursorStyle>,
     pub(crate) last_cursor: CursorIcon,
     pub(crate) keyboard_navigation: bool,
@@ -336,7 +336,7 @@ impl AppState {
         self.animated
             .clone()
             .into_iter()
-            .filter(|(id, _)| {
+            .filter(|(_, id)| {
                 let can_advance = &self
                     .view_state(*id)
                     .animation
@@ -345,7 +345,7 @@ impl AppState {
                     .unwrap_or(false);
                 *can_advance
             })
-            .map(|(id, _)| id)
+            .map(|(_, id)| id)
             .collect()
     }
 
@@ -408,7 +408,7 @@ impl AppState {
     }
 
     pub(crate) fn compute_style(&mut self, id: Id, view_style: Option<Style>) {
-        println!("compute style");
+        // println!("compute style");
         let interact_state = self.get_interact_state(&id);
         let screen_size_bp = self.screen_size_bp;
         let view_state = self.view_state(id);
@@ -513,10 +513,7 @@ impl AppState {
     }
 
     pub(crate) fn get_view_id_by_anim_id(&mut self, anim_id: &AnimId) -> Option<Id> {
-        self.animated
-            .iter()
-            .find(|(_, a_id)| *a_id == anim_id)
-            .map(|(id, _)| *id)
+        self.animated.get(anim_id).copied()
     }
 
     pub(crate) fn update_context_menu(&mut self, menu: &mut Menu) {

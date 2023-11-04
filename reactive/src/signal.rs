@@ -306,7 +306,7 @@ impl<T> WriteSignal<T> {
 }
 
 /// Creates a new setter and getter Signal.
-/// Accessing the signal value in an Effect will make the Effect subscribes
+/// Accessing the signal value in an Effect will make the Effect subscribe
 /// to the value change of the Signal. And whenever the signal value changes,
 /// it will trigger an effect run.
 pub fn create_signal<T>(value: T) -> (ReadSignal<T>, WriteSignal<T>)

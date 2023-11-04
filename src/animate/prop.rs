@@ -70,7 +70,7 @@ impl AnimatedProp {
                 }
             }
             PropAnimState::PassFinished { elapsed } => match repeat_mode {
-                RepeatMode::LoopForever => {
+                RepeatMode::Forever => {
                     self.state = PropAnimState::PassInProgress {
                         started_on: Instant::now(),
                         elapsed: Duration::ZERO,

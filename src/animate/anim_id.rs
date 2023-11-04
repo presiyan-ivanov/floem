@@ -19,13 +19,12 @@ impl AnimId {
     }
 
     pub(crate) fn update_prop(&self, kind: AnimPropKind, val: AnimValue) {
+        println!("update_prop called for anim id {:?}", self);
         ANIM_UPDATE_MESSAGES.with(|msgs| {
             let mut msgs = msgs.borrow_mut();
-            msgs.push(AnimUpdateMsg::Prop {
-                id: *self,
-                kind,
-                val,
-            });
+            msgs.entry(*self)
+                .or_insert_with(|| vec![])
+                .push(AnimUpdateMsg::Prop { kind, val });
         });
     }
 }

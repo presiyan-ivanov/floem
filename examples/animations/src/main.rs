@@ -62,10 +62,10 @@ fn app_view() -> impl View {
                         .height(move || base_label_height + (scroll_offset_pct.get() * 150.0))
                         .easing_fn(EasingFn::Quartic)
                         .ease_in_out()
-                        .duration(Duration::from_secs(1))
+                        .duration(Duration::from_secs(2))
                         .fill_mode(FillMode::Forwards)
                     // .auto_reverse(true)
-                    // .repeat_forever(true)
+                        .repeating_forever(true)
                 }),)
         })
         .style(|s| {
@@ -80,25 +80,26 @@ fn app_view() -> impl View {
                 .color(Color::BLACK)
         })
         .animation(move |a| {
-            a.width(move || {
-                if counter.get() % 2.0 == 0.0 {
-                    400.0
-                } else {
-                    600.0
-                }
-            })
-            .height(move || {
-                if counter.get() % 2.0 == 0.0 {
-                    200.0
-                } else {
-                    500.0
-                }
-            })
-            .color(|| Color::CYAN)
-            .background(|| Color::rgba8(100, 100, 100, 0))
-            .easing_fn(EasingFn::Cubic)
-            .ease_in_out()
-            .duration(Duration::from_secs(2))
+            a
+                // .width(move || {
+                //     if counter.get() % 2.0 == 0.0 {
+                //         400.0
+                //     } else {
+                //         600.0
+                //     }
+                // })
+                // .height(move || {
+                //     if counter.get() % 2.0 == 0.0 {
+                //         200.0
+                //     } else {
+                //         500.0
+                //     }
+                // })
+                .background(|| Color::DARK_RED)
+                .easing_fn(EasingFn::Cubic)
+                .ease_in_out()
+                .fill_mode(FillMode::Forwards)
+                .duration(Duration::from_secs(10))
         })
     })
     .on_scroll(move |rect| {

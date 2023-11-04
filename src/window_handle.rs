@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use floem_reactive::{with_scope, RwSignal, Scope};
 use floem_renderer::Renderer;
@@ -20,8 +23,8 @@ use crate::views::{container_box, stack, Decorators};
 use crate::{
     action::exec_after,
     animate::{
-        AnimPropKind, AnimPropValues, AnimUpdateMsg, AnimValue, AnimatedProp, ColorAnimValues,
-        F64AnimValues, PropAnimState, SizeUnit,
+        AnimId, AnimPropKind, AnimPropValues, AnimUpdateMsg, AnimValue, AnimatedProp,
+        ColorAnimValues, F64AnimValues, PropAnimState, SizeUnit,
     },
     context::{
         AppState, EventCx, LayoutCx, MoveListener, PaintCx, PaintState, ResizeListener, UpdateCx,
@@ -34,8 +37,8 @@ use crate::{
     style::{CursorStyle, StyleSelector},
     update::{
         UpdateMessage, ANIM_UPDATE_MESSAGES, CENTRAL_DEFERRED_UPDATE_MESSAGES,
-        CENTRAL_UPDATE_MESSAGES, CURRENT_RUNNING_VIEW_HANDLE, DEFERRED_UPDATE_MESSAGES,
-        UPDATE_MESSAGES,
+        CENTRAL_UPDATE_MESSAGES, CURRENT_RUNNING_VIEW_HANDLE, DEFERRED_ANIM_UPDATE_MESSAGES,
+        DEFERRED_UPDATE_MESSAGES, UPDATE_MESSAGES,
     },
     view::{view_children_set_parent_id, ChangeFlags, View},
 };
@@ -664,8 +667,17 @@ impl WindowHandle {
                         state.cleanup_listener = Some(action);
                     }
                     UpdateMessage::Animation { id, animation } => {
-                        dbg!(id, animation.id);
-                        cx.app_state.animated.insert(id, animation.id);
+                        cx.app_state.animated.insert(animation.id, id);
+                        DEFERRED_ANIM_UPDATE_MESSAGES.with(|def| {
+                            let mut def = def.borrow_mut();
+                            let anim_msgs = def.remove(&animation.id);
+                            if let Some(anim_msgs) = anim_msgs {
+                                println!("deferred msgs for {:?}, len: {}", animation.id, anim_msgs.len());
+                                ANIM_UPDATE_MESSAGES
+                                    .with(|msgs| msgs.borrow_mut().insert(animation.id, anim_msgs));
+                            };
+                        });
+
                         let view_state = cx.app_state.view_state(id);
                         view_state.animation = Some(animation);
                         self.request_anim_frame();
@@ -761,22 +773,45 @@ impl WindowHandle {
 
     fn process_anim_update_messages(&mut self) -> ChangeFlags {
         let mut flags = ChangeFlags::empty();
-        let msgs: Vec<AnimUpdateMsg> = ANIM_UPDATE_MESSAGES.with(|msgs| {
-            let mut msgs = msgs.borrow_mut();
-            let len = msgs.len();
-            msgs.drain(0..len).collect()
-        });
+        let msgs_by_anim: HashMap<AnimId, Vec<AnimUpdateMsg>> =
+            ANIM_UPDATE_MESSAGES.with(|msgs_by_anim| {
+                let mut msgs_by_anim = msgs_by_anim.borrow_mut();
 
-        for msg in msgs {
-            match msg {
-                AnimUpdateMsg::Prop {
-                    id: anim_id,
-                    kind,
-                    val,
-                } => {
-                    let view_id = self.app_state.get_view_id_by_anim_id(&anim_id);
-                    if let Some(view_id) = view_id {
-                        flags |= self.process_update_anim_prop(view_id, kind, val);
+                let all: HashMap<_, _> = msgs_by_anim.drain().collect();
+                let mut processed_now = HashMap::new();
+
+                for (anim_id, msgs) in all {
+                    if self.app_state.get_view_id_by_anim_id(&anim_id).is_some() {
+                        processed_now.insert(anim_id, msgs);
+                    } else {
+                        println!("adding to deferred {:?} len: {}", anim_id, msgs.len());
+                        // Anim is not attached to the view yet. Can happen ONLY the first time props
+                        // of the animation are resolved, since the messages for the props are
+                        // received BEFORE the animation is created.
+                        DEFERRED_ANIM_UPDATE_MESSAGES.with(|deferred_msgs| {
+                            let mut deferred_msgs = deferred_msgs.borrow_mut();
+                            if let Some(defer_msgs) = deferred_msgs.get_mut(&anim_id) {
+                                defer_msgs.extend(msgs);
+                            } else {
+                                deferred_msgs.insert(anim_id, msgs);
+                            }
+                        });
+                    }
+                }
+
+                processed_now
+            });
+
+        for (anim_id, msgs) in msgs_by_anim {
+            for msg in msgs {
+                match msg {
+                    AnimUpdateMsg::Prop { kind, val } => {
+                        let view_id = self.app_state.get_view_id_by_anim_id(&anim_id);
+                        if let Some(view_id) = view_id {
+                            flags |= self.process_update_anim_prop(view_id, kind, val);
+                        } else {
+                            eprintln!("[Floem] No view for anim id: {:?}", anim_id);
+                        }
                     }
                 }
             }
@@ -944,7 +979,7 @@ impl WindowHandle {
     }
 
     fn request_anim_frame(&mut self) {
-        self.request_paint();
+        // self.request_paint();
 
         let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
         if let Some(id) = id {

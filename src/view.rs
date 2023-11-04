@@ -191,7 +191,7 @@ pub trait View {
     ///
     /// You shouldn't need to implement this.
     fn layout_main(&mut self, cx: &mut LayoutCx) -> Node {
-        println!("layout main");
+        // println!("layout main");
         cx.save();
 
         let view_style = self.view_style();
@@ -694,7 +694,7 @@ pub trait View {
             return;
         }
 
-        println!("paint main");
+        // println!("paint main");
 
         cx.save();
         let size = cx.transform(id);

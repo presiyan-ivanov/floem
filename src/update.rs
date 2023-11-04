@@ -4,7 +4,7 @@ use kurbo::{Point, Size, Vec2};
 use winit::window::ResizeDirection;
 
 use crate::{
-    animate::{AnimUpdateMsg, Animation},
+    animate::{AnimUpdateMsg, Animation, AnimId},
     context::{EventCallback, ResizeCallback},
     event::EventListener,
     id::Id,
@@ -20,7 +20,8 @@ thread_local! {
     pub(crate) static UPDATE_MESSAGES: RefCell<HashMap<Id, Vec<UpdateMessage>>> = Default::default();
     pub(crate) static CENTRAL_DEFERRED_UPDATE_MESSAGES: RefCell<Vec<(Id, Box<dyn Any>)>> = Default::default();
     pub(crate) static DEFERRED_UPDATE_MESSAGES: RefCell<DeferredUpdateMessages> = Default::default();
-    pub(crate) static ANIM_UPDATE_MESSAGES: RefCell<Vec<AnimUpdateMsg>> = Default::default();
+    pub(crate) static ANIM_UPDATE_MESSAGES: RefCell<HashMap<AnimId, Vec<AnimUpdateMsg>>> = Default::default();
+    pub(crate) static DEFERRED_ANIM_UPDATE_MESSAGES: RefCell<HashMap<AnimId, Vec<AnimUpdateMsg>>> = Default::default();
     /// It stores the active view handle, so that when you dispatch an action, it knows
     /// which view handle it submitted to
     pub(crate) static CURRENT_RUNNING_VIEW_HANDLE: RefCell<Id> = RefCell::new(Id::next());
@@ -121,5 +122,5 @@ pub(crate) enum UpdateMessage {
         position: Point,
         size: Size,
     },
-    RequestAnimFrame
+    RequestAnimFrame,
 }

@@ -3,7 +3,7 @@ use kurbo::{Point, Rect};
 
 use crate::{
     action::{set_window_menu, set_window_title, update_window_scale},
-    animate::{Animation, next},
+    animate::{next, Animation},
     event::{Event, EventListener},
     menu::Menu,
     responsive::ScreenSize,
@@ -203,11 +203,12 @@ pub trait Decorators: View + Sized {
 
     fn animation(self, anim_fn: impl Fn(Animation) -> Animation + 'static) -> Self {
         let id = self.id();
-        let anim = next();
-        // dbg!(id, &anim.id);
 
         create_effect(move |_| {
-            id.update_animation(anim_fn(anim.clone()));
+            let next = next();
+            dbg!(id, &next.id);
+            let anim = anim_fn(next);
+            id.update_animation(anim);
         });
         self
     }

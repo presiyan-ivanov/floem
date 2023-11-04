@@ -5,7 +5,6 @@ use super::{
 use std::{borrow::BorrowMut, collections::HashMap, time::Duration, time::Instant};
 
 use floem_reactive::create_effect;
-use once_cell::sync::Lazy;
 use peniko::Color;
 
 #[derive(Clone, Debug)]
@@ -30,7 +29,7 @@ pub(crate) fn assert_valid_time(time: f64) {
 pub enum RepeatMode {
     // Once started, the animation will juggle between [`AnimState::PassInProgress`] and [`AnimState::PassFinished`],
     // but will never reach [`AnimState::Completed`]
-    LoopForever,
+    Forever,
     /// How many times do we repeat the animation?
     /// On every pass, we animate until `elapsed >= duration`, then we reset elapsed time to 0
     /// and increment `repeat_count`. This process is repeated until `repeat_count >= times`, and
@@ -38,13 +37,17 @@ pub enum RepeatMode {
     Times(usize),
 }
 
+/// Determines if the view's style is frozen or removed once the animation has completed.
 #[derive(Clone, Debug, Copy)]
-/// Determines if the styles of the animation are frozen or removed once its it has completed.
 pub enum FillMode {
-    ///The styles applied by the animation are removed when the animation is completed.
+    /// The styles applied by the animation are removed when the animation is completed.
     Removed,
-    ///The styles applied by the animation remain visible after the animation is completed.
+    /// The styles applied by the animation remain visible in their final state after the animation is completed.
     Forwards,
+    //TODO:
+    //Backwards,
+    //TODO:
+    //Both
 }
 
 pub(crate) fn next() -> Animation {
@@ -64,7 +67,6 @@ pub(crate) fn next() -> Animation {
 #[derive(Debug, Clone)]
 pub enum AnimUpdateMsg {
     Prop {
-        id: AnimId,
         kind: AnimPropKind,
         val: AnimValue,
     },
@@ -207,6 +209,8 @@ impl Animation {
         self
     }
 
+    /// Determines if the styles applied by the animation are frozen or removed once it has completed.
+    /// Default is [`FillMode::Removed`].
     pub fn fill_mode(mut self, fill_mode: FillMode) -> Self {
         self.fill_mode = fill_mode;
         self
@@ -217,9 +221,9 @@ impl Animation {
         self
     }
 
-    pub fn repeat_forever(mut self, repeat: bool) -> Self {
+    pub fn repeating_forever(mut self, repeat: bool) -> Self {
         self.repeat_mode = if repeat {
-            RepeatMode::LoopForever
+            RepeatMode::Forever
         } else {
             RepeatMode::Times(1)
         };

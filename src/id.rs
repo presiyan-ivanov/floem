@@ -197,6 +197,7 @@ impl Id {
     }
 
     pub fn update_animation(&self, animation: Animation) {
+        println!("Update anim for anim id {:?}", animation.id());
         self.add_update_message(UpdateMessage::Animation {
             id: *self,
             animation,
