@@ -9,8 +9,7 @@ use crate::{
     event::EventListener,
     id::Id,
     menu::Menu,
-    responsive::ScreenSize,
-    style::{Style, StyleSelector},
+    style::{Style, StyleClassRef, StyleSelector},
 };
 
 thread_local! {
@@ -54,10 +53,9 @@ pub(crate) enum UpdateMessage {
         id: Id,
         style: Style,
     },
-    ResponsiveStyle {
+    Class {
         id: Id,
-        style: Style,
-        size: ScreenSize,
+        class: StyleClassRef,
     },
     StyleSelector {
         id: Id,
@@ -115,6 +113,8 @@ pub(crate) enum UpdateMessage {
     SetWindowTitle {
         title: String,
     },
+    Inspect,
+    FocusWindow,
     SetImeAllowed {
         allowed: bool,
     },

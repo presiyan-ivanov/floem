@@ -16,8 +16,7 @@ use crate::{
     animate::Animation,
     context::{EventCallback, MenuCallback, ResizeCallback},
     event::EventListener,
-    responsive::ScreenSize,
-    style::{Style, StyleSelector},
+    style::{Style, StyleClassRef, StyleSelector},
     update::{UpdateMessage, CENTRAL_DEFERRED_UPDATE_MESSAGES, CENTRAL_UPDATE_MESSAGES},
 };
 
@@ -29,8 +28,15 @@ thread_local! {
 /// A stable identifier for an element.
 pub struct Id(u64);
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct IdPath(pub(crate) Vec<Id>);
+
+impl IdPath {
+    /// Returns the slice of the ids excluding the first id identifying the window.
+    pub(crate) fn dispatch(&self) -> &[Id] {
+        &self.0[1..]
+    }
+}
 
 impl Id {
     /// Allocate a new, unique `Id`.
@@ -152,7 +158,11 @@ impl Id {
         self.add_update_message(UpdateMessage::Style { id: *self, style });
     }
 
-    pub fn update_style_selector(&self, style: Style, selector: StyleSelector) {
+    pub fn update_class(&self, class: StyleClassRef) {
+        self.add_update_message(UpdateMessage::Class { id: *self, class });
+    }
+
+    pub(crate) fn update_style_selector(&self, style: Style, selector: StyleSelector) {
         self.add_update_message(UpdateMessage::StyleSelector {
             id: *self,
             style,
@@ -166,14 +176,6 @@ impl Id {
 
     pub fn draggable(&self) {
         self.add_update_message(UpdateMessage::Draggable { id: *self });
-    }
-
-    pub fn update_responsive_style(&self, style: Style, size: ScreenSize) {
-        self.add_update_message(UpdateMessage::ResponsiveStyle {
-            id: *self,
-            style,
-            size,
-        });
     }
 
     pub fn update_event_listener(&self, listener: EventListener, action: Box<EventCallback>) {
@@ -210,6 +212,10 @@ impl Id {
 
     pub fn update_popout_menu(&self, menu: Box<MenuCallback>) {
         self.add_update_message(UpdateMessage::PopoutMenu { id: *self, menu });
+    }
+
+    pub fn inspect(&self) {
+        self.add_update_message(UpdateMessage::Inspect);
     }
 
     fn add_update_message(&self, msg: UpdateMessage) {

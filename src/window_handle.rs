@@ -1,19 +1,18 @@
 use std::{
     collections::HashMap,
+    rc::Rc,
     time::{Duration, Instant},
 };
 
 use floem_reactive::{with_scope, RwSignal, Scope};
 use floem_renderer::Renderer;
+use image::DynamicImage;
 use kurbo::{Affine, Point, Rect, Size, Vec2};
-
-#[cfg(target_os = "linux")]
-use winit::window::WindowId;
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
     event::{ElementState, Ime, MouseButton, MouseScrollDelta},
-    keyboard::{Key, ModifiersState},
-    window::{CursorIcon, Theme},
+    keyboard::{Key, ModifiersState, NamedKey},
+    window::{CursorIcon, Theme, WindowId},
 };
 
 #[cfg(target_os = "linux")]
@@ -24,13 +23,14 @@ use crate::{
     action::exec_after,
     animate::{
         AnimId, AnimPropKind, AnimPropValues, AnimUpdateMsg, AnimValue, AnimatedProp,
-        ColorAnimValues, F64AnimValues, PropAnimState, SizeUnit,
+        F64AnimValues, PropAnimState,
     },
     context::{
         AppState, EventCx, LayoutCx, MoveListener, PaintCx, PaintState, ResizeListener, UpdateCx,
     },
     event::{Event, EventListener},
     id::{Id, IdPath, ID_PATHS},
+    inspector::{self, Capture, CaptureState, CapturedView},
     keyboard::KeyEvent,
     menu::Menu,
     pointer::{PointerButton, PointerInputEvent, PointerMoveEvent, PointerWheelEvent},
@@ -51,6 +51,8 @@ use crate::{
 /// - requesting a new animation frame from the backend
 pub(crate) struct WindowHandle {
     pub(crate) window: Option<winit::window::Window>,
+    window_id: WindowId,
+    id: Id,
     /// Reactive Scope for this WindowHandle
     scope: Scope,
     view: Box<dyn View>,
@@ -59,11 +61,12 @@ pub(crate) struct WindowHandle {
     size: RwSignal<Size>,
     theme: RwSignal<Option<Theme>>,
     is_maximized: bool,
+    transparent: bool,
     pub(crate) scale: f64,
     pub(crate) modifiers: ModifiersState,
     pub(crate) cursor_position: Point,
     pub(crate) window_position: Point,
-    pub(crate) last_pointer_down: Option<(u8, Instant)>,
+    pub(crate) last_pointer_down: Option<(u8, Point, Instant)>,
     #[cfg(target_os = "linux")]
     pub(crate) context_menu: RwSignal<Option<(Menu, Point)>>,
 }
@@ -72,15 +75,23 @@ impl WindowHandle {
     pub(crate) fn new(
         window: winit::window::Window,
         view_fn: impl FnOnce(winit::window::WindowId) -> Box<dyn View> + 'static,
+        transparent: bool,
     ) -> Self {
         let scope = Scope::new();
         let window_id = window.id();
+        let id = Id::next();
         let scale = window.scale_factor();
         let size: LogicalSize<f64> = window.inner_size().to_logical(scale);
         let size = Size::new(size.width, size.height);
         let size = scope.create_rw_signal(Size::new(size.width, size.height));
         let theme = scope.create_rw_signal(window.theme());
         let is_maximized = window.is_maximized();
+
+        set_current_view(id);
+
+        ID_PATHS.with(|id_paths| {
+            id_paths.borrow_mut().insert(id, IdPath(vec![id]));
+        });
 
         #[cfg(target_os = "linux")]
         let context_menu = scope.create_rw_signal(None);
@@ -99,16 +110,14 @@ impl WindowHandle {
             )
         });
 
-        ID_PATHS.with(|id_paths| {
-            id_paths
-                .borrow_mut()
-                .insert(view.id(), IdPath(vec![view.id()]));
-        });
+        view.id().set_parent(id);
         view_children_set_parent_id(&*view);
 
         let paint_state = PaintState::new(&window, scale, size.get_untracked() * scale);
         let mut window_handle = Self {
             window: Some(window),
+            window_id,
+            id,
             scope,
             view,
             app_state: AppState::new(),
@@ -116,6 +125,7 @@ impl WindowHandle {
             size,
             theme,
             is_maximized,
+            transparent,
             scale,
             modifiers: ModifiersState::default(),
             cursor_position: Point::ZERO,
@@ -129,7 +139,7 @@ impl WindowHandle {
     }
 
     pub fn event(&mut self, event: Event) {
-        set_current_view(self.view.id());
+        set_current_view(self.id);
         let event = event.scale(self.app_state.scale);
 
         let mut cx = EventCx {
@@ -149,6 +159,7 @@ impl WindowHandle {
 
         let is_pointer_down = matches!(&event, Event::PointerDown(_));
         let was_focused = if is_pointer_down {
+            cx.app_state.clicking.clear();
             cx.app_state.focus.take()
         } else {
             cx.app_state.focus
@@ -161,9 +172,9 @@ impl WindowHandle {
                 if let Some(id) = cx.app_state.focus {
                     let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
                     if let Some(id_path) = id_path {
-                        processed |= self
-                            .view
-                            .event_main(&mut cx, Some(&id_path.0), event.clone());
+                        processed |=
+                            self.view
+                                .event_main(&mut cx, Some(id_path.dispatch()), event.clone());
                     } else {
                         cx.app_state.focus = None;
                     }
@@ -179,7 +190,7 @@ impl WindowHandle {
 
                 if !processed {
                     if let Event::KeyDown(KeyEvent { key, modifiers }) = &event {
-                        if key.logical_key == Key::Tab {
+                        if key.logical_key == Key::Named(NamedKey::Tab) {
                             let _backwards = modifiers.contains(ModifiersState::SHIFT);
                             // view_tab_navigation(&self.view, cx.app_state, backwards);
                             // view_debug_tree(&self.view);
@@ -215,7 +226,7 @@ impl WindowHandle {
             let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
             if let Some(id_path) = id_path {
                 self.view
-                    .event_main(&mut cx, Some(&id_path.0), event.clone());
+                    .event_main(&mut cx, Some(id_path.dispatch()), event.clone());
             }
             if let Event::PointerUp(_) = &event {
                 // To remove the styles applied by the Active selector
@@ -236,9 +247,9 @@ impl WindowHandle {
             let hovered = &cx.app_state.hovered.clone();
             for id in was_hovered.unwrap().symmetric_difference(hovered) {
                 let view_state = cx.app_state.view_state(*id);
-                if view_state.hover_style.is_some()
-                    || view_state.active_style.is_some()
-                    || view_state.animation.is_some()
+                if view_state.animation.is_some()
+                    || view_state.has_style_selectors.has(StyleSelector::Hover)
+                    || view_state.has_style_selectors.has(StyleSelector::Active)
                 {
                     cx.app_state.request_layout(*id);
                 }
@@ -246,10 +257,15 @@ impl WindowHandle {
                     if let Some(action) = cx.get_event_listener(*id, &EventListener::PointerEnter) {
                         (*action)(&event);
                     }
-                } else if let Some(action) =
-                    cx.get_event_listener(*id, &EventListener::PointerLeave)
-                {
-                    (*action)(&event);
+                } else {
+                    let id_path = ID_PATHS.with(|paths| paths.borrow().get(id).cloned());
+                    if let Some(id_path) = id_path {
+                        self.view.event_main(
+                            &mut cx,
+                            Some(id_path.dispatch()),
+                            Event::PointerLeave,
+                        );
+                    }
                 }
             }
             let dragging_over = &cx.app_state.dragging_over.clone();
@@ -274,6 +290,22 @@ impl WindowHandle {
             if let Some(id) = cx.app_state.ids_with_anim_in_progress().get(0).cloned() {
                 cx.app_state.request_layout(id);
             }
+        }
+
+        if is_pointer_down {
+            for id in cx.app_state.clicking.clone() {
+                if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
+                    cx.app_state.request_layout(id);
+                }
+            }
+        }
+        if matches!(&event, Event::PointerUp(_)) {
+            for id in cx.app_state.clicking.clone() {
+                if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
+                    cx.app_state.request_layout(id);
+                }
+            }
+            cx.app_state.clicking.clear();
         }
 
         self.process_update();
@@ -330,7 +362,6 @@ impl WindowHandle {
 
     pub(crate) fn pointer_move(&mut self, pos: Point) {
         if self.cursor_position != pos {
-            self.last_pointer_down = None;
             self.cursor_position = pos;
             let event = PointerMoveEvent {
                 pos,
@@ -338,6 +369,29 @@ impl WindowHandle {
             };
             self.event(Event::PointerMove(event));
         }
+    }
+
+    pub(crate) fn pointer_leave(&mut self) {
+        set_current_view(self.id);
+        let mut cx = EventCx {
+            app_state: &mut self.app_state,
+        };
+        let was_hovered = std::mem::take(&mut cx.app_state.hovered);
+        for id in was_hovered {
+            let view_state = cx.app_state.view_state(id);
+            if view_state.has_style_selectors.has(StyleSelector::Hover)
+                || view_state.has_style_selectors.has(StyleSelector::Active)
+                || view_state.animation.is_some()
+            {
+                cx.app_state.request_layout(id);
+            }
+            let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
+            if let Some(id_path) = id_path {
+                self.view
+                    .event_main(&mut cx, Some(id_path.dispatch()), Event::PointerLeave);
+            }
+        }
+        self.process_update();
     }
 
     pub(crate) fn mouse_wheel(&mut self, delta: MouseScrollDelta) {
@@ -359,18 +413,21 @@ impl WindowHandle {
     pub(crate) fn mouse_input(&mut self, button: MouseButton, state: ElementState) {
         let button: PointerButton = button.into();
         let count = if state.is_pressed() && button.is_primary() {
-            if let Some((count, instant)) = self.last_pointer_down.as_mut() {
+            if let Some((count, last_pos, instant)) = self.last_pointer_down.as_mut() {
                 if *count == 4 {
                     *count = 1;
-                } else if instant.elapsed().as_millis() < 500 {
+                } else if instant.elapsed().as_millis() < 500
+                    && last_pos.distance(self.cursor_position) < 4.0
+                {
                     *count += 1;
                 } else {
                     *count = 1;
                 }
                 *instant = Instant::now();
+                *last_pos = self.cursor_position;
                 *count
             } else {
-                self.last_pointer_down = Some((1, Instant::now()));
+                self.last_pointer_down = Some((1, self.cursor_position, Instant::now()));
                 1
             }
         } else {
@@ -400,17 +457,35 @@ impl WindowHandle {
         }
     }
 
-    fn layout(&mut self) {
+    fn layout(&mut self) -> Duration {
         let mut cx = LayoutCx::new(&mut self.app_state);
 
         cx.app_state_mut().root = Some(self.view.layout_main(&mut cx));
+
+        let start = Instant::now();
         cx.app_state_mut().compute_layout();
+        let taffy_duration = Instant::now().saturating_duration_since(start);
 
         cx.clear();
         self.view.compute_layout_main(&mut cx);
+
+        // Currently we only need one ID with animation in progress to request layout, which will
+        // advance all the animations in progress.
+        // This will be reworked once we change from request_layout to request_paint
+        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
+
+        if let Some(id) = id {
+            if self.app_state.capture.is_none() {
+                exec_after(Duration::from_millis(1), move |_| {
+                    id.request_layout();
+                });
+            }
+        }
+
+        taffy_duration
     }
 
-    pub fn paint(&mut self) {
+    pub fn paint(&mut self) -> Option<DynamicImage> {
         let mut cx = PaintCx {
             app_state: &mut self.app_state,
             paint_state: &mut self.paint_state,
@@ -432,22 +507,98 @@ impl WindowHandle {
             saved_font_styles: Vec::new(),
             saved_line_heights: Vec::new(),
             saved_z_indexes: Vec::new(),
-            scroll_bar_color: None,
             scroll_bar_rounded: None,
             scroll_bar_thickness: None,
             scroll_bar_edge_width: None,
-            saved_scroll_bar_colors: Vec::new(),
             saved_scroll_bar_roundeds: Vec::new(),
             saved_scroll_bar_thicknesses: Vec::new(),
             saved_scroll_bar_edge_widths: Vec::new(),
         };
-        cx.paint_state.renderer.begin();
+        cx.paint_state
+            .renderer
+            .begin(cx.app_state.capture.is_some());
+        if !self.transparent {
+            let scale = cx.app_state.scale;
+            // fill window with default white background if it's not transparent
+            cx.fill(
+                &self
+                    .size
+                    .get_untracked()
+                    .to_rect()
+                    .scale_from_origin(1.0 / scale)
+                    .expand(),
+                peniko::Color::WHITE,
+                0.0,
+            );
+        }
         self.view.paint_main(&mut cx);
         if let Some(window) = self.window.as_ref() {
-            window.pre_present_notify();
+            if cx.app_state.capture.is_none() {
+                window.pre_present_notify();
+            }
         }
-        cx.paint_state.renderer.finish();
+        let image = cx.paint_state.renderer.finish();
+
+        if cx.app_state.capture.is_none() {
+            self.process_update();
+        }
+
+        image
+    }
+
+    pub(crate) fn capture(&mut self) -> Capture {
+        self.app_state.capture = Some(CaptureState::default());
+
+        // Trigger painting to create a Vger renderer which can capture the output.
+        // This can be expensive so it could skew the paint time measurement.
+        self.paint();
+
+        // Ensure we run layout again for accurate timing.
+        self.app_state
+            .view_states
+            .values_mut()
+            .for_each(|state| state.request_layout = true);
+
+        fn get_taffy_depth(taffy: &taffy::Taffy, root: taffy::node::Node) -> usize {
+            let children = taffy.children(root).unwrap();
+            if children.is_empty() {
+                1
+            } else {
+                children
+                    .iter()
+                    .map(|child| get_taffy_depth(taffy, *child))
+                    .max()
+                    .unwrap()
+                    + 1
+            }
+        }
+
+        let start = Instant::now();
+
+        let taffy_root_node = self.app_state.view_state(self.view.id()).node;
+        let taffy_duration = self.layout();
+        let post_layout = Instant::now();
+        let window = self.paint().map(Rc::new);
+        let end = Instant::now();
+
+        let root_layout = self.app_state.get_layout_rect(self.view.id());
+        let capture = Capture {
+            start,
+            post_layout,
+            end,
+            taffy_duration,
+            taffy_node_count: self.app_state.taffy.total_node_count(),
+            taffy_depth: get_taffy_depth(&self.app_state.taffy, taffy_root_node),
+            window,
+            window_size: self.size.get_untracked() / self.app_state.scale,
+            scale: self.scale * self.app_state.scale,
+            root: CapturedView::capture(&self.view, &mut self.app_state, root_layout),
+            state: self.app_state.capture.take().unwrap(),
+        };
+        // Process any updates produced by capturing
         self.process_update();
+
+        capture
     }
 
     pub(crate) fn process_update(&mut self) {
@@ -510,11 +661,8 @@ impl WindowHandle {
         let mut flags = ChangeFlags::empty();
         loop {
             self.process_central_messages();
-            let msgs = UPDATE_MESSAGES.with(|msgs| {
-                msgs.borrow_mut()
-                    .remove(&self.view.id())
-                    .unwrap_or_default()
-            });
+            let msgs =
+                UPDATE_MESSAGES.with(|msgs| msgs.borrow_mut().remove(&self.id).unwrap_or_default());
             if msgs.is_empty() {
                 break;
             }
@@ -566,23 +714,33 @@ impl WindowHandle {
                     UpdateMessage::State { id, state } => {
                         let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
                         if let Some(id_path) = id_path {
-                            flags |= self.view.update_main(&mut cx, &id_path.0, state);
+                            flags |= self.view.update_main(&mut cx, id_path.dispatch(), state);
                         }
                     }
                     UpdateMessage::BaseStyle { id, style } => {
                         let state = cx.app_state.view_state(id);
+                        let old_any_inherited = state.style.any_inherited();
                         state.base_style = Some(style);
-                        cx.request_layout(id);
+                        if state.style.any_inherited() || old_any_inherited {
+                            cx.app_state.request_layout_recursive(id);
+                        } else {
+                            cx.request_layout(id);
+                        }
                     }
                     UpdateMessage::Style { id, style } => {
                         let state = cx.app_state.view_state(id);
+                        let old_any_inherited = state.style.any_inherited();
                         state.style = style;
-                        cx.request_layout(id);
+                        if state.style.any_inherited() || old_any_inherited {
+                            cx.app_state.request_layout_recursive(id);
+                        } else {
+                            cx.request_layout(id);
+                        }
                     }
-                    UpdateMessage::ResponsiveStyle { id, style, size } => {
+                    UpdateMessage::Class { id, class } => {
                         let state = cx.app_state.view_state(id);
-
-                        state.add_responsive_style(size, style);
+                        state.class = Some(class);
+                        cx.app_state.request_layout_recursive(id);
                     }
                     UpdateMessage::StyleSelector {
                         id,
@@ -592,12 +750,8 @@ impl WindowHandle {
                         let state = cx.app_state.view_state(id);
                         let style = Some(style);
                         match selector {
-                            StyleSelector::Hover => state.hover_style = style,
-                            StyleSelector::Focus => state.focus_style = style,
-                            StyleSelector::FocusVisible => state.focus_visible_style = style,
-                            StyleSelector::Disabled => state.disabled_style = style,
-                            StyleSelector::Active => state.active_style = style,
                             StyleSelector::Dragging => state.dragging_style = style,
+                            _ => panic!(),
                         }
                         cx.request_layout(id);
                     }
@@ -610,6 +764,11 @@ impl WindowHandle {
                     UpdateMessage::DragWindow => {
                         if let Some(window) = self.window.as_ref() {
                             let _ = window.drag_window();
+                        }
+                    }
+                    UpdateMessage::FocusWindow => {
+                        if let Some(window) = self.window.as_ref() {
+                            window.focus_window();
                         }
                     }
                     UpdateMessage::DragResizeWindow(direction) => {
@@ -672,7 +831,11 @@ impl WindowHandle {
                             let mut def = def.borrow_mut();
                             let anim_msgs = def.remove(&animation.id);
                             if let Some(anim_msgs) = anim_msgs {
-                                println!("deferred msgs for {:?}, len: {}", animation.id, anim_msgs.len());
+                                println!(
+                                    "deferred msgs for {:?}, len: {}",
+                                    animation.id,
+                                    anim_msgs.len()
+                                );
                                 ANIM_UPDATE_MESSAGES
                                     .with(|msgs| msgs.borrow_mut().insert(animation.id, anim_msgs));
                             };
@@ -740,6 +903,9 @@ impl WindowHandle {
                             );
                         }
                     }
+                    UpdateMessage::Inspect => {
+                        inspector::capture(self.window_id);
+                    }
                 }
             }
         }
@@ -749,11 +915,8 @@ impl WindowHandle {
     fn process_deferred_update_messages(&mut self) -> ChangeFlags {
         self.process_central_messages();
         let mut flags = ChangeFlags::empty();
-        let msgs = DEFERRED_UPDATE_MESSAGES.with(|msgs| {
-            msgs.borrow_mut()
-                .remove(&self.view.id())
-                .unwrap_or_default()
-        });
+        let msgs = DEFERRED_UPDATE_MESSAGES
+            .with(|msgs| msgs.borrow_mut().remove(&self.id).unwrap_or_default());
         if msgs.is_empty() {
             return flags;
         }
@@ -764,7 +927,7 @@ impl WindowHandle {
         for (id, state) in msgs {
             let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
             if let Some(id_path) = id_path {
-                flags |= self.view.update_main(&mut cx, &id_path.0, state);
+                flags |= self.view.update_main(&mut cx, id_path.dispatch(), state);
             }
         }
 
@@ -850,46 +1013,60 @@ impl WindowHandle {
 
                 AnimPropValues::Height(F64AnimValues {
                     from,
-                    to: to_val.unwrap_f64(),
+                    to: to_val.unwrap_skew f64(),
                 })
             }
-            AnimPropKind::BorderRadius => {
-                let border_radius = view_state.computed_style.border_radius;
-
-                AnimPropValues::BorderRadius(F64AnimValues {
-                    from: border_radius.0,
-                    to: to_val.unwrap_f64(),
-                })
-            }
-            AnimPropKind::BorderColor => {
-                let from_val = view_state.computed_style.border_color;
-                AnimPropValues::BorderColor(ColorAnimValues {
-                    from: from_val,
-                    to: to_val.unwrap_color(),
-                })
-            }
-            AnimPropKind::Background => {
-                let from_val = view_state
-                    .computed_style
-                    .background
-                    //TODO:  get default from cx and remove the expect
-                    .expect("Bg must be set in the styles");
-
-                AnimPropValues::Background(ColorAnimValues {
-                    from: from_val,
-                    to: to_val.unwrap_color(),
-                })
-            }
-            AnimPropKind::Color => {
-                let from_val = view_state
-                    .computed_style
-                    .color
-                    //TODO:  default get from cx and remove the expect
-                    .expect("Color must be set in the animated view's style");
-                AnimPropValues::Color(ColorAnimValues {
-                    from: from_val,
-                    to: to_val.unwrap_color(),
-                })
+            // <<<<<<< HEAD
+            //             AnimPropKind::BorderRadius => {
+            //                 let border_radius = view_state.computed_style.border_radius;
+            //
+            //                 AnimPropValues::BorderRadius(F64AnimValues {
+            //                     from: border_radius.0,
+            //                     to: to_val.unwrap_f64(),
+            //                 })
+            //             }
+            //             AnimPropKind::BorderColor => {
+            //                 let from_val = view_state.computed_style.border_color;
+            //                 AnimPropValues::BorderColor(ColorAnimValues {
+            //                     from: from_val,
+            //                     to: to_val.unwrap_color(),
+            //                 })
+            //             }
+            //             AnimPropKind::Background => {
+            //                 let from_val = view_state
+            //                     .computed_style
+            //                     .background
+            //                     //TODO:  get default from cx and remove the expect
+            //                     .expect("Bg must be set in the styles");
+            //
+            //                 AnimPropValues::Background(ColorAnimValues {
+            //                     from: from_val,
+            //                     to: to_val.unwrap_color(),
+            //                 })
+            //             }
+            //             AnimPropKind::Color => {
+            //                 let from_val = view_state
+            //                     .computed_style
+            //                     .color
+            //                     //TODO:  default get from cx and remove the expect
+            //                     .expect("Color must be set in the animated view's style");
+            //                 AnimPropValues::Color(ColorAnimValues {
+            //                     from: from_val,
+            //                     to: to_val.unwrap_color(),
+            //                 })
+            // =======
+            AnimPropKind::Prop { prop } => {
+                //TODO:  get from cx
+                let from = view_state
+                    .combined_style
+                    .map
+                    .get(&prop)
+                    .and_then(|v| v.as_ref().cloned())
+                    .unwrap_or_else(|| (prop.info.default_as_any)());
+                AnimPropValues::Prop {
+                    from,
+                    to: to_val.unwrap_any(),
+                }
             }
         };
 
@@ -922,7 +1099,7 @@ impl WindowHandle {
     fn has_deferred_update_messages(&self) -> bool {
         DEFERRED_UPDATE_MESSAGES.with(|m| {
             m.borrow()
-                .get(&self.view.id())
+                .get(&self.id)
                 .map(|m| !m.is_empty())
                 .unwrap_or(false)
         })
@@ -1047,7 +1224,7 @@ impl WindowHandle {
     }
 
     pub(crate) fn menu_action(&mut self, id: usize) {
-        set_current_view(self.view.id());
+        set_current_view(self.id);
         if let Some(action) = self.app_state.window_menu.get(&id) {
             (*action)();
             self.process_update();
@@ -1211,10 +1388,10 @@ fn context_menu_view(
                             .padding_horiz(20.0)
                             .justify_between()
                             .items_center()
-                    })
-                    .hover_style(|s| s.border_radius(10.0).background(Color::rgb8(65, 65, 65)))
-                    .active_style(|s| s.border_radius(10.0).background(Color::rgb8(92, 92, 92)))
-                    .disabled_style(|s| s.color(Color::rgb8(92, 92, 92))),
+                            .hover(|s| s.border_radius(10.0).background(Color::rgb8(65, 65, 65)))
+                            .active(|s| s.border_radius(10.0).background(Color::rgb8(92, 92, 92)))
+                            .disabled(|s| s.color(Color::rgb8(92, 92, 92)))
+                    }),
                     list(
                         move || menu.children.clone().unwrap_or_default(),
                         move |s| s.clone(),
@@ -1243,7 +1420,7 @@ fn context_menu_view(
                     })
                     .on_event(EventListener::KeyDown, move |event| {
                         if let Event::KeyDown(event) = event {
-                            if event.key.logical_key == Key::Escape {
+                            if event.key.logical_key == Key::Named(NamedKey::Escape) {
                                 context_menu.set(None);
                             }
                         }
@@ -1309,7 +1486,7 @@ fn context_menu_view(
     .keyboard_navigatable()
     .on_event(EventListener::KeyDown, move |event| {
         if let Event::KeyDown(event) = event {
-            if event.key.logical_key == Key::Escape {
+            if event.key.logical_key == Key::Named(NamedKey::Escape) {
                 context_menu.set(None);
             }
         }

@@ -1,3 +1,5 @@
+use crate::{style::{Background, BorderColor, BorderRadius, TextColor, Width, Height}, unit::{PxPctAuto, UnitExt}};
+
 use super::{
     anim_val::AnimValue, AnimId, AnimPropKind, AnimPropValues, AnimState, AnimatedProp, Easing,
     EasingFn, EasingMode,
@@ -135,7 +137,7 @@ impl Animation {
             let border_radius = border_radius_fn();
 
             self.id
-                .update_prop(AnimPropKind::BorderRadius, AnimValue::Float(border_radius));
+                .update_style_prop(BorderRadius, border_radius.into());
         });
 
         self
@@ -145,8 +147,7 @@ impl Animation {
         create_effect(move |_| {
             let color = color_fn();
 
-            self.id
-                .update_prop(AnimPropKind::Color, AnimValue::Color(color));
+            self.id.update_style_prop(TextColor, Some(color));
         });
 
         self
@@ -156,8 +157,7 @@ impl Animation {
         create_effect(move |_| {
             let border_color = bord_color_fn();
 
-            self.id
-                .update_prop(AnimPropKind::BorderColor, AnimValue::Color(border_color));
+            self.id.update_style_prop(BorderColor, border_color);
         });
 
         self
@@ -180,8 +180,7 @@ impl Animation {
         create_effect(move |_| {
             let background = bg_fn();
 
-            self.id
-                .update_prop(AnimPropKind::Background, AnimValue::Color(background));
+            self.id.update_style_prop(Background, Some(background));
         });
 
         self
@@ -192,7 +191,7 @@ impl Animation {
             let to_width = width_fn();
 
             self.id
-                .update_prop(AnimPropKind::Width, AnimValue::Float(to_width));
+                .update_style_prop(Width, PxPctAuto::Px(to_width));
         });
 
         self
@@ -203,7 +202,7 @@ impl Animation {
             let height = height_fn();
 
             self.id
-                .update_prop(AnimPropKind::Height, AnimValue::Float(height));
+                .update_style_prop(Height, PxPctAuto::Px(height));
         });
 
         self

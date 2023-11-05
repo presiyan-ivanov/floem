@@ -69,6 +69,27 @@ pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
     result
 }
 
+pub fn batch<T>(f: impl FnOnce() -> T) -> T {
+    let already_batching = RUNTIME.with(|runtime| {
+        let batching = runtime.batching.get();
+        if !batching {
+            runtime.batching.set(true);
+        }
+
+        batching
+    });
+
+    let result = f();
+    if !already_batching {
+        RUNTIME.with(|runtime| {
+            runtime.batching.set(false);
+            runtime.run_pending_effects();
+        });
+    }
+
+    result
+}
+
 pub(crate) fn run_effect(effect: Rc<dyn EffectTrait>) {
     let effect_id = effect.id();
     effect_id.dispose();

@@ -112,13 +112,14 @@ where
                 } else {
                     usize::MAX
                 };
-                before_size = item_size * start as f64;
+                before_size = item_size * (start.min(total_len)) as f64;
 
                 for item in items_vector.slice(start..end) {
                     items.push(item);
                 }
 
-                after_size = item_size * (total_len.saturating_sub(end)) as f64;
+                after_size = item_size
+                    * (total_len.saturating_sub(start).saturating_sub(items.len())) as f64;
             }
             VirtualListItemSize::Fn(size_fn) => {
                 let mut main_axis = 0.0;

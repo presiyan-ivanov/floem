@@ -1,8 +1,12 @@
-use std::time::{Duration, Instant};
+use std::{
+    any::Any,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use peniko::Color;
 
-use crate::animate::AnimDirection;
+use crate::{animate::AnimDirection, style::StylePropRef, unit::Px};
 
 use super::{anim_val::AnimValue, assert_valid_time, RepeatMode};
 
@@ -121,17 +125,20 @@ impl AnimatedProp {
 
 #[derive(Clone, Debug)]
 pub(crate) enum AnimPropValues {
-    Width(F64AnimValues),
-    Height(F64AnimValues),
+    // Width(F64AnimValues),
+    // Height(F64AnimValues),
+    Prop { from: Rc<dyn Any>, to: Rc<dyn Any> },
+
+    // BorderRadius(F64AnimValues),
+    // BorderWidth(F64AnimValues),
+    // BorderColor(ColorAnimValues),
+    // Background(ColorAnimValues),
+    // Color(ColorAnimValues),
+
+    //TODO:
     // Scale(F64AnimValues),
     // TranslateX(F64AnimValues),
     // TranslateY(F64AnimValues),
-    BorderRadius(F64AnimValues),
-    BorderWidth(F64AnimValues),
-
-    BorderColor(ColorAnimValues),
-    Background(ColorAnimValues),
-    Color(ColorAnimValues),
 }
 
 impl AnimPropValues {
@@ -266,9 +273,6 @@ pub enum AnimPropKind {
     // TranslateX,
     // TranslateY,
     Width,
-    Background,
-    Color,
     Height,
-    BorderRadius,
-    BorderColor,
+    Prop { prop: StylePropRef },
 }

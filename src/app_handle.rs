@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, rc::Rc, time::Instant};
 
 use kurbo::{Point, Size};
 use winit::{
@@ -12,6 +12,7 @@ use crate::{
     action::{Timer, TimerToken},
     app::{AppUpdateEvent, UserEvent, APP_UPDATE_EVENTS},
     ext_event::EXT_EVENT_HANDLER,
+    inspector::Capture,
     view::View,
     window::WindowConfig,
     window_handle::WindowHandle,
@@ -34,26 +35,21 @@ impl ApplicationHandle {
         &mut self,
         event_loop: &EventLoopWindowTarget<UserEvent>,
         event: UserEvent,
-        control_flow: &mut ControlFlow,
     ) {
         match event {
             UserEvent::AppUpdate => {
-                self.handle_update_event(event_loop, control_flow);
+                self.handle_update_event(event_loop);
             }
             UserEvent::Idle => {
                 self.idle();
             }
             UserEvent::QuitApp => {
-                control_flow.set_exit();
+                event_loop.exit();
             }
         }
     }
 
-    pub(crate) fn handle_update_event(
-        &mut self,
-        event_loop: &EventLoopWindowTarget<UserEvent>,
-        control_flow: &mut ControlFlow,
-    ) {
+    pub(crate) fn handle_update_event(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>) {
         let events = APP_UPDATE_EVENTS.with(|events| {
             let mut events = events.borrow_mut();
             std::mem::take(&mut *events)
@@ -65,10 +61,13 @@ impl ApplicationHandle {
                     self.new_window(event_loop, view_fn, config)
                 }
                 AppUpdateEvent::CloseWindow { window_id } => {
-                    self.close_window(window_id, control_flow);
+                    self.close_window(window_id, event_loop);
                 }
                 AppUpdateEvent::RequestTimer { timer } => {
-                    self.request_timer(timer, control_flow);
+                    self.request_timer(timer, event_loop);
+                }
+                AppUpdateEvent::CaptureWindow { window_id, capture } => {
+                    capture.set(self.capture_window(window_id).map(Rc::new));
                 }
                 AppUpdateEvent::RequestAnimationFrame { window_id }=> {
                     println!("app handle: req anim frame.");
@@ -93,7 +92,7 @@ impl ApplicationHandle {
         &mut self,
         window_id: winit::window::WindowId,
         event: WindowEvent,
-        control_flow: &mut ControlFlow,
+        event_loop: &EventLoopWindowTarget<UserEvent>,
     ) {
         let window_handle = match self.window_handles.get_mut(&window_id) {
             Some(window_handle) => window_handle,
@@ -113,10 +112,10 @@ impl ApplicationHandle {
                 window_handle.position(point);
             }
             WindowEvent::CloseRequested => {
-                self.close_window(window_id, control_flow);
+                self.close_window(window_id, event_loop);
             }
             WindowEvent::Destroyed => {
-                self.close_window(window_id, control_flow);
+                self.close_window(window_id, event_loop);
             }
             WindowEvent::DroppedFile(_) => {}
             WindowEvent::HoveredFile(_) => {}
@@ -139,7 +138,9 @@ impl ApplicationHandle {
                 window_handle.pointer_move(point);
             }
             WindowEvent::CursorEntered { .. } => {}
-            WindowEvent::CursorLeft { .. } => {}
+            WindowEvent::CursorLeft { .. } => {
+                window_handle.pointer_leave();
+            }
             WindowEvent::MouseWheel { delta, .. } => {
                 window_handle.mouse_wheel(delta);
             }
@@ -162,12 +163,9 @@ impl ApplicationHandle {
             WindowEvent::MenuAction(id) => {
                 window_handle.menu_action(id);
             }
-        }
-    }
-
-    pub(crate) fn redraw_requested(&mut self, window_id: winit::window::WindowId) {
-        if let Some(window_handle) = self.window_handles.get_mut(&window_id) {
-            window_handle.paint();
+            WindowEvent::RedrawRequested => {
+                window_handle.paint();
+            }
         }
     }
 
@@ -178,6 +176,7 @@ impl ApplicationHandle {
         config: Option<WindowConfig>,
     ) {
         let mut window_builder = winit::window::WindowBuilder::new();
+        let transparent = config.as_ref().and_then(|c| c.transparent).unwrap_or(false);
         if let Some(config) = config {
             if let Some(size) = config.size {
                 let size = if size.width == 0.0 || size.height == 0.0 {
@@ -196,14 +195,28 @@ impl ApplicationHandle {
                 if !show_titlebar {
                     use winit::platform::macos::WindowBuilderExtMacOS;
                     window_builder = window_builder
+                        .with_movable(false)
                         .with_title_hidden(true)
                         .with_titlebar_transparent(true)
-                        .with_fullsize_content_view(true);
+                        .with_fullsize_content_view(true)
+                        .with_traffic_lights_offset(11.0, 16.0);
                 }
                 #[cfg(not(target_os = "macos"))]
                 if !show_titlebar {
                     window_builder = window_builder.with_decorations(false);
                 }
+            }
+            if let Some(transparent) = config.transparent {
+                window_builder = window_builder.with_transparent(transparent);
+            }
+            if let Some(fullscreen) = config.fullscreen {
+                window_builder = window_builder.with_fullscreen(Some(fullscreen));
+            }
+            if let Some(window_level) = config.window_level {
+                window_builder = window_builder.with_window_level(window_level);
+            }
+            if let Some(title) = config.title {
+                window_builder = window_builder.with_title(title);
             }
         }
         let result = window_builder.build(event_loop);
@@ -212,15 +225,15 @@ impl ApplicationHandle {
             Err(_) => return,
         };
         let window_id = window.id();
-        let window_handle = WindowHandle::new(window, view_fn);
+        let window_handle = WindowHandle::new(window, view_fn, transparent);
         self.window_handles.insert(window_id, window_handle);
     }
 
     fn close_window(
         &mut self,
         window_id: WindowId,
-        #[cfg(target_os = "macos")] _control_flow: &mut ControlFlow,
-        #[cfg(not(target_os = "macos"))] control_flow: &mut ControlFlow,
+        #[cfg(target_os = "macos")] _event_loop: &EventLoopWindowTarget<UserEvent>,
+        #[cfg(not(target_os = "macos"))] event_loop: &EventLoopWindowTarget<UserEvent>,
     ) {
         if let Some(handle) = self.window_handles.get_mut(&window_id) {
             handle.window = None;
@@ -229,8 +242,14 @@ impl ApplicationHandle {
         self.window_handles.remove(&window_id);
         #[cfg(not(target_os = "macos"))]
         if self.window_handles.is_empty() {
-            control_flow.set_exit();
+            event_loop.exit();
         }
+    }
+
+    fn capture_window(&mut self, window_id: WindowId) -> Option<Capture> {
+        self.window_handles
+            .get_mut(&window_id)
+            .map(|handle| handle.capture())
     }
 
     pub(crate) fn idle(&mut self) {
@@ -242,23 +261,23 @@ impl ApplicationHandle {
         }
     }
 
-    fn request_timer(&mut self, timer: Timer, control_flow: &mut ControlFlow) {
+    fn request_timer(&mut self, timer: Timer, event_loop: &EventLoopWindowTarget<UserEvent>) {
         self.timers.insert(timer.token, timer);
-        self.fire_timer(control_flow);
+        self.fire_timer(event_loop);
     }
 
-    fn fire_timer(&mut self, control_flow: &mut ControlFlow) {
+    fn fire_timer(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>) {
         if self.timers.is_empty() {
             return;
         }
 
         let deadline = self.timers.values().map(|timer| timer.deadline).min();
         if let Some(deadline) = deadline {
-            control_flow.set_wait_until(deadline);
+            event_loop.set_control_flow(ControlFlow::WaitUntil(deadline));
         }
     }
 
-    pub(crate) fn handle_timer(&mut self, control_flow: &mut ControlFlow) {
+    pub(crate) fn handle_timer(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>) {
         let now = Instant::now();
         let tokens: Vec<TimerToken> = self
             .timers
@@ -281,6 +300,6 @@ impl ApplicationHandle {
                 handle.process_update();
             }
         }
-        self.fire_timer(control_flow);
+        self.fire_timer(event_loop);
     }
 }

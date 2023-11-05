@@ -1,5 +1,6 @@
 pub use cosmic_text;
 use cosmic_text::TextLayout;
+use image::DynamicImage;
 use peniko::{
     kurbo::{Affine, Point, Rect, Shape},
     BrushRef,
@@ -12,8 +13,14 @@ pub struct Svg<'a> {
     pub hash: &'a [u8],
 }
 
+pub struct Img<'a> {
+    pub img: &'a DynamicImage,
+    pub data: &'a [u8],
+    pub hash: &'a [u8],
+}
+
 pub trait Renderer {
-    fn begin(&mut self);
+    fn begin(&mut self, capture: bool);
 
     fn transform(&mut self, transform: Affine);
 
@@ -40,5 +47,7 @@ pub trait Renderer {
 
     fn draw_svg<'b>(&mut self, svg: Svg<'b>, rect: Rect, brush: Option<impl Into<BrushRef<'b>>>);
 
-    fn finish(&mut self);
+    fn draw_img(&mut self, img: Img<'_>, rect: Rect);
+
+    fn finish(&mut self) -> Option<DynamicImage>;
 }

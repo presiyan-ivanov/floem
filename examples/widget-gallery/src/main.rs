@@ -2,6 +2,7 @@ pub mod buttons;
 pub mod checkbox;
 pub mod context_menu;
 pub mod form;
+pub mod images;
 pub mod inputs;
 pub mod labels;
 pub mod lists;
@@ -9,7 +10,7 @@ pub mod rich_text;
 
 use floem::{
     event::{Event, EventListener},
-    keyboard::Key,
+    keyboard::{Key, NamedKey},
     peniko::Color,
     reactive::create_signal,
     style::CursorStyle,
@@ -23,14 +24,14 @@ use floem::{
 
 fn app_view() -> impl View {
     let tabs: im::Vector<&str> = vec![
-        "Label", "Button", "Checkbox", "Input", "List", "Menu", "RichText",
+        "Label", "Button", "Checkbox", "Input", "List", "Menu", "RichText", "Image",
     ]
     .into_iter()
     .collect();
     let (tabs, _set_tabs) = create_signal(tabs);
 
     let (active_tab, set_active_tab) = create_signal(0);
-    stack({
+    let view = stack({
         (
             container({
                 scroll({
@@ -60,13 +61,13 @@ fn app_view() -> impl View {
                                     if let Event::KeyDown(key_event) = e {
                                         let active = active_tab.get();
                                         match key_event.key.logical_key {
-                                            Key::ArrowUp => {
+                                            Key::Named(NamedKey::ArrowUp) => {
                                                 if active > 0 {
                                                     set_active_tab.update(|v| *v -= 1)
                                                 }
                                                 true
                                             }
-                                            Key::ArrowDown => {
+                                            Key::Named(NamedKey::ArrowDown) => {
                                                 if active < tabs.get().len() - 1 {
                                                     set_active_tab.update(|v| *v += 1)
                                                 }
@@ -80,7 +81,6 @@ fn app_view() -> impl View {
                                 })
                                 .keyboard_navigatable()
                                 .draggable()
-                                .focus_visible_style(|s| s.border(2.).border_color(Color::BLUE))
                                 .style(move |s| {
                                     s.flex_row()
                                         .width(100.pct())
@@ -90,9 +90,11 @@ fn app_view() -> impl View {
                                         .apply_if(index == active_tab.get(), |s| {
                                             s.background(Color::GRAY)
                                         })
-                                })
-                                .hover_style(|s| {
-                                    s.background(Color::LIGHT_GRAY).cursor(CursorStyle::Pointer)
+                                        .focus_visible(|s| s.border(2.).border_color(Color::BLUE))
+                                        .hover(|s| {
+                                            s.background(Color::LIGHT_GRAY)
+                                                .cursor(CursorStyle::Pointer)
+                                        })
                                 })
                         },
                     )
@@ -127,6 +129,7 @@ fn app_view() -> impl View {
                         "List" => container_box(lists::virt_list_view()),
                         "Menu" => container_box(context_menu::menu_view()),
                         "RichText" => container_box(rich_text::rich_text_view()),
+                        "Image" => container_box(images::img_view()),
                         _ => container_box(label(|| "Not implemented".to_owned())),
                     },
                 )
@@ -142,9 +145,19 @@ fn app_view() -> impl View {
         )
     })
     .style(|s| s.size(100.pct(), 100.pct()))
+    .window_title(|| "Widget Gallery".to_owned());
+
+    let id = view.id();
+    view.on_event(EventListener::KeyUp, move |e| {
+        if let Event::KeyUp(e) = e {
+            if e.key.logical_key == Key::Named(NamedKey::F11) {
+                id.inspect();
+            }
+        }
+        true
+    })
 }
 
 fn main() {
     floem::launch(app_view);
-    println!("Hello, world!")
 }

@@ -1,13 +1,18 @@
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+use floem_reactive::WriteSignal;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use winit::{
-    event_loop::{EventLoop, EventLoopBuilder, EventLoopProxy},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy},
+    monitor::MonitorHandle,
     window::WindowId,
 };
 
-use crate::{action::Timer, app_handle::ApplicationHandle, view::View, window::WindowConfig};
+use crate::{
+    action::Timer, app_handle::ApplicationHandle, inspector::Capture, view::View,
+    window::WindowConfig,
+};
 
 type AppEventCallback = dyn Fn(AppEvent);
 
@@ -40,6 +45,10 @@ pub(crate) enum AppUpdateEvent {
     },
     CloseWindow {
         window_id: WindowId,
+    },
+    CaptureWindow {
+        window_id: WindowId,
+        capture: WriteSignal<Option<Rc<Capture>>>,
     },
     RequestTimer {
         timer: Timer,
@@ -115,30 +124,28 @@ impl Application {
     pub fn run(mut self) {
         let mut handle = self.handle.take().unwrap();
         handle.idle();
-        let _ = self.event_loop.run(move |event, event_loop, control_flow| {
-            control_flow.set_wait();
-            handle.handle_timer(control_flow);
+        let _ = self.event_loop.run(move |event, event_loop| {
+            event_loop.set_control_flow(ControlFlow::Wait);
+            handle.handle_timer(event_loop);
 
             match event {
                 winit::event::Event::NewEvents(_) => {}
                 winit::event::Event::WindowEvent { window_id, event } => {
-                    handle.handle_window_event(window_id, event, control_flow);
+                    handle.handle_window_event(window_id, event, event_loop);
                 }
                 winit::event::Event::DeviceEvent { .. } => {}
                 winit::event::Event::UserEvent(event) => {
-                    handle.handle_user_event(event_loop, event, control_flow);
+                    handle.handle_user_event(event_loop, event);
                 }
                 winit::event::Event::Suspended => {}
                 winit::event::Event::Resumed => {}
                 winit::event::Event::AboutToWait => {}
-                winit::event::Event::RedrawRequested(window_id) => {
-                    handle.redraw_requested(window_id);
-                }
                 winit::event::Event::LoopExiting => {
                     if let Some(action) = self.event_listener.as_ref() {
                         action(AppEvent::WillTerminate);
                     }
                 }
+                winit::event::Event::MemoryWarning => {}
             }
         });
     }
@@ -147,6 +154,14 @@ impl Application {
         if let Some(proxy) = EVENT_LOOP_PROXY.lock().as_ref() {
             f(proxy);
         }
+    }
+
+    pub fn available_monitors(&self) -> impl Iterator<Item = MonitorHandle> {
+        self.event_loop.available_monitors()
+    }
+
+    pub fn primary_monitor(&self) -> Option<MonitorHandle> {
+        self.event_loop.primary_monitor()
     }
 }
 

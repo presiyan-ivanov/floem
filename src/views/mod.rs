@@ -12,6 +12,9 @@ pub use rich_text::*;
 mod list;
 pub use list::*;
 
+mod static_list;
+pub use static_list::*;
+
 mod svg;
 pub use svg::*;
 
@@ -33,8 +36,8 @@ pub use decorator::*;
 mod virtual_list;
 pub use virtual_list::*;
 
-mod scroll;
-pub use scroll::*;
+pub mod scroll;
+pub use scroll::{scroll, Scroll};
 
 mod tab;
 pub use tab::*;
@@ -53,3 +56,6 @@ pub use drag_window_area::*;
 
 mod drag_resize_window_area;
 pub use drag_resize_window_area::*;
+
+mod img;
+pub use img::*;

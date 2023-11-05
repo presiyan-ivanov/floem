@@ -26,7 +26,7 @@
 //! pub fn label_and_input() -> impl View {
 //!     let text = create_rw_signal("Hello world".to_string());
 //!     stack(|| (text_input(text), label(|| text.get())))
-//!         .style(|| Style::BASE.padding(10.0))
+//!         .style(|| Style::new().padding(10.0))
 //! }
 //! ```
 //!
@@ -95,8 +95,8 @@ use crate::{
     context::{AppState, DragState, EventCx, LayoutCx, PaintCx, UpdateCx},
     event::{Event, EventListener},
     id::Id,
-    style::{ComputedStyle, Style},
-    views::Decorators,
+    inspector::CaptureState,
+    style::{BoxShadowProp, LayoutProps, Outline, OutlineColor, Style, StyleClassRef, ZIndex},
 };
 
 bitflags! {
@@ -114,6 +114,10 @@ pub trait View {
     fn id(&self) -> Id;
 
     fn view_style(&self) -> Option<Style> {
+        None
+    }
+
+    fn view_class(&self) -> Option<StyleClassRef> {
         None
     }
 
@@ -194,40 +198,48 @@ pub trait View {
         // println!("layout main");
         cx.save();
 
+        let view_state = cx.app_state_mut().view_state(self.id());
+
         let view_style = self.view_style();
-        cx.app_state_mut().compute_style(self.id(), view_style);
+        let view_class = self.view_class();
+        let class = view_state.class;
+        let class_array;
+        let classes = if let Some(class) = class {
+            class_array = [class];
+            &class_array[..]
+        } else {
+            &[]
+        };
+
+        // Propagate layout requests to children if needed.
+        if view_state.request_layout_recursive {
+            view_state.request_layout_recursive = false;
+            view_state.request_layout = true;
+            for child in self.children() {
+                cx.app_state_mut()
+                    .view_state(child.id())
+                    .request_layout_recursive = true;
+            }
+        }
+
+        cx.app_state.compute_style(
+            self.id(),
+            view_style,
+            view_class,
+            classes,
+            &cx.style.current,
+        );
         let style = cx.app_state_mut().get_computed_style(self.id()).clone();
 
-        if style.color.is_some() {
-            cx.color = style.color;
-        }
-        if style.scroll_bar_color.is_some() {
-            cx.scroll_bar_color = style.scroll_bar_color;
-        }
-        if style.scroll_bar_rounded.is_some() {
-            cx.scroll_bar_rounded = style.scroll_bar_rounded;
-        }
-        if style.scroll_bar_thickness.is_some() {
-            cx.scroll_bar_thickness = style.scroll_bar_thickness.map(|v| v.0 as f32);
-        }
-        if style.scroll_bar_edge_width.is_some() {
-            cx.scroll_bar_edge_width = style.scroll_bar_edge_width.map(|v| v.0 as f32);
-        }
-        if style.font_size.is_some() {
-            cx.font_size = style.font_size;
-        }
-        if style.font_family.is_some() {
-            cx.font_family = style.font_family;
-        }
-        if style.font_weight.is_some() {
-            cx.font_weight = style.font_weight;
-        }
-        if style.font_style.is_some() {
-            cx.font_style = style.font_style;
-        }
-        if style.line_height.is_some() {
-            cx.line_height = style.line_height;
-        }
+        cx.style.direct = style;
+        Style::apply_only_inherited(&mut cx.style.current, &cx.style.direct);
+        CaptureState::capture_style(self.id(), cx);
+
+        // Extract the relevant layout properties so the content rect can be calculated
+        // when painting.
+        let mut props = LayoutProps::default();
+        props.read(cx);
+        cx.app_state_mut().view_state(self.id()).layout_props = props;
 
         let node = self.layout(cx);
 
@@ -255,22 +267,6 @@ pub trait View {
         }
 
         cx.save();
-        let style = cx.app_state_mut().get_computed_style(self.id()).clone();
-        if style.font_size.is_some() {
-            cx.font_size = style.font_size;
-        }
-        if style.font_family.is_some() {
-            cx.font_family = style.font_family;
-        }
-        if style.font_weight.is_some() {
-            cx.font_weight = style.font_weight;
-        }
-        if style.font_style.is_some() {
-            cx.font_style = style.font_style;
-        }
-        if style.line_height.is_some() {
-            cx.line_height = style.line_height;
-        }
 
         let layout = cx
             .app_state()
@@ -391,9 +387,7 @@ pub trait View {
             // we're the parent of the event destination, so pass it on to the child
             if !id_path.is_empty() {
                 if let Some(child) = self.child_mut(id_path[0]) {
-                    if child.event_main(cx, Some(id_path), event.clone()) {
-                        return true;
-                    }
+                    return child.event_main(cx, Some(id_path), event.clone());
                 } else {
                     // we don't have the child, stop the event propagation
                     return false;
@@ -414,6 +408,7 @@ pub trait View {
 
         match &event {
             Event::PointerDown(event) => {
+                cx.app_state.clicking.insert(self.id());
                 if event.button.is_primary() {
                     let rect = cx.get_size(self.id()).unwrap_or_default().to_rect();
                     let now_focused = rect.contains(event.pos);
@@ -427,12 +422,10 @@ pub trait View {
                         {
                             let view_state = cx.app_state.view_state(id);
                             view_state.last_pointer_down = Some(event.clone());
-                            cx.update_active(id);
                         }
                         if cx.has_event_listener(id, EventListener::Click) {
                             let view_state = cx.app_state.view_state(id);
                             view_state.last_pointer_down = Some(event.clone());
-                            cx.update_active(id);
                         }
 
                         let bottom_left = {
@@ -459,7 +452,6 @@ pub trait View {
                         if cx.has_event_listener(id, EventListener::SecondaryClick) {
                             let view_state = cx.app_state.view_state(id);
                             view_state.last_pointer_down = Some(event.clone());
-                            cx.update_active(id);
                         }
                     }
                 }
@@ -474,8 +466,8 @@ pub trait View {
                         }
                     } else {
                         cx.app_state.hovered.insert(id);
-                        let style = cx.app_state.get_computed_style(id);
-                        if let Some(cursor) = style.cursor {
+                        let style = cx.app_state.get_builtin_style(id);
+                        if let Some(cursor) = style.cursor() {
                             if cx.app_state.cursor.is_none() {
                                 cx.app_state.cursor = Some(cursor);
                             }
@@ -551,39 +543,42 @@ pub trait View {
                                 }
                             }
                         }
-                    } else {
-                        if let Some(dragging) =
-                            cx.app_state.dragging.as_mut().filter(|d| d.id == id)
+                    } else if let Some(dragging) =
+                        cx.app_state.dragging.as_mut().filter(|d| d.id == id)
+                    {
+                        let dragging_id = dragging.id;
+                        dragging.released_at = Some(std::time::Instant::now());
+                        id.request_paint();
+                        if let Some(action) =
+                            cx.get_event_listener(dragging_id, &EventListener::DragEnd)
                         {
-                            let dragging_id = dragging.id;
-                            dragging.released_at = Some(std::time::Instant::now());
-                            id.request_paint();
-                            if let Some(action) =
-                                cx.get_event_listener(dragging_id, &EventListener::DragEnd)
-                            {
-                                (*action)(&event);
-                            }
-                        }
-                        let last_pointer_down =
-                            cx.app_state.view_state(id).last_pointer_down.take();
-                        if let Some(action) = cx.get_event_listener(id, &EventListener::DoubleClick)
-                        {
-                            if on_view
-                                && last_pointer_down
-                                    .as_ref()
-                                    .map(|e| e.count == 2)
-                                    .unwrap_or(false)
-                                && (*action)(&event)
-                            {
-                                return true;
-                            }
-                        }
-                        if let Some(action) = cx.get_event_listener(id, &EventListener::Click) {
-                            if on_view && last_pointer_down.is_some() && (*action)(&event) {
-                                return true;
-                            }
+                            (*action)(&event);
                         }
                     }
+
+                    let last_pointer_down = cx.app_state.view_state(id).last_pointer_down.take();
+                    if let Some(action) = cx.get_event_listener(id, &EventListener::DoubleClick) {
+                        if on_view
+                            && cx.app_state.is_clicking(&id)
+                            && last_pointer_down
+                                .as_ref()
+                                .map(|e| e.count == 2)
+                                .unwrap_or(false)
+                            && (*action)(&event)
+                        {
+                            return true;
+                        }
+                    }
+                    if let Some(action) = cx.get_event_listener(id, &EventListener::Click) {
+                        if on_view
+                            && cx.app_state.is_clicking(&id)
+                            && last_pointer_down.is_some()
+                            && (*action)(&event)
+                        {
+                            return true;
+                        }
+                    }
+
                     if let Some(action) = cx.get_event_listener(id, &EventListener::PointerUp) {
                         if (*action)(&event) {
                             return true;
@@ -622,7 +617,7 @@ pub trait View {
             }
             Event::WindowResized(_) => {
                 if let Some(view_state) = cx.app_state.view_states.get(&self.id()) {
-                    if !view_state.responsive_styles.is_empty() {
+                    if view_state.has_style_selectors.has_responsive() {
                         cx.app_state.request_layout(self.id());
                     }
                 }
@@ -708,50 +703,20 @@ pub trait View {
                 //     cx.
                 // }
 
-                if anim.can_advance() {
-                    let view_style = self.view_style();
-                    cx.app_state.compute_style(self.id(), view_style);
-                }
+                // if anim.can_advance() {
+                //     let view_style = self.view_style();
+                //     cx.app_state.compute_style(self.id(), view_style);
+                // }
             }
 
             let style = cx.app_state.get_computed_style(id).clone();
 
-            if let Some(z_index) = style.z_index {
+            if let Some(z_index) = style.get(ZIndex) {
                 cx.set_z_index(z_index);
             }
 
             paint_bg(cx, &style, size);
 
-            if style.color.is_some() {
-                cx.color = style.color;
-            }
-            if style.scroll_bar_color.is_some() {
-                cx.scroll_bar_color = style.scroll_bar_color;
-            }
-            if style.scroll_bar_rounded.is_some() {
-                cx.scroll_bar_rounded = style.scroll_bar_rounded;
-            }
-            if style.scroll_bar_thickness.is_some() {
-                cx.scroll_bar_thickness = style.scroll_bar_thickness.map(|v| v.0 as f32);
-            }
-            if style.scroll_bar_edge_width.is_some() {
-                cx.scroll_bar_edge_width = style.scroll_bar_edge_width.map(|v| v.0 as f32);
-            }
-            if style.font_size.is_some() {
-                cx.font_size = style.font_size;
-            }
-            if style.font_family.is_some() {
-                cx.font_family = style.font_family.clone();
-            }
-            if style.font_weight.is_some() {
-                cx.font_weight = style.font_weight;
-            }
-            if style.font_style.is_some() {
-                cx.font_style = style.font_style;
-            }
-            if style.line_height.is_some() {
-                cx.line_height = style.line_height;
-            }
             self.paint(cx);
             paint_border(cx, &style, size);
             paint_outline(cx, &style, size)
@@ -792,19 +757,12 @@ pub trait View {
                     let style = cx.app_state.get_computed_style(id).clone();
                     let view_state = cx.app_state.view_state(id);
                     let style = if let Some(dragging_style) = view_state.dragging_style.clone() {
-                        view_state
-                            .combined_style
-                            .clone()
-                            .apply(dragging_style)
-                            .compute(&ComputedStyle::default())
+                        view_state.combined_style.clone().apply(dragging_style)
                     } else {
                         style
                     };
                     paint_bg(cx, &style, size);
 
-                    if style.color.is_some() {
-                        cx.color = style.color;
-                    }
                     self.paint(cx);
                     paint_border(cx, &style, size);
                     paint_outline(cx, &style, size);
@@ -825,8 +783,9 @@ pub trait View {
     fn paint(&mut self, cx: &mut PaintCx);
 }
 
-fn paint_bg(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
-    let radius = style.border_radius.0;
+fn paint_bg(cx: &mut PaintCx, computed_style: &Style, size: Size) {
+    let style = computed_style.builtin();
+    let radius = style.border_radius().0;
     if radius > 0.0 {
         let rect = size.to_rect();
         let width = rect.width();
@@ -834,14 +793,14 @@ fn paint_bg(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
         if width > 0.0 && height > 0.0 && radius > width.max(height) / 2.0 {
             let radius = width.max(height) / 2.0;
             let circle = Circle::new(rect.center(), radius);
-            let bg = match style.background {
+            let bg = match style.background() {
                 Some(color) => color,
                 None => return,
             };
             cx.fill(&circle, bg, 0.0);
         } else {
-            paint_box_shadow(cx, style, rect, Some(radius));
-            let bg = match style.background {
+            paint_box_shadow(cx, computed_style, rect, Some(radius));
+            let bg = match style.background() {
                 Some(color) => color,
                 None => return,
             };
@@ -849,8 +808,8 @@ fn paint_bg(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
             cx.fill(&rounded_rect, bg, 0.0);
         }
     } else {
-        paint_box_shadow(cx, style, size.to_rect(), None);
-        let bg = match style.background {
+        paint_box_shadow(cx, computed_style, size.to_rect(), None);
+        let bg = match style.background() {
             Some(color) => color,
             None => return,
         };
@@ -858,8 +817,8 @@ fn paint_bg(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
     }
 }
 
-fn paint_box_shadow(cx: &mut PaintCx, style: &ComputedStyle, rect: Rect, rect_radius: Option<f64>) {
-    if let Some(shadow) = style.box_shadow.as_ref() {
+fn paint_box_shadow(cx: &mut PaintCx, style: &Style, rect: Rect, rect_radius: Option<f64>) {
+    if let Some(shadow) = style.get(BoxShadowProp).as_ref() {
         let inset = Insets::new(
             -shadow.h_offset / 2.0,
             -shadow.v_offset / 2.0,
@@ -876,27 +835,29 @@ fn paint_box_shadow(cx: &mut PaintCx, style: &ComputedStyle, rect: Rect, rect_ra
     }
 }
 
-fn paint_outline(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
-    if style.outline.0 == 0. {
+fn paint_outline(cx: &mut PaintCx, style: &Style, size: Size) {
+    let outline = style.get(Outline).0;
+    if outline == 0. {
         // TODO: we should warn! when outline is < 0
         return;
     }
-    let half = style.outline.0 / 2.0;
+    let half = outline / 2.0;
     let rect = size.to_rect().inflate(half, half);
-    cx.stroke(&rect, style.outline_color, style.outline.0);
+    cx.stroke(&rect, style.get(OutlineColor), outline);
 }
 
-fn paint_border(cx: &mut PaintCx, style: &ComputedStyle, size: Size) {
-    let left = style.border_left.0;
-    let top = style.border_top.0;
-    let right = style.border_right.0;
-    let bottom = style.border_bottom.0;
+fn paint_border(cx: &mut PaintCx, style: &Style, size: Size) {
+    let style = style.builtin();
+    let left = style.border_left().0;
+    let top = style.border_top().0;
+    let right = style.border_right().0;
+    let bottom = style.border_bottom().0;
 
-    let border_color = style.border_color;
+    let border_color = style.border_color();
     if left == top && top == right && right == bottom && bottom == left && left > 0.0 {
         let half = left / 2.0;
         let rect = size.to_rect().inflate(-half, -half);
-        let radius = style.border_radius.0;
+        let radius = style.border_radius().0;
         if radius > 0.0 {
             cx.stroke(&rect.to_rounded_rect(radius), border_color, left);
         } else {
@@ -1157,6 +1118,10 @@ impl View for Box<dyn View> {
         (**self).view_style()
     }
 
+    fn view_class(&self) -> Option<StyleClassRef> {
+        (**self).view_class()
+    }
+
     fn child(&self, id: Id) -> Option<&dyn View> {
         (**self).child(id)
     }
@@ -1173,8 +1138,8 @@ impl View for Box<dyn View> {
         (**self).children_mut()
     }
 
-    fn compute_layout(&mut self, cx: &mut LayoutCx) -> Option<Rect> {
-        (**self).compute_layout(cx)
+    fn debug_name(&self) -> std::borrow::Cow<'static, str> {
+        (**self).debug_name()
     }
 
     fn update(&mut self, cx: &mut UpdateCx, state: Box<dyn Any>) -> ChangeFlags {
@@ -1183,6 +1148,10 @@ impl View for Box<dyn View> {
 
     fn layout(&mut self, cx: &mut LayoutCx) -> Node {
         (**self).layout(cx)
+    }
+
+    fn compute_layout(&mut self, cx: &mut LayoutCx) -> Option<Rect> {
+        (**self).compute_layout(cx)
     }
 
     fn event(&mut self, cx: &mut EventCx, id_path: Option<&[Id]>, event: Event) -> bool {

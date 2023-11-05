@@ -30,7 +30,7 @@
 //!            text_input(text),
 //!            label(|| text.get())
 //!        )
-//!     ).style(|| Style::BASE.padding(10.0))
+//!     ).style(|| Style::new().padding(10.0))
 //! }
 //! ```
 //! In this example `text` is a signal, containing a `String`,
@@ -57,7 +57,7 @@
 //! ```ignore
 //!     some_view()
 //!     .style(move || {
-//!         Style::BASE
+//!         Style::new()
 //!             .flex_row()
 //!             .width(100.pct())
 //!             .height(32.0)
@@ -98,6 +98,7 @@ pub mod event;
 pub mod ext_event;
 pub mod file;
 pub mod id;
+mod inspector;
 pub mod keyboard;
 pub mod menu;
 pub mod pointer;

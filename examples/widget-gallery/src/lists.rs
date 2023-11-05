@@ -1,7 +1,7 @@
 use floem::{
     cosmic_text::Weight,
     event::{Event, EventListener},
-    keyboard::Key,
+    keyboard::{Key, NamedKey},
     peniko::Color,
     reactive::create_signal,
     style::{CursorStyle, JustifyContent},
@@ -86,8 +86,8 @@ fn enhanced_list() -> impl View {
                                             .border_color(Color::RED)
                                             .border_radius(16.0)
                                             .margin_right(5.0)
+                                            .hover(|s| s.color(Color::WHITE).background(Color::RED))
                                     })
-                                    .hover_style(|s| s.color(Color::WHITE).background(Color::RED))
                             })
                             .style(|s| {
                                 s.flex_basis(0)
@@ -108,13 +108,13 @@ fn enhanced_list() -> impl View {
                     if let Event::KeyDown(key_event) = e {
                         let sel = selected.get();
                         match key_event.key.logical_key {
-                            Key::ArrowUp => {
+                            Key::Named(NamedKey::ArrowUp) => {
                                 if sel > 0 {
                                     set_selected.update(|v| *v -= 1);
                                 }
                                 true
                             }
-                            Key::ArrowDown => {
+                            Key::Named(NamedKey::ArrowDown) => {
                                 if sel < long_list.get().len() - 1 {
                                     set_selected.update(|v| *v += 1);
                                 }
@@ -127,7 +127,6 @@ fn enhanced_list() -> impl View {
                     }
                 })
                 .keyboard_navigatable()
-                .focus_visible_style(|s| s.border(2.).border_color(Color::BLUE))
                 .style(move |s| {
                     s.flex_row()
                         .width(list_width.pct())
@@ -136,8 +135,9 @@ fn enhanced_list() -> impl View {
                         .apply_if(index != 0, |s| {
                             s.border_top(1.0).border_color(Color::LIGHT_GRAY)
                         })
+                        .focus_visible(|s| s.border(2.).border_color(Color::BLUE))
+                        .hover(|s| s.background(Color::LIGHT_GRAY).cursor(CursorStyle::Pointer))
                 })
-                .hover_style(|s| s.background(Color::LIGHT_GRAY).cursor(CursorStyle::Pointer))
             },
         )
         .style(move |s| s.flex_col().width(list_width)),

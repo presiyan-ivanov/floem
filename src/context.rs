@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
+    rc::Rc,
     time::Duration,
 };
 
@@ -8,7 +9,7 @@ use floem_renderer::{
     cosmic_text::{LineHeightValue, Style as FontStyle, Weight},
     Renderer as FloemRenderer,
 };
-use kurbo::{Affine, Point, Rect, RoundedRect, Shape, Size, Vec2};
+use kurbo::{Affine, Insets, Point, Rect, RoundedRect, Shape, Size, Vec2};
 use peniko::Color;
 use taffy::{
     prelude::{Layout, Node},
@@ -20,11 +21,15 @@ use crate::{
     animate::{AnimId, AnimPropKind, AnimValue, Animation, FillMode},
     event::{Event, EventListener},
     id::Id,
+    inspector::CaptureState,
     menu::Menu,
     pointer::PointerInputEvent,
-    responsive::{GridBreakpoints, ScreenSize, ScreenSizeBp},
-    style::{ComputedStyle, CursorStyle, Style, StyleSelector},
-    unit::{PxPctAuto, UnitExt},
+    responsive::{GridBreakpoints, ScreenSizeBp},
+    style::{
+        BuiltinStyle, CursorStyle, DisplayProp, LayoutProps, Style, StyleClassRef, StyleProp,
+        StyleSelector, StyleSelectors,
+    },
+    unit::{PxPct, PxPctAuto},
 };
 
 pub type EventCallback = dyn Fn(&Event) -> bool;
@@ -46,20 +51,18 @@ pub struct ViewState {
     pub(crate) node: Node,
     pub(crate) children_nodes: Vec<Node>,
     pub(crate) request_layout: bool,
+    /// Layout is requested on all direct and indirect children.
+    pub(crate) request_layout_recursive: bool,
+    pub(crate) has_style_selectors: StyleSelectors,
     pub(crate) viewport: Option<Rect>,
     pub(crate) layout_rect: Rect,
+    pub(crate) layout_props: LayoutProps,
     pub(crate) animation: Option<Animation>,
     pub(crate) base_style: Option<Style>,
     pub(crate) style: Style,
+    pub(crate) class: Option<StyleClassRef>,
     pub(crate) dragging_style: Option<Style>,
-    pub(crate) hover_style: Option<Style>,
-    pub(crate) disabled_style: Option<Style>,
-    pub(crate) focus_style: Option<Style>,
-    pub(crate) focus_visible_style: Option<Style>,
-    pub(crate) responsive_styles: HashMap<ScreenSizeBp, Vec<Style>>,
-    pub(crate) active_style: Option<Style>,
     pub(crate) combined_style: Style,
-    pub(crate) computed_style: ComputedStyle,
     pub(crate) event_listeners: HashMap<EventListener, Box<EventCallback>>,
     pub(crate) context_menu: Option<Box<MenuCallback>>,
     pub(crate) popout_menu: Option<Box<MenuCallback>>,
@@ -75,19 +78,16 @@ impl ViewState {
             node: taffy.new_leaf(taffy::style::Style::DEFAULT).unwrap(),
             viewport: None,
             layout_rect: Rect::ZERO,
+            layout_props: Default::default(),
             request_layout: true,
+            request_layout_recursive: false,
+            has_style_selectors: StyleSelectors::default(),
             animation: None,
             base_style: None,
-            style: Style::BASE,
-            combined_style: Style::BASE,
-            computed_style: ComputedStyle::default(),
-            hover_style: None,
+            style: Style::new(),
+            class: None,
+            combined_style: Style::new(),
             dragging_style: None,
-            disabled_style: None,
-            focus_style: None,
-            focus_visible_style: None,
-            active_style: None,
-            responsive_styles: HashMap::new(),
             children_nodes: Vec::new(),
             event_listeners: HashMap::new(),
             context_menu: None,
@@ -104,57 +104,23 @@ impl ViewState {
         view_style: Option<Style>,
         interact_state: InteractionState,
         screen_size_bp: ScreenSizeBp,
+        view_class: Option<StyleClassRef>,
+        classes: &[StyleClassRef],
+        context: &Style,
     ) {
-        let mut computed_style = if let Some(view_style) = view_style {
-            if let Some(base_style) = self.base_style.clone() {
-                view_style.apply(base_style).apply(self.style.clone())
-            } else {
-                view_style.apply(self.style.clone())
-            }
-        } else if let Some(base_style) = self.base_style.clone() {
-            base_style.apply(self.style.clone())
-        } else {
-            self.style.clone()
-        };
-
-        if let Some(resp_styles) = self.responsive_styles.get(&screen_size_bp) {
-            for style in resp_styles {
-                computed_style = computed_style.apply(style.clone());
-            }
+        let mut computed_style = Style::new();
+        if let Some(view_style) = view_style {
+            computed_style.apply_mut(view_style);
         }
-
-        if interact_state.is_hovered && !interact_state.is_disabled {
-            if let Some(hover_style) = self.hover_style.clone() {
-                computed_style = computed_style.apply(hover_style);
-            }
+        if let Some(view_class) = view_class {
+            computed_style = computed_style.apply_classes_from_context(&[view_class], context);
         }
-
-        if interact_state.is_focused {
-            if let Some(focus_style) = self.focus_style.clone() {
-                computed_style = computed_style.apply(focus_style);
-            }
+        if let Some(base_style) = self.base_style.clone() {
+            computed_style.apply_mut(base_style);
         }
-
-        let focused_keyboard =
-            interact_state.using_keyboard_navigation && interact_state.is_focused;
-        if focused_keyboard {
-            if let Some(focus_visible_style) = self.focus_visible_style.clone() {
-                computed_style = computed_style.apply(focus_visible_style);
-            }
-        }
-
-        let active_mouse = interact_state.is_hovered && !interact_state.using_keyboard_navigation;
-        if interact_state.is_active && (active_mouse || focused_keyboard) {
-            if let Some(active_style) = self.active_style.clone() {
-                computed_style = computed_style.apply(active_style);
-            }
-        }
-
-        if interact_state.is_disabled {
-            if let Some(disabled_style) = self.disabled_style.clone() {
-                computed_style = computed_style.apply(disabled_style);
-            }
-        }
+        computed_style = computed_style
+            .apply_classes_from_context(classes, context)
+            .apply(self.style.clone());
 
         'anim: {
             if let Some(animation) = self.animation.as_mut() {
@@ -185,17 +151,10 @@ impl ViewState {
                         AnimPropKind::Height => {
                             computed_style = computed_style.height(PxPctAuto::Px(val.unwrap_f64()));
                         }
-                        AnimPropKind::Background => {
-                            computed_style = computed_style.background(val.unwrap_color());
-                        }
-                        AnimPropKind::Color => {
-                            computed_style = computed_style.color(val.unwrap_color());
-                        }
-                        AnimPropKind::BorderRadius => {
-                            computed_style = computed_style.border_radius(val.unwrap_f32());
-                        }
-                        AnimPropKind::BorderColor => {
-                            computed_style = computed_style.border_color(val.unwrap_color());
+                        AnimPropKind::Prop { prop } => {
+                            computed_style
+                                .map
+                                .insert(*prop, crate::style::StyleMapValue::Val(val.unwrap_any()));
                         }
                     }
                 }
@@ -205,47 +164,39 @@ impl ViewState {
             }
         }
 
-        self.combined_style = computed_style.clone();
-        self.computed_style = computed_style.compute(&ComputedStyle::default());
-    }
+        self.has_style_selectors = computed_style.selectors();
 
-    pub(crate) fn add_responsive_style(&mut self, size: ScreenSize, style: Style) {
-        let breakpoints = size.breakpoints();
+        computed_style.apply_interact_state(&interact_state, screen_size_bp);
 
-        for breakpoint in breakpoints {
-            self.responsive_styles
-                .entry(breakpoint)
-                .or_insert_with(Vec::new)
-                .push(style.clone())
-        }
+        self.combined_style = computed_style;
     }
 }
 
-pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<AnimValue> {
-    match &kind {
-        AnimPropKind::Width => {
-            todo!();
-            // let layout = self.get_layout(self.id).unwrap();
-            // Some(AnimValue::Float(layout.size.width))
-        }
-        AnimPropKind::Height => {
-            todo!();
-            // let layout = self.get_layout(self.id).unwrap();
-            // Some(AnimValue::Float(layout.size.height))
-        }
-        AnimPropKind::Background => style
-            .background
-            .unwrap_or(None)
-            .map(|c| AnimValue::Color(c)),
-        AnimPropKind::BorderRadius => Some(AnimValue::Float(
-            style.border_radius.map(|br| br.0).unwrap_or(0.0) as f64,
-        )),
-        AnimPropKind::BorderColor => {
-            Some(AnimValue::Color(style.border_color.unwrap_or(Color::BLACK)))
-        }
-        AnimPropKind::Color => style.color.unwrap_or(None).map(|c| AnimValue::Color(c)),
-    }
-}
+// pub(crate) fn prop_kind_style_val(style: &Style, kind: &AnimPropKind) -> Option<AnimValue> {
+//     match &kind {
+//         AnimPropKind::Width => {
+//             todo!();
+//             // let layout = self.get_layout(self.id).unwrap();
+//             // Some(AnimValue::Float(layout.size.width))
+//         }
+//         AnimPropKind::Height => {
+//             todo!();
+//             // let layout = self.get_layout(self.id).unwrap();
+//             // Some(AnimValue::Float(layout.size.height))
+//         }
+//         // AnimPropKind::Background => style
+//         //     .background
+//         //     .unwrap_or(None)
+//         //     .map(|c| AnimValue::Color(c)),
+//         // AnimPropKind::BorderRadius => Some(AnimValue::Float(
+//         //     style.border_radius.map(|br| br.0).unwrap_or(0.0) as f64,
+//         // )),
+//         // AnimPropKind::BorderColor => {
+//         //     Some(AnimValue::Color(style.border_color.unwrap_or(Color::BLACK)))
+//         // }
+//         // AnimPropKind::Color => style.color.unwrap_or(None).map(|c| AnimValue::Color(c)),
+//     }
+// }
 
 pub struct DragState {
     pub(crate) id: Id,
@@ -275,6 +226,7 @@ pub struct AppState {
     pub(crate) dragging_over: HashSet<Id>,
     pub(crate) screen_size_bp: ScreenSizeBp,
     pub(crate) grid_bps: GridBreakpoints,
+    pub(crate) clicking: HashSet<Id>,
     pub(crate) hovered: HashSet<Id>,
     pub(crate) animated: HashMap<AnimId, Id>,
     pub(crate) cursor: Option<CursorStyle>,
@@ -282,6 +234,9 @@ pub struct AppState {
     pub(crate) keyboard_navigation: bool,
     pub(crate) window_menu: HashMap<usize, Box<dyn Fn()>>,
     pub(crate) context_menu: HashMap<usize, Box<dyn Fn()>>,
+
+    /// This is set if we're currently capturing the window for the inspector.
+    pub(crate) capture: Option<CaptureState>,
 }
 
 impl Default for AppState {
@@ -311,6 +266,7 @@ impl AppState {
             dragging: None,
             drag_start: None,
             dragging_over: HashSet::new(),
+            clicking: HashSet::new(),
             hovered: HashSet::new(),
             cursor: None,
             last_cursor: CursorIcon::Default,
@@ -318,6 +274,7 @@ impl AppState {
             grid_bps: GridBreakpoints::default(),
             window_menu: HashMap::new(),
             context_menu: HashMap::new(),
+            capture: None,
         }
     }
 
@@ -352,7 +309,7 @@ impl AppState {
     pub fn is_hidden(&self, id: Id) -> bool {
         self.view_states
             .get(&id)
-            .map(|s| s.computed_style.display == Display::None)
+            .map(|s| s.combined_style.get(DisplayProp) == Display::None)
             .unwrap_or(false)
     }
 
@@ -385,6 +342,10 @@ impl AppState {
         self.active.map(|a| &a == id).unwrap_or(false)
     }
 
+    pub fn is_clicking(&self, id: &Id) -> bool {
+        self.clicking.contains(id)
+    }
+
     pub fn is_dragging(&self) -> bool {
         self.dragging
             .as_ref()
@@ -397,7 +358,7 @@ impl AppState {
             is_hovered: self.is_hovered(id),
             is_disabled: self.is_disabled(id),
             is_focused: self.is_focused(id),
-            is_active: self.is_active(id),
+            is_clicking: self.is_clicking(id),
             using_keyboard_navigation: self.keyboard_navigation,
         }
     }
@@ -407,17 +368,34 @@ impl AppState {
         self.compute_layout();
     }
 
-    pub(crate) fn compute_style(&mut self, id: Id, view_style: Option<Style>) {
-        // println!("compute style");
+    pub(crate) fn compute_style(
+        &mut self,
+        id: Id,
+        view_style: Option<Style>,
+        view_class: Option<StyleClassRef>,
+        classes: &[StyleClassRef],
+        context: &Style,
+    ) {
         let interact_state = self.get_interact_state(&id);
         let screen_size_bp = self.screen_size_bp;
         let view_state = self.view_state(id);
-        view_state.compute_style(view_style, interact_state, screen_size_bp);
+        view_state.compute_style(
+            view_style,
+            interact_state,
+            screen_size_bp,
+            view_class,
+            classes,
+            context,
+        );
     }
 
-    pub(crate) fn get_computed_style(&mut self, id: Id) -> &ComputedStyle {
+    pub(crate) fn get_computed_style(&mut self, id: Id) -> &Style {
         let view_state = self.view_state(id);
-        &view_state.computed_style
+        &view_state.combined_style
+    }
+
+    pub(crate) fn get_builtin_style(&mut self, id: Id) -> BuiltinStyle<'_> {
+        self.get_computed_style(id).builtin()
     }
 
     pub fn compute_layout(&mut self) {
@@ -432,7 +410,14 @@ impl AppState {
         }
     }
 
-    pub(crate) fn request_layout(&mut self, id: Id) {
+    /// Requests layout for a view and all direct and indirect children.
+    pub(crate) fn request_layout_recursive(&mut self, id: Id) {
+        let view = self.view_state(id);
+        view.request_layout_recursive = true;
+        self.request_layout(id);
+    }
+
+    pub fn request_layout(&mut self, id: Id) {
         let view = self.view_state(id);
         if view.request_layout {
             return;
@@ -454,6 +439,23 @@ impl AppState {
             .map(|view| view.node)
             .and_then(|node| self.taffy.layout(node).ok())
             .copied()
+    }
+
+    pub(crate) fn get_content_rect(&mut self, id: Id) -> Rect {
+        let view_state = self.view_state(id);
+        let rect = view_state.layout_rect;
+        let props = &view_state.layout_props;
+        let pixels = |px_pct, abs| match px_pct {
+            PxPct::Px(v) => v,
+            PxPct::Pct(pct) => pct * abs,
+        };
+        let origin = rect.origin();
+        rect.inset(-Insets {
+            x0: props.border_left().0 + pixels(props.padding_left(), rect.width()),
+            x1: props.border_right().0 + pixels(props.padding_right(), rect.width()),
+            y0: props.border_top().0 + pixels(props.padding_top(), rect.height()),
+            y1: props.border_bottom().0 + pixels(props.padding_bottom(), rect.height()),
+        }) - origin.to_vec2()
     }
 
     pub(crate) fn get_layout_rect(&mut self, id: Id) -> Rect {
@@ -502,14 +504,8 @@ impl AppState {
     pub(crate) fn has_style_for_sel(&mut self, id: Id, selector_kind: StyleSelector) -> bool {
         let view_state = self.view_state(id);
 
-        match selector_kind {
-            StyleSelector::Hover => view_state.hover_style.is_some(),
-            StyleSelector::Focus => view_state.focus_style.is_some(),
-            StyleSelector::FocusVisible => view_state.focus_visible_style.is_some(),
-            StyleSelector::Disabled => view_state.disabled_style.is_some(),
-            StyleSelector::Active => view_state.active_style.is_some(),
-            StyleSelector::Dragging => view_state.dragging_style.is_some(),
-        }
+        view_state.has_style_selectors.has(selector_kind)
+            || (selector_kind == StyleSelector::Dragging && view_state.dragging_style.is_some())
     }
 
     pub(crate) fn get_view_id_by_anim_id(&mut self, anim_id: &AnimId) -> Option<Id> {
@@ -591,19 +587,11 @@ impl<'a> EventCx<'a> {
         self.app_state.update_focus(id, keyboard_navigation);
     }
 
-    pub fn get_computed_style(&self, id: Id) -> Option<&ComputedStyle> {
+    pub fn get_computed_style(&self, id: Id) -> Option<&Style> {
         self.app_state
             .view_states
             .get(&id)
-            .map(|s| &s.computed_style)
-    }
-
-    pub fn get_hover_style(&self, id: Id) -> Option<&Style> {
-        if let Some(vs) = self.app_state.view_states.get(&id) {
-            return vs.hover_style.as_ref();
-        }
-
-        None
+            .map(|s| &s.combined_style)
     }
 
     pub fn get_layout(&self, id: Id) -> Option<Layout> {
@@ -683,37 +671,47 @@ pub struct InteractionState {
     pub(crate) is_hovered: bool,
     pub(crate) is_disabled: bool,
     pub(crate) is_focused: bool,
-    pub(crate) is_active: bool,
+    pub(crate) is_clicking: bool,
     pub(crate) using_keyboard_navigation: bool,
+}
+
+pub(crate) struct StyleCx {
+    pub(crate) current: Rc<Style>,
+    pub(crate) direct: Style,
+    saved: Vec<Rc<Style>>,
+}
+
+impl StyleCx {
+    fn new() -> Self {
+        Self {
+            current: Default::default(),
+            direct: Default::default(),
+            saved: Default::default(),
+        }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.current = Default::default();
+        self.saved.clear();
+    }
+
+    pub fn save(&mut self) {
+        self.saved.push(self.current.clone());
+    }
+
+    pub fn restore(&mut self) {
+        self.current = self.saved.pop().unwrap_or_default();
+    }
 }
 
 /// Holds current layout state for given position in the tree.
 /// You'll use this in the `View::layout` implementation to call `layout_node` on children and to access any font
 pub struct LayoutCx<'a> {
-    app_state: &'a mut AppState,
+    pub(crate) app_state: &'a mut AppState,
     pub(crate) viewport: Option<Rect>,
-    pub(crate) color: Option<Color>,
-    pub(crate) scroll_bar_color: Option<Color>,
-    pub(crate) scroll_bar_rounded: Option<bool>,
-    pub(crate) scroll_bar_thickness: Option<f32>,
-    pub(crate) scroll_bar_edge_width: Option<f32>,
-    pub(crate) font_size: Option<f32>,
-    pub(crate) font_family: Option<String>,
-    pub(crate) font_weight: Option<Weight>,
-    pub(crate) font_style: Option<FontStyle>,
-    pub(crate) line_height: Option<LineHeightValue>,
+    pub(crate) style: StyleCx,
     pub(crate) window_origin: Point,
     pub(crate) saved_viewports: Vec<Option<Rect>>,
-    pub(crate) saved_colors: Vec<Option<Color>>,
-    pub(crate) saved_scroll_bar_colors: Vec<Option<Color>>,
-    pub(crate) saved_scroll_bar_roundeds: Vec<Option<bool>>,
-    pub(crate) saved_scroll_bar_thicknesses: Vec<Option<f32>>,
-    pub(crate) saved_scroll_bar_edge_widths: Vec<Option<f32>>,
-    pub(crate) saved_font_sizes: Vec<Option<f32>>,
-    pub(crate) saved_font_families: Vec<Option<String>>,
-    pub(crate) saved_font_weights: Vec<Option<Weight>>,
-    pub(crate) saved_font_styles: Vec<Option<FontStyle>>,
-    pub(crate) saved_line_heights: Vec<Option<LineHeightValue>>,
     pub(crate) saved_window_origins: Vec<Point>,
 }
 
@@ -722,83 +720,43 @@ impl<'a> LayoutCx<'a> {
         Self {
             app_state,
             viewport: None,
-            color: None,
-            font_size: None,
-            font_family: None,
-            font_weight: None,
-            font_style: None,
-            line_height: None,
             window_origin: Point::ZERO,
+            style: StyleCx::new(),
             saved_viewports: Vec::new(),
-            saved_colors: Vec::new(),
-            saved_font_sizes: Vec::new(),
-            saved_font_families: Vec::new(),
-            saved_font_weights: Vec::new(),
-            saved_font_styles: Vec::new(),
-            saved_line_heights: Vec::new(),
             saved_window_origins: Vec::new(),
-            scroll_bar_color: None,
-            scroll_bar_rounded: None,
-            scroll_bar_thickness: None,
-            scroll_bar_edge_width: None,
-            saved_scroll_bar_colors: Vec::new(),
-            saved_scroll_bar_roundeds: Vec::new(),
-            saved_scroll_bar_thicknesses: Vec::new(),
-            saved_scroll_bar_edge_widths: Vec::new(),
         }
     }
 
+    pub fn get_prop<P: StyleProp>(&self, _prop: P) -> Option<P::Type> {
+        self.style
+            .direct
+            .get_prop::<P>()
+            .or_else(|| self.style.current.get_prop::<P>())
+    }
+
+    pub fn style(&self) -> Style {
+        (*self.style.current)
+            .clone()
+            .apply(self.style.direct.clone())
+    }
+
     pub(crate) fn clear(&mut self) {
+        self.style.clear();
         self.viewport = None;
-        self.scroll_bar_color = None;
-        self.scroll_bar_rounded = None;
-        self.scroll_bar_thickness = None;
-        self.scroll_bar_edge_width = None;
-        self.font_size = None;
         self.window_origin = Point::ZERO;
-        self.saved_colors.clear();
         self.saved_viewports.clear();
-        self.saved_scroll_bar_colors.clear();
-        self.saved_scroll_bar_roundeds.clear();
-        self.saved_scroll_bar_thicknesses.clear();
-        self.saved_scroll_bar_edge_widths.clear();
-        self.saved_font_sizes.clear();
-        self.saved_font_families.clear();
-        self.saved_font_weights.clear();
-        self.saved_font_styles.clear();
-        self.saved_line_heights.clear();
         self.saved_window_origins.clear();
     }
 
     pub fn save(&mut self) {
+        self.style.save();
         self.saved_viewports.push(self.viewport);
-        self.saved_colors.push(self.color);
-        self.saved_scroll_bar_colors.push(self.scroll_bar_color);
-        self.saved_scroll_bar_roundeds.push(self.scroll_bar_rounded);
-        self.saved_scroll_bar_thicknesses
-            .push(self.scroll_bar_thickness);
-        self.saved_scroll_bar_edge_widths
-            .push(self.scroll_bar_edge_width);
-        self.saved_font_sizes.push(self.font_size);
-        self.saved_font_families.push(self.font_family.clone());
-        self.saved_font_weights.push(self.font_weight);
-        self.saved_font_styles.push(self.font_style);
-        self.saved_line_heights.push(self.line_height);
         self.saved_window_origins.push(self.window_origin);
     }
 
     pub fn restore(&mut self) {
+        self.style.restore();
         self.viewport = self.saved_viewports.pop().unwrap_or_default();
-        self.color = self.saved_colors.pop().unwrap_or_default();
-        self.scroll_bar_color = self.saved_scroll_bar_colors.pop().unwrap_or_default();
-        self.scroll_bar_rounded = self.saved_scroll_bar_roundeds.pop().unwrap_or_default();
-        self.scroll_bar_thickness = self.saved_scroll_bar_thicknesses.pop().unwrap_or_default();
-        self.scroll_bar_edge_width = self.saved_scroll_bar_edge_widths.pop().unwrap_or_default();
-        self.font_size = self.saved_font_sizes.pop().unwrap_or_default();
-        self.font_family = self.saved_font_families.pop().unwrap_or_default();
-        self.font_weight = self.saved_font_weights.pop().unwrap_or_default();
-        self.font_style = self.saved_font_styles.pop().unwrap_or_default();
-        self.line_height = self.saved_line_heights.pop().unwrap_or_default();
         self.window_origin = self.saved_window_origins.pop().unwrap_or_default();
     }
 
@@ -810,42 +768,6 @@ impl<'a> LayoutCx<'a> {
         self.app_state
     }
 
-    pub fn current_scroll_bar_color(&self) -> Option<Color> {
-        self.scroll_bar_color
-    }
-
-    pub fn current_scroll_bar_rounded(&self) -> Option<bool> {
-        self.scroll_bar_rounded
-    }
-
-    pub fn current_scroll_bar_thickness(&self) -> Option<f32> {
-        self.scroll_bar_thickness
-    }
-
-    pub fn current_scroll_bar_edge_width(&self) -> Option<f32> {
-        self.scroll_bar_edge_width
-    }
-
-    pub fn current_font_size(&self) -> Option<f32> {
-        self.font_size
-    }
-
-    pub fn current_font_family(&self) -> Option<&str> {
-        self.font_family.as_deref()
-    }
-
-    pub fn current_font_weight(&self) -> Option<Weight> {
-        self.font_weight
-    }
-
-    pub fn current_font_style(&self) -> Option<FontStyle> {
-        self.font_style
-    }
-
-    pub fn current_line_height(&self) -> Option<LineHeightValue> {
-        self.line_height
-    }
-
     pub fn current_viewport(&self) -> Option<Rect> {
         self.viewport
     }
@@ -854,7 +776,7 @@ impl<'a> LayoutCx<'a> {
         self.app_state.get_layout(id)
     }
 
-    pub fn get_computed_style(&mut self, id: Id) -> &ComputedStyle {
+    pub fn get_computed_style(&mut self, id: Id) -> &Style {
         self.app_state.get_computed_style(id)
     }
 
@@ -890,7 +812,7 @@ impl<'a> LayoutCx<'a> {
             return node;
         }
         view_state.request_layout = false;
-        let style = view_state.computed_style.to_taffy_style();
+        let style = view_state.combined_style.to_taffy_style();
         let _ = self.app_state.taffy.set_style(node, style);
 
         if has_children {
@@ -924,7 +846,6 @@ pub struct PaintCx<'a> {
     pub(crate) transform: Affine,
     pub(crate) clip: Option<RoundedRect>,
     pub(crate) color: Option<Color>,
-    pub(crate) scroll_bar_color: Option<Color>,
     pub(crate) scroll_bar_rounded: Option<bool>,
     pub(crate) scroll_bar_thickness: Option<f32>,
     pub(crate) scroll_bar_edge_width: Option<f32>,
@@ -937,7 +858,6 @@ pub struct PaintCx<'a> {
     pub(crate) saved_transforms: Vec<Affine>,
     pub(crate) saved_clips: Vec<Option<RoundedRect>>,
     pub(crate) saved_colors: Vec<Option<Color>>,
-    pub(crate) saved_scroll_bar_colors: Vec<Option<Color>>,
     pub(crate) saved_scroll_bar_roundeds: Vec<Option<bool>>,
     pub(crate) saved_scroll_bar_thicknesses: Vec<Option<f32>>,
     pub(crate) saved_scroll_bar_edge_widths: Vec<Option<f32>>,
@@ -954,7 +874,6 @@ impl<'a> PaintCx<'a> {
         self.saved_transforms.push(self.transform);
         self.saved_clips.push(self.clip);
         self.saved_colors.push(self.color);
-        self.saved_scroll_bar_colors.push(self.scroll_bar_color);
         self.saved_scroll_bar_roundeds.push(self.scroll_bar_rounded);
         self.saved_scroll_bar_thicknesses
             .push(self.scroll_bar_thickness);
@@ -972,7 +891,6 @@ impl<'a> PaintCx<'a> {
         self.transform = self.saved_transforms.pop().unwrap_or_default();
         self.clip = self.saved_clips.pop().unwrap_or_default();
         self.color = self.saved_colors.pop().unwrap_or_default();
-        self.scroll_bar_color = self.saved_scroll_bar_colors.pop().unwrap_or_default();
         self.scroll_bar_rounded = self.saved_scroll_bar_roundeds.pop().unwrap_or_default();
         self.scroll_bar_thickness = self.saved_scroll_bar_thicknesses.pop().unwrap_or_default();
         self.scroll_bar_edge_width = self.saved_scroll_bar_edge_widths.pop().unwrap_or_default();
@@ -997,10 +915,6 @@ impl<'a> PaintCx<'a> {
 
     pub fn current_color(&self) -> Option<Color> {
         self.color
-    }
-
-    pub fn current_scroll_bar_color(&self) -> Option<Color> {
-        self.scroll_bar_color
     }
 
     pub fn current_scroll_bar_rounded(&self) -> Option<bool> {
@@ -1031,8 +945,17 @@ impl<'a> PaintCx<'a> {
         self.app_state.get_layout(id)
     }
 
-    pub fn get_computed_style(&mut self, id: Id) -> &ComputedStyle {
+    /// Returns the layout rect excluding borders, padding and position.
+    pub fn get_content_rect(&mut self, id: Id) -> Rect {
+        self.app_state.get_content_rect(id)
+    }
+
+    pub fn get_computed_style(&mut self, id: Id) -> &Style {
         self.app_state.get_computed_style(id)
+    }
+
+    pub(crate) fn get_builtin_style(&mut self, id: Id) -> BuiltinStyle<'_> {
+        self.app_state.get_builtin_style(id)
     }
 
     /// Clip the drawing area to the given shape.
