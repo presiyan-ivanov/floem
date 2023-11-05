@@ -1,6 +1,6 @@
 use std::f64::consts::PI;
 
-use super::assert_valid_time;
+use super::assert_valid_progress;
 
 /// Alters how the easing function behaves, i.e. how the animation interpolates.
 #[derive(Debug, Clone, Copy, Default)]
@@ -51,52 +51,52 @@ pub struct Easing {
     pub(crate) func: EasingFn,
 }
 
-fn elastic_easing(time: f64) -> f64 {
+fn elastic_easing(progress: f64) -> f64 {
     let c4: f64 = (2.0 * PI) / 3.0;
-    if time == 0.0 {
+    if progress == 0.0 {
         0.0
-    } else if (1.0 - time).abs() < f64::EPSILON {
+    } else if (1.0 - progress).abs() < f64::EPSILON {
         1.0
     } else {
-        -(2.0_f64.powf(10.0 * time - 10.0) * ((time * 10.0 - 10.75) * c4).sin())
+        -(2.0_f64.powf(10.0 * progress - 10.0) * ((progress * 10.0 - 10.75) * c4).sin())
     }
 }
 
 impl Easing {
-    pub(crate) fn apply_easing_fn(&self, time: f64) -> f64 {
-        assert_valid_time(time);
+    pub(crate) fn apply_easing_fn(&self, progress: f64) -> f64 {
+        assert_valid_progress(progress);
         match self.func {
-            EasingFn::Linear => time,
-            EasingFn::Circle => 1.0 - (1.0 - time.powi(2)).sqrt(),
-            EasingFn::Elastic => elastic_easing(time),
+            EasingFn::Linear => progress,
+            EasingFn::Circle => 1.0 - (1.0 - progress.powi(2)).sqrt(),
+            EasingFn::Elastic => elastic_easing(progress),
             EasingFn::Exponential => {
-                if time == 0.0 {
+                if progress == 0.0 {
                     0.0
                 } else {
-                    2.0f64.powf(10.0 * time - 10.0)
+                    2.0f64.powf(10.0 * progress - 10.0)
                 }
             }
             EasingFn::Power => todo!(),
-            EasingFn::Quadratic => time.powf(2.0),
-            EasingFn::Cubic => time.powf(3.0),
-            EasingFn::Quartic => time.powf(4.0),
-            EasingFn::Quintic => time.powf(5.0),
-            EasingFn::Sine => 1.0 - ((time * PI) / 2.0).cos(),
+            EasingFn::Quadratic => progress.powf(2.0),
+            EasingFn::Cubic => progress.powf(3.0),
+            EasingFn::Quartic => progress.powf(4.0),
+            EasingFn::Quintic => progress.powf(5.0),
+            EasingFn::Sine => 1.0 - ((progress * PI) / 2.0).cos(),
             EasingFn::Back => todo!(),
             EasingFn::Bounce => todo!(),
         }
     }
 
-    pub(crate) fn ease(&self, time: f64) -> f64 {
-        assert_valid_time(time);
+    pub(crate) fn ease(&self, progress: f64) -> f64 {
+        assert_valid_progress(progress);
         match self.mode {
-            EasingMode::In => self.apply_easing_fn(time),
-            EasingMode::Out => 1.0 - self.apply_easing_fn(1.0 - time),
+            EasingMode::In => self.apply_easing_fn(progress),
+            EasingMode::Out => 1.0 - self.apply_easing_fn(1.0 - progress),
             EasingMode::InOut => {
-                if time < 0.5 {
-                    self.apply_easing_fn(time * 2.0) / 2.0
+                if progress < 0.5 {
+                    self.apply_easing_fn(progress * 2.0) / 2.0
                 } else {
-                    1.0 - self.apply_easing_fn(2.0 - time * 2.0) / 2.0
+                    1.0 - self.apply_easing_fn(2.0 - progress * 2.0) / 2.0
                 }
             }
         }

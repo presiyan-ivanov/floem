@@ -53,9 +53,9 @@ pub(crate) enum AppUpdateEvent {
     RequestTimer {
         timer: Timer,
     },
-    RequestAnimationFrame {
-        window_id: WindowId
-    },
+    // RequestAnimationFrame {
+    //     window_id: WindowId
+    // },
     #[cfg(target_os = "linux")]
     MenuAction {
         window_id: WindowId,

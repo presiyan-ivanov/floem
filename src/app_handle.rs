@@ -69,10 +69,10 @@ impl ApplicationHandle {
                 AppUpdateEvent::CaptureWindow { window_id, capture } => {
                     capture.set(self.capture_window(window_id).map(Rc::new));
                 }
-                AppUpdateEvent::RequestAnimationFrame { window_id }=> {
-                    println!("app handle: req anim frame.");
-                    self.redraw_requested(window_id);
-                }
+                // AppUpdateEvent::RequestAnimationFrame { window_id }=> {
+                //     println!("app handle: req anim frame.");
+                //     self.
+                // }
                 #[cfg(target_os = "linux")]
                 AppUpdateEvent::MenuAction {
                     window_id,

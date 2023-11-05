@@ -10,6 +10,7 @@ use crate::{
     id::Id,
     menu::Menu,
     style::{Style, StyleClassRef, StyleSelector},
+    view::ChangeFlags,
 };
 
 thread_local! {
@@ -36,6 +37,10 @@ pub(crate) enum UpdateMessage {
     Disabled {
         id: Id,
         is_disabled: bool,
+    },
+    RequestChange {
+        id: Id,
+        flags: ChangeFlags,
     },
     RequestPaint,
     RequestLayout {

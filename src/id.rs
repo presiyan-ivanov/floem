@@ -18,6 +18,7 @@ use crate::{
     event::EventListener,
     style::{Style, StyleClassRef, StyleSelector},
     update::{UpdateMessage, CENTRAL_DEFERRED_UPDATE_MESSAGES, CENTRAL_UPDATE_MESSAGES},
+    view::ChangeFlags,
 };
 
 thread_local! {
@@ -127,6 +128,10 @@ impl Id {
 
     pub fn request_anim_frame(&self) {
         self.add_update_message(UpdateMessage::RequestAnimFrame);
+    }
+
+    pub fn request_change(&self, flags: ChangeFlags) {
+        self.add_update_message(UpdateMessage::RequestChange { id: *self, flags });
     }
 
     pub fn request_paint(&self) {

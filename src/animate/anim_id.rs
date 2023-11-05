@@ -18,16 +18,6 @@ impl AnimId {
         AnimId(id)
     }
 
-    // pub(crate) fn update_prop(&self, kind: AnimPropKind, val: AnimValue) {
-    //     println!("update_prop called for anim id {:?}", self);
-    //     ANIM_UPDATE_MESSAGES.with(|msgs| {
-    //         let mut msgs = msgs.borrow_mut();
-    //         msgs.entry(*self)
-    //             .or_insert_with(|| vec![])
-    //             .push(AnimUpdateMsg::Prop { kind, val });
-    //     });
-    // }
-
     pub(crate) fn update_style_prop<P: StyleProp>(&self, _prop: P, val: P::Type) {
         ANIM_UPDATE_MESSAGES.with(|msgs| {
             let mut msgs = msgs.borrow_mut();
@@ -38,16 +28,8 @@ impl AnimId {
                     kind: AnimPropKind::Prop {
                         prop: P::prop_ref(),
                     },
-                    val: AnimValue::Prop(Rc::new(val)),
+                    val: AnimValue::DynProp(Rc::new(val)),
                 });
         });
-
-        // msgs.insert(AnimUpdateMsg::Prop {
-        //     id: *self,
-        //     kind: AnimPropKind::Prop {
-        //         prop: P::prop_ref(),
-        //     },
-        //     val: AnimValue::Prop(Rc::new(val)),
-        // });
     }
 }

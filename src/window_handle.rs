@@ -22,11 +22,12 @@ use crate::views::{container_box, stack, Decorators};
 use crate::{
     action::exec_after,
     animate::{
-        AnimId, AnimPropKind, AnimPropValues, AnimUpdateMsg, AnimValue, AnimatedProp,
-        F64AnimValues, PropAnimState,
+        AnimId, AnimPropKind, AnimUpdateMsg, AnimValue, AnimatedProp, F64AnimValues,
+        InterpolatedVal, PropAnimState,
     },
     context::{
-        AppState, EventCx, LayoutCx, MoveListener, PaintCx, PaintState, ResizeListener, UpdateCx,
+        AppState, EventCx, LayoutCx, MoveListener, PaintCx, PaintState, ResizeListener, StyleCx,
+        UpdateCx,
     },
     event::{Event, EventListener},
     id::{Id, IdPath, ID_PATHS},
@@ -209,7 +210,7 @@ impl WindowHandle {
                         if let Some(id) = cx.app_state.active {
                             // To remove the styles applied by the Active selector
                             if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                                cx.app_state.request_layout(id);
+                                cx.app_state.request_style(id);
                             }
 
                             cx.app_state.active = None;
@@ -231,7 +232,7 @@ impl WindowHandle {
             if let Event::PointerUp(_) = &event {
                 // To remove the styles applied by the Active selector
                 if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                    cx.app_state.request_layout(id);
+                    cx.app_state.request_style(id);
                 }
 
                 cx.app_state.active = None;
@@ -251,7 +252,7 @@ impl WindowHandle {
                     || view_state.has_style_selectors.has(StyleSelector::Hover)
                     || view_state.has_style_selectors.has(StyleSelector::Active)
                 {
-                    cx.app_state.request_layout(*id);
+                    cx.app_state.request_style(*id);
                 }
                 if hovered.contains(id) {
                     if let Some(action) = cx.get_event_listener(*id, &EventListener::PointerEnter) {
@@ -287,7 +288,7 @@ impl WindowHandle {
         }
 
         if let Event::AnimFrame = &event {
-            if let Some(id) = cx.app_state.ids_with_anim_in_progress().get(0).cloned() {
+            if let Some(id) = cx.app_state.views_w_anim_in_progress().get(0).cloned() {
                 cx.app_state.request_layout(id);
             }
         }
@@ -295,14 +296,14 @@ impl WindowHandle {
         if is_pointer_down {
             for id in cx.app_state.clicking.clone() {
                 if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                    cx.app_state.request_layout(id);
+                    cx.app_state.request_style(id);
                 }
             }
         }
         if matches!(&event, Event::PointerUp(_)) {
             for id in cx.app_state.clicking.clone() {
                 if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                    cx.app_state.request_layout(id);
+                    cx.app_state.request_style(id);
                 }
             }
             cx.app_state.clicking.clear();
@@ -338,6 +339,7 @@ impl WindowHandle {
             }
         }
 
+        self.style();
         self.layout();
         self.process_update();
         self.request_paint();
@@ -383,7 +385,7 @@ impl WindowHandle {
                 || view_state.has_style_selectors.has(StyleSelector::Active)
                 || view_state.animation.is_some()
             {
-                cx.app_state.request_layout(id);
+                cx.app_state.request_style(id);
             }
             let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
             if let Some(id_path) = id_path {
@@ -457,6 +459,11 @@ impl WindowHandle {
         }
     }
 
+    fn style(&mut self) {
+        let mut cx = StyleCx::new(&mut self.app_state);
+        self.view.style_main(&mut cx);
+    }
+
     fn layout(&mut self) -> Duration {
         let mut cx = LayoutCx::new(&mut self.app_state);
 
@@ -469,17 +476,16 @@ impl WindowHandle {
         cx.clear();
         self.view.compute_layout_main(&mut cx);
 
-        // Currently we only need one ID with animation in progress to request layout, which will
-        // advance all the animations in progress.
-        // This will be reworked once we change from request_layout to request_paint
-        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
+        if self.app_state.capture.is_none() && !self.app_state.views_w_anim_in_progress().is_empty()
+        {
+            let animated_views = self.app_state.views_w_anim_in_progress().clone();
 
-        if let Some(id) = id {
-            if self.app_state.capture.is_none() {
-                exec_after(Duration::from_millis(1), move |_| {
-                    id.request_layout();
-                });
-            }
+            exec_after(Duration::from_millis(1), move |_| {
+                for id in animated_views {
+                    println!("requesting style for {:?}", id);
+                    id.request_change(ChangeFlags::STYLE);
+                }
+            });
         }
 
         taffy_duration
@@ -547,17 +553,23 @@ impl WindowHandle {
     }
 
     pub(crate) fn capture(&mut self) -> Capture {
+        // Capture the view before we run `style` and `layout` to catch missing `request_style`` or
+        // `request_layout` flags.
+        let root_layout = self.app_state.get_layout_rect(self.view.id());
+        let root = CapturedView::capture(&self.view, &mut self.app_state, root_layout);
+
         self.app_state.capture = Some(CaptureState::default());
 
         // Trigger painting to create a Vger renderer which can capture the output.
         // This can be expensive so it could skew the paint time measurement.
         self.paint();
 
-        // Ensure we run layout again for accurate timing.
-        self.app_state
-            .view_states
-            .values_mut()
-            .for_each(|state| state.request_layout = true);
+        // Ensure we run layout and styling again for accurate timing. We also need to ensure
+        // styles are recomputed to capture them.
+        self.app_state.view_states.values_mut().for_each(|state| {
+            state.request_layout = true;
+            state.request_style = true;
+        });
 
         fn get_taffy_depth(taffy: &taffy::Taffy, root: taffy::node::Node) -> usize {
             let children = taffy.children(root).unwrap();
@@ -574,6 +586,8 @@ impl WindowHandle {
         }
 
         let start = Instant::now();
+        self.style();
+        let post_style = Instant::now();
 
         let taffy_root_node = self.app_state.view_state(self.view.id()).node;
         let taffy_duration = self.layout();
@@ -581,9 +595,9 @@ impl WindowHandle {
         let window = self.paint().map(Rc::new);
         let end = Instant::now();
 
-        let root_layout = self.app_state.get_layout_rect(self.view.id());
         let capture = Capture {
             start,
+            post_style,
             post_layout,
             end,
             taffy_duration,
@@ -592,7 +606,7 @@ impl WindowHandle {
             window,
             window_size: self.size.get_untracked() / self.app_state.scale,
             scale: self.scale * self.app_state.scale,
-            root: CapturedView::capture(&self.view, &mut self.app_state, root_layout),
+            root,
             state: self.app_state.capture.take().unwrap(),
         };
         // Process any updates produced by capturing
@@ -606,14 +620,23 @@ impl WindowHandle {
         loop {
             flags |= self.process_update_messages();
             if !self.needs_layout()
+                && !self.needs_style()
                 && !self.has_deferred_update_messages()
                 && !self.has_anim_update_messages()
             {
                 break;
             }
-            // QUESTION: why do we always request a layout?
-            flags |= ChangeFlags::LAYOUT;
-            self.layout();
+
+            if self.needs_style() {
+                flags |= ChangeFlags::STYLE;
+                self.style();
+            }
+
+            if self.needs_layout() {
+                flags |= ChangeFlags::LAYOUT;
+                self.layout();
+            }
+
             flags |= self.process_deferred_update_messages();
             flags |= self.process_anim_update_messages();
         }
@@ -671,6 +694,18 @@ impl WindowHandle {
                     app_state: &mut self.app_state,
                 };
                 match msg {
+                    UpdateMessage::RequestChange { id, flags: changes } => {
+                        flags |= changes;
+                        if changes.contains(ChangeFlags::STYLE) {
+                            cx.app_state.request_style(id);
+                        }
+                        if changes.contains(ChangeFlags::LAYOUT) {
+                            cx.app_state.request_layout(id);
+                        }
+                        if changes.contains(ChangeFlags::PAINT) {
+                            cx.app_state.request_paint(id);
+                        }
+                    }
                     UpdateMessage::RequestPaint => {
                         flags |= ChangeFlags::PAINT;
                     }
@@ -694,12 +729,12 @@ impl WindowHandle {
                                 .app_state
                                 .has_style_for_sel(old_id, StyleSelector::Active)
                             {
-                                cx.app_state.request_layout(old_id);
+                                cx.app_state.request_style(old_id);
                             }
                         }
 
                         if cx.app_state.has_style_for_sel(id, StyleSelector::Active) {
-                            cx.app_state.request_layout(id);
+                            cx.app_state.request_style(id);
                         }
                     }
                     UpdateMessage::Disabled { id, is_disabled } => {
@@ -709,7 +744,7 @@ impl WindowHandle {
                         } else {
                             cx.app_state.disabled.remove(&id);
                         }
-                        cx.app_state.request_layout(id);
+                        cx.app_state.request_style(id);
                     }
                     UpdateMessage::State { id, state } => {
                         let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
@@ -722,9 +757,9 @@ impl WindowHandle {
                         let old_any_inherited = state.style.any_inherited();
                         state.base_style = Some(style);
                         if state.style.any_inherited() || old_any_inherited {
-                            cx.app_state.request_layout_recursive(id);
+                            cx.app_state.request_style_recursive(id);
                         } else {
-                            cx.request_layout(id);
+                            cx.request_style(id);
                         }
                     }
                     UpdateMessage::Style { id, style } => {
@@ -732,15 +767,15 @@ impl WindowHandle {
                         let old_any_inherited = state.style.any_inherited();
                         state.style = style;
                         if state.style.any_inherited() || old_any_inherited {
-                            cx.app_state.request_layout_recursive(id);
+                            cx.app_state.request_style_recursive(id);
                         } else {
-                            cx.request_layout(id);
+                            cx.request_style(id);
                         }
                     }
                     UpdateMessage::Class { id, class } => {
                         let state = cx.app_state.view_state(id);
                         state.class = Some(class);
-                        cx.app_state.request_layout_recursive(id);
+                        cx.app_state.request_style_recursive(id);
                     }
                     UpdateMessage::StyleSelector {
                         id,
@@ -753,7 +788,7 @@ impl WindowHandle {
                             StyleSelector::Dragging => state.dragging_style = style,
                             _ => panic!(),
                         }
-                        cx.request_layout(id);
+                        cx.request_style(id);
                     }
                     UpdateMessage::KeyboardNavigable { id } => {
                         cx.app_state.keyboard_navigable.insert(id);
@@ -999,10 +1034,10 @@ impl WindowHandle {
                     .get(&kind)
                     .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(layout.size.width as f64);
-                AnimPropValues::Width(F64AnimValues {
+                InterpolatedVal::Width {
                     from,
                     to: to_val.unwrap_f64(),
-                })
+                }
             }
             AnimPropKind::Height => {
                 let from = anim
@@ -1011,10 +1046,10 @@ impl WindowHandle {
                     .map(|old| anim.animate_prop(&old).unwrap_f64())
                     .unwrap_or(layout.size.height as f64);
 
-                AnimPropValues::Height(F64AnimValues {
+                InterpolatedVal::Height {
                     from,
-                    to: to_val.unwrap_skew f64(),
-                })
+                    to: to_val.unwrap_f64(),
+                }
             }
             // <<<<<<< HEAD
             //             AnimPropKind::BorderRadius => {
@@ -1063,7 +1098,8 @@ impl WindowHandle {
                     .get(&prop)
                     .and_then(|v| v.as_ref().cloned())
                     .unwrap_or_else(|| (prop.info.default_as_any)());
-                AnimPropValues::Prop {
+                InterpolatedVal::DynProp {
+                    prop,
                     from,
                     to: to_val.unwrap_any(),
                 }
@@ -1094,6 +1130,10 @@ impl WindowHandle {
 
     fn needs_layout(&mut self) -> bool {
         self.app_state.view_state(self.view.id()).request_layout
+    }
+
+    fn needs_style(&mut self) -> bool {
+        self.app_state.view_state(self.view.id()).request_style
     }
 
     fn has_deferred_update_messages(&self) -> bool {
@@ -1158,7 +1198,7 @@ impl WindowHandle {
     fn request_anim_frame(&mut self) {
         // self.request_paint();
 
-        let id = self.app_state.ids_with_anim_in_progress().get(0).cloned();
+        let id = self.app_state.views_w_anim_in_progress().get(0).cloned();
         if let Some(id) = id {
             exec_after(Duration::from_millis(1), move |_| {
                 id.request_anim_frame();

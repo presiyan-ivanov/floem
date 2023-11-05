@@ -1,8 +1,11 @@
-use crate::{style::{Background, BorderColor, BorderRadius, TextColor, Width, Height}, unit::{PxPctAuto, UnitExt}};
+use crate::{
+    style::{Background, BorderColor, BorderRadius, Height, TextColor, Width},
+    unit::{PxPctAuto, UnitExt},
+};
 
 use super::{
-    anim_val::AnimValue, AnimId, AnimPropKind, AnimPropValues, AnimState, AnimatedProp, Easing,
-    EasingFn, EasingMode,
+    anim_val::AnimValue, AnimId, AnimPropKind, AnimState, AnimatedProp, Easing, EasingFn,
+    EasingMode, InterpolatedVal,
 };
 use std::{borrow::BorrowMut, collections::HashMap, time::Duration, time::Instant};
 
@@ -22,7 +25,7 @@ pub struct Animation {
     pub(crate) animated_props: HashMap<AnimPropKind, AnimatedProp>,
 }
 
-pub(crate) fn assert_valid_time(time: f64) {
+pub(crate) fn assert_valid_progress(time: f64) {
     assert!(time >= 0.0 || time <= 1.0);
 }
 
@@ -68,10 +71,7 @@ pub(crate) fn next() -> Animation {
 
 #[derive(Debug, Clone)]
 pub enum AnimUpdateMsg {
-    Prop {
-        kind: AnimPropKind,
-        val: AnimValue,
-    },
+    Prop { kind: AnimPropKind, val: AnimValue },
 }
 
 #[derive(Clone, Debug)]
@@ -190,8 +190,7 @@ impl Animation {
         create_effect(move |_| {
             let to_width = width_fn();
 
-            self.id
-                .update_style_prop(Width, PxPctAuto::Px(to_width));
+            self.id.update_style_prop(Width, PxPctAuto::Px(to_width));
         });
 
         self
@@ -201,8 +200,7 @@ impl Animation {
         create_effect(move |_| {
             let height = height_fn();
 
-            self.id
-                .update_style_prop(Height, PxPctAuto::Px(height));
+            self.id.update_style_prop(Height, PxPctAuto::Px(height));
         });
 
         self
@@ -281,7 +279,7 @@ impl Animation {
 
                 for (_, prop) in self.props_mut() {
                     prop.advance(repeat_mode, &duration);
-                    can_advance |= !prop.is_completed();
+                    can_advance |= prop.can_advance();
                 }
                 if !can_advance {
                     self.state = AnimState::Completed;
@@ -304,35 +302,29 @@ impl Animation {
             return false;
         }
 
-        let time = prop.elapsed.as_secs_f64() / self.duration.as_secs_f64();
-        let time = self.easing.ease(time);
-        time > 0.5
+        self.get_prop_progress(prop) > 0.5
+    }
+
+    pub(crate) fn get_prop_progress(&self, prop: &AnimatedProp) -> f64 {
+        let raw_progress = prop.elapsed.as_secs_f64() / self.duration.as_secs_f64();
+        let progress = f64::min(self.easing.ease(raw_progress), 1.0);
+        let progress = f64::max(progress, 0.0);
+        progress
     }
 
     pub(crate) fn animate_prop(&self, prop: &AnimatedProp) -> AnimValue {
-        let mut elapsed = prop.elapsed();
-
-        if self.duration == Duration::ZERO {
-            return prop.values.get_from();
-        }
-
-        if elapsed > self.duration {
-            elapsed = self.duration;
-        }
-
-        let time = elapsed.as_secs_f64() / self.duration.as_secs_f64();
-        let time = self.easing.ease(time);
-        assert_valid_time(time);
+        let progress = self.get_prop_progress(prop);
+        dbg!(progress);
 
         if self.is_auto_reverse() {
-            if time > 0.5 {
+            if progress > 0.5 {
                 prop.values
-                    .animate(time * 2.0 - 1.0, AnimDirection::Backward)
+                    .animate(progress * 2.0 - 1.0, AnimDirection::Backward)
             } else {
-                prop.values.animate(time * 2.0, AnimDirection::Forward)
+                prop.values.animate(progress * 2.0, AnimDirection::Forward)
             }
         } else {
-            prop.values.animate(time, AnimDirection::Forward)
+            prop.values.animate(progress, AnimDirection::Forward)
         }
     }
 

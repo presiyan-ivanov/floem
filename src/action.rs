@@ -82,10 +82,6 @@ impl TimerToken {
     }
 }
 
-pub fn request_animation_frame(window_id: WindowId) {
-    add_app_update_event(AppUpdateEvent::RequestAnimationFrame { window_id });
-}
-
 pub fn exec_after(duration: Duration, action: impl FnOnce(TimerToken) + 'static) -> TimerToken {
     let view = get_current_view();
     let action = move |token| {

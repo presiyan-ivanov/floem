@@ -39,8 +39,7 @@ fn app_view() -> impl View {
                         .padding(10.0)
                         .margin(20.0)
                         .size(250.0, base_label_height)
-                })
-                .active_style(|s| s.color(Color::BLACK))
+                }) 
                 .animation(move |a| {
                     a.border_radius(move || if is_hovered.get() { 1.0 } else { 40.0 })
                         .border_color(|| Color::CYAN)
@@ -59,13 +58,13 @@ fn app_view() -> impl View {
                         //         Color::DARK_ORANGE
                         //     }
                         // })
-                        .height(move || base_label_height + (scroll_offset_pct.get() * 150.0))
+                        // .height(move || base_label_height + (scroll_offset_pct.get() * 150.0))
                         .easing_fn(EasingFn::Quartic)
                         .ease_in_out()
-                        .duration(Duration::from_secs(2))
+                        .duration(Duration::from_secs(1))
                         .fill_mode(FillMode::Forwards)
-                    // .auto_reverse(true)
-                        .repeating_forever(true)
+                        // .auto_reverse(true)
+                        // .repeating_forever(true)
                 }),)
         })
         .style(|s| {
@@ -79,28 +78,28 @@ fn app_view() -> impl View {
                 .size(400.0, 800.0)
                 .color(Color::BLACK)
         })
-        .animation(move |a| {
-            a
-                // .width(move || {
-                //     if counter.get() % 2.0 == 0.0 {
-                //         400.0
-                //     } else {
-                //         600.0
-                //     }
-                // })
-                // .height(move || {
-                //     if counter.get() % 2.0 == 0.0 {
-                //         200.0
-                //     } else {
-                //         500.0
-                //     }
-                // })
-                .background(|| Color::DARK_RED)
-                .easing_fn(EasingFn::Cubic)
-                .ease_in_out()
-                .fill_mode(FillMode::Forwards)
-                .duration(Duration::from_secs(10))
-        })
+        // .animation(move |a| {
+        //     a
+        // .width(move || {
+        //     if counter.get() % 2.0 == 0.0 {
+        //         400.0
+        //     } else {
+        //         600.0
+        //     }
+        // })
+        // .height(move || {
+        //     if counter.get() % 2.0 == 0.0 {
+        //         200.0
+        //     } else {
+        //         500.0
+        //     }
+        // })
+        //         .background(|| Color::DARK_RED)
+        //         .easing_fn(EasingFn::Cubic)
+        //         .ease_in_out()
+        //         .fill_mode(FillMode::Forwards)
+        //         .duration(Duration::from_secs(10))
+        // })
     })
     .on_scroll(move |rect| {
         let offset_y_pct = rect.y0 as f64 / rect.height() as f64;

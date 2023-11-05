@@ -8,7 +8,7 @@ use peniko::Color;
 
 use crate::{animate::AnimDirection, style::StylePropRef, unit::Px};
 
-use super::{anim_val::AnimValue, assert_valid_time, RepeatMode};
+use super::{anim_val::AnimValue, assert_valid_progress, RepeatMode};
 
 #[derive(Clone, Debug)]
 pub(crate) struct F64AnimValues {
@@ -40,7 +40,7 @@ pub(crate) enum PropAnimState {
 
 #[derive(Clone, Debug)]
 pub(crate) struct AnimatedProp {
-    pub(crate) values: AnimPropValues,
+    pub(crate) values: InterpolatedVal,
     pub(crate) elapsed: Duration,
     pub(crate) started_on: Instant,
     pub(crate) state: PropAnimState,
@@ -66,8 +66,8 @@ impl AnimatedProp {
                 mut elapsed,
             } => {
                 let now = Instant::now();
-                let duration = now - started_on.clone();
-                elapsed += duration;
+                let elapsed = now - started_on.clone();
+                self.elapsed = elapsed.clone();
 
                 if elapsed >= *target_duration {
                     self.state = PropAnimState::PassFinished { elapsed };
@@ -98,37 +98,50 @@ impl AnimatedProp {
         }
     }
 
-    pub fn elapsed(&self) -> Duration {
-        match &self.state {
-            PropAnimState::Idle => Duration::ZERO,
-            PropAnimState::PassInProgress {
-                started_on,
-                elapsed,
-            } => {
-                let duration = Instant::now() - started_on.clone();
-                *elapsed + duration
-            }
-            PropAnimState::PassFinished { elapsed } => elapsed.clone(),
-            PropAnimState::Completed { elapsed, .. } => {
-                elapsed.clone().unwrap_or_else(|| Duration::ZERO)
-            }
-        }
+    // pub fn elapsed(&self) -> Duration {
+    //     match &self.state {
+    //         PropAnimState::Idle => Duration::ZERO,
+    //         PropAnimState::PassInProgress {
+    //             started_on,
+    //             elapsed,
+    //         } => {
+    //             let duration = Instant::now() - started_on.clone();
+    //             *elapsed + duration
+    //         }
+    //         PropAnimState::PassFinished { elapsed } => elapsed.clone(),
+    //         PropAnimState::Completed { elapsed, .. } => {
+    //             elapsed.clone().unwrap_or_else(|| Duration::ZERO)
+    //         }
+    //     }
+    // }
+    //
+    pub(crate) fn can_advance(&self) -> bool {
+        !self.is_completed()
     }
 
     pub(crate) fn is_completed(&self) -> bool {
         match &self.state {
-            PropAnimState::Completed { elapsed } => true,
+            PropAnimState::Completed { .. } => true,
             _ => false,
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum AnimPropValues {
-    // Width(F64AnimValues),
-    // Height(F64AnimValues),
-    Prop { from: Rc<dyn Any>, to: Rc<dyn Any> },
-
+pub(crate) enum InterpolatedVal {
+    Width {
+        from: f64,
+        to: f64,
+    },
+    Height {
+        from: f64,
+        to: f64,
+    },
+    DynProp {
+        prop: StylePropRef,
+        from: Rc<dyn Any>,
+        to: Rc<dyn Any>,
+    },
     // BorderRadius(F64AnimValues),
     // BorderWidth(F64AnimValues),
     // BorderColor(ColorAnimValues),
@@ -136,39 +149,46 @@ pub(crate) enum AnimPropValues {
     // Color(ColorAnimValues),
 
     //TODO:
-    // Scale(F64AnimValues),
     // TranslateX(F64AnimValues),
     // TranslateY(F64AnimValues),
 }
 
-impl AnimPropValues {
+impl InterpolatedVal {
     pub(crate) fn get_to(&self) -> AnimValue {
         match self {
-            AnimPropValues::Width(p)
-            | AnimPropValues::Height(p)
-            | AnimPropValues::BorderWidth(p)
+            InterpolatedVal::Width{to, ..}
+            | InterpolatedVal::Height{to, ..}
+                => AnimValue::Float(to.clone()),
+                InterpolatedVal::DynProp { to, .. } => {
+                    // let to = to.downcast_ref::<StylePropRef>().unwrap();
+                    AnimValue::DynProp(to.clone())
+                }
+            // | AnimPropValues::BorderWidth(p)
+            // | AnimPropValues::BorderWidth(p)
             // | AnimPropValues::TranslateX(p)
             // | AnimPropValues::TranslateY(p)
             // | AnimPropValues::Scale(p)
-            | AnimPropValues::BorderRadius(p) => AnimValue::Float(p.to),
-            AnimPropValues::Background(p)
-            | AnimPropValues::BorderColor(p)
-            | AnimPropValues::Color(p) => AnimValue::Color(p.to),
+            // AnimPropValues::Background(p)
+            // | AnimPropValues::BorderColor(p)
+            // | AnimPropValues::Color(p) => AnimValue::Color(p.to),
         }
     }
 
     pub(crate) fn get_from(&self) -> AnimValue {
         match self {
-            AnimPropValues::Width(p)
-            | AnimPropValues::Height(p)
-            | AnimPropValues::BorderWidth(p)
+            InterpolatedVal::Width{from, .. } | InterpolatedVal::Height{from, ..} => AnimValue::Float(*from),
+                InterpolatedVal::DynProp { from, .. } => {
+                    // let to = to.downcast_ref::<StylePropRef>().unwrap();
+                    AnimValue::DynProp(from.clone())
+                }
+            // | AnimPropValues::BorderWidth(p)
             // | AnimPropValues::TranslateX(p)
             // | AnimPropValues::TranslateY(p)
             // | AnimPropValues::Scale(p)
-            | AnimPropValues::BorderRadius(p) => AnimValue::Float(p.from),
-            AnimPropValues::Background(p)
-            | AnimPropValues::BorderColor(p)
-            | AnimPropValues::Color(p) => AnimValue::Color(p.from),
+            // | AnimPropValues::BorderRadius(p)
+            // AnimPropValues::Background(p)
+            // | AnimPropValues::BorderColor(p)
+            // | AnimPropValues::Color(p) => AnimValue::Color(p.from),
         }
     }
 
@@ -176,44 +196,44 @@ impl AnimPropValues {
         &self,
         from: f64,
         to: f64,
-        time: f64,
+        progress: f64,
         direction: AnimDirection,
     ) -> f64 {
-        assert_valid_time(time);
+        assert_valid_progress(progress);
         let (from, to) = match direction {
             AnimDirection::Forward => (from, to),
             AnimDirection::Backward => (to, from),
         };
-        if time == 0.0 {
+        if progress == 0.0 {
             return from;
         }
-        if (1.0 - time).abs() < f64::EPSILON {
+        if (1.0 - progress).abs() < f64::EPSILON {
             return to;
         }
         if (from - to).abs() < f64::EPSILON {
             return from;
         }
 
-        from * (1.0 - time) + to * time
+        from * (1.0 - progress) + to * progress
     }
 
     pub(crate) fn animate_usize(
         &self,
         from: u8,
         to: u8,
-        time: f64,
+        progress: f64,
         direction: AnimDirection,
     ) -> u8 {
-        assert_valid_time(time);
+        assert_valid_progress(progress);
         let (from, to) = match direction {
             AnimDirection::Forward => (from, to),
             AnimDirection::Backward => (to, from),
         };
 
-        if time == 0.0 {
+        if progress == 0.0 {
             return from;
         }
-        if (1.0 - time).abs() < f64::EPSILON {
+        if (1.0 - progress).abs() < f64::EPSILON {
             return to;
         }
         if from == to {
@@ -223,7 +243,7 @@ impl AnimPropValues {
         let from = from as f64;
         let to = to as f64;
 
-        let val = from * (1.0 - time) + to * time;
+        let val = from * (1.0 - progress) + to * progress;
         if to >= from {
             (val + 0.5) as u8
         } else {
@@ -235,33 +255,49 @@ impl AnimPropValues {
         &self,
         from: Color,
         to: Color,
-        time: f64,
+        progress: f64,
         direction: AnimDirection,
     ) -> Color {
-        let r = self.animate_usize(from.r, to.r, time, direction);
-        let g = self.animate_usize(from.g, to.g, time, direction);
-        let b = self.animate_usize(from.b, to.b, time, direction);
-        let a = self.animate_usize(from.a, to.a, time, direction);
+        let r = self.animate_usize(from.r, to.r, progress, direction);
+        let g = self.animate_usize(from.g, to.g, progress, direction);
+        let b = self.animate_usize(from.b, to.b, progress, direction);
+        let a = self.animate_usize(from.a, to.a, progress, direction);
         Color { r, g, b, a }
     }
 
-    pub(crate) fn animate(&self, time: f64, direction: AnimDirection) -> AnimValue {
+    pub(crate) fn animate(&self, progress: f64, direction: AnimDirection) -> AnimValue {
         match self {
-            AnimPropValues::Background(p)
-            | AnimPropValues::BorderColor(p)
-            | AnimPropValues::Color(p) => {
-                AnimValue::Color(self.animate_color(p.from, p.to, time, direction))
+            InterpolatedVal::Width { from, to } | InterpolatedVal::Height { from, to } => {
+                AnimValue::Float(self.animate_float(*from, *to, progress, direction))
             }
-            AnimPropValues::Width(p) | AnimPropValues::Height(p) => {
-                AnimValue::Float(self.animate_float(p.from, p.to, time, direction))
-            }
-            | AnimPropValues::BorderRadius(p)
-            // | AnimPropValues::Scale(p)
-            // | AnimPropValues::TranslateX(p)
-            // | AnimPropValues::TranslateY(p)
-            | AnimPropValues::BorderWidth(p)
-             => {
-                AnimValue::Float(self.animate_float(p.from, p.to, time, direction))
+            InterpolatedVal::DynProp { prop, from, to } => {
+                if let Some(from) = from.downcast_ref::<Px>() {
+                    let to = to.downcast_ref::<Px>().unwrap();
+                    return AnimValue::DynProp(Rc::new(Px(
+                        self.animate_float(from.0, to.0, progress, direction)
+                    )));
+                }
+                if let Some(from) = from.downcast_ref::<f64>() {
+                    let to = to.downcast_ref::<f64>().unwrap();
+                    return AnimValue::DynProp(Rc::new(
+                        self.animate_float(*from, *to, progress, direction),
+                    ));
+                }
+                if let Some(from) = from.downcast_ref::<Color>() {
+                    let to = to.downcast_ref::<Color>().unwrap();
+                    return AnimValue::DynProp(Rc::new(
+                        self.animate_color(*from, *to, progress, direction),
+                    ));
+                }
+                if let Some(from) = from.downcast_ref::<Option<Color>>() {
+                    let to = to.downcast_ref::<Option<Color>>().unwrap();
+                    let from = from.unwrap();
+                    let to = to.unwrap();
+                    return AnimValue::DynProp(Rc::new(Some(
+                        self.animate_color(from, to, progress, direction),
+                    )));
+                }
+                panic!("unknown type for {prop:?}")
             }
         }
     }
