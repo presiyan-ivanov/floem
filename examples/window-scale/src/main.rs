@@ -1,12 +1,15 @@
 use floem::{
     event::{Event, EventListener},
     keyboard::{Key, NamedKey},
+    kurbo::Size,
     peniko::Color,
     reactive::{create_rw_signal, create_signal},
     style_class,
     unit::UnitExt,
     view::View,
     views::{label, stack, Decorators},
+    window::WindowConfig,
+    Application,
 };
 
 style_class!(pub Button);
@@ -109,5 +112,14 @@ fn app_view() -> impl View {
 }
 
 fn main() {
-    floem::launch(app_view);
+    Application::new()
+        .window(
+            |_| app_view(),
+            Some(
+                WindowConfig::default()
+                    .size(Size::new(600.0, 600.0))
+                    .title("Window Scale example"),
+            ),
+        )
+        .run();
 }

@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use floem_reactive::WriteSignal;
+use kurbo::Size;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use winit::{
@@ -45,6 +46,10 @@ pub(crate) enum AppUpdateEvent {
     },
     CloseWindow {
         window_id: WindowId,
+    },
+    ResizeWindow {
+        window_id: WindowId,
+        new_size: Size
     },
     CaptureWindow {
         window_id: WindowId,

@@ -1,5 +1,11 @@
 use floem::{
-    peniko::Color, reactive::create_rw_signal, style::CursorStyle, view::View, views::Decorators,
+    event::{Event, EventListener},
+    keyboard::{Key, NamedKey},
+    peniko::Color,
+    reactive::create_rw_signal,
+    style::CursorStyle,
+    view::View,
+    views::Decorators,
     widgets::text_input,
 };
 
@@ -32,6 +38,13 @@ pub fn text_input_view() -> impl View {
                             })
                     })
                     .keyboard_navigatable()
+                    .on_event_stop(EventListener::KeyDown, move |e| {
+                        if let Event::KeyDown(e) = e {
+                            if e.key.logical_key == Key::Named(NamedKey::Enter) {
+                                println!("Enter pressed")
+                            }
+                        }
+                    })
             }),
             form_item("Disabled Input:".to_string(), 120.0, move || {
                 text_input(text).disabled(|| true)

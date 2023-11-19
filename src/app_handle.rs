@@ -63,6 +63,12 @@ impl ApplicationHandle {
                 AppUpdateEvent::CloseWindow { window_id } => {
                     self.close_window(window_id, event_loop);
                 }
+                AppUpdateEvent::ResizeWindow {
+                    window_id,
+                    new_size,
+                } => {
+                    self.resize_window(window_id, new_size);
+                }
                 AppUpdateEvent::RequestTimer { timer } => {
                     self.request_timer(timer, event_loop);
                 }
@@ -313,6 +319,12 @@ impl ApplicationHandle {
         #[cfg(not(target_os = "macos"))]
         if self.window_handles.is_empty() {
             event_loop.exit();
+        }
+    }
+
+    fn resize_window(&mut self, window_id: WindowId, size: Size) {
+        if let Some(window_handle) = self.window_handles.get_mut(&window_id) {
+            window_handle.size(size);
         }
     }
 

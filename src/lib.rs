@@ -124,4 +124,4 @@ pub use floem_renderer::Renderer;
 pub use kurbo;
 pub use peniko;
 pub use taffy;
-pub use window::{close_window, new_window};
+pub use window::{close_window, new_window, resize_window};

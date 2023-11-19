@@ -95,6 +95,11 @@ pub fn new_window<V: View + 'static>(
     });
 }
 
+/// Request the window to be resized programmatically.
+pub fn resize_window(window_id: WindowId, new_size: Size) {
+    add_app_update_event(AppUpdateEvent::ResizeWindow { window_id, new_size });
+}
+
 /// request the window to be closed
 pub fn close_window(window_id: WindowId) {
     add_app_update_event(AppUpdateEvent::CloseWindow { window_id });
