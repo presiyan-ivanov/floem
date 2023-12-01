@@ -123,6 +123,7 @@ impl View for Label {
 
     fn update(&mut self, cx: &mut UpdateCx, state: Box<dyn Any>) {
         if let Ok(state) = state.downcast() {
+            dbg!(&state);
             self.label = *state;
             self.text_layout = None;
             self.available_text = None;

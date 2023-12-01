@@ -1,12 +1,13 @@
 use crate::action::exec_after;
 use crate::keyboard::{self, KeyEvent};
 use crate::reactive::{create_effect, RwSignal};
-use crate::style::{FontProps, PaddingLeft};
+use crate::style::{FontProps, FontSize, PaddingLeft};
 use crate::style::{FontStyle, FontWeight, TextColor};
 use crate::unit::{PxPct, PxPctAuto};
 use crate::view::ViewData;
 use crate::widgets::PlaceholderTextClass;
 use crate::{prop_extracter, Clipboard, EventPropagation};
+use floem_reactive::as_child_of_current_scope;
 use taffy::prelude::{Layout, Node};
 
 use floem_renderer::{cosmic_text::Cursor, Renderer};
@@ -30,7 +31,7 @@ use crate::{
     id::Id,
 };
 
-use super::Decorators;
+use super::{label, Decorators, Label};
 
 prop_extracter! {
     Extracter {
@@ -60,6 +61,7 @@ enum InputKind {
 pub struct TextInput {
     data: ViewData,
     buffer: RwSignal<String>,
+    child: Box<dyn View>,
     pub(crate) placeholder_text: Option<String>,
     placeholder_buff: Option<TextLayout>,
     placeholder_style: PlaceholderStyle,
@@ -110,6 +112,7 @@ pub enum Direction {
 /// Text Input View
 pub fn text_input(buffer: RwSignal<String>) -> TextInput {
     let id = Id::next();
+    let view_fn = label(|| "kekw");
 
     {
         create_effect(move |_| {
@@ -120,6 +123,7 @@ pub fn text_input(buffer: RwSignal<String>) -> TextInput {
 
     TextInput {
         data: ViewData::new(id),
+        child: Box::new(view_fn),
         cursor_glyph_idx: 0,
         placeholder_text: None,
         placeholder_buff: None,
@@ -830,6 +834,15 @@ impl View for TextInput {
 
     fn update(&mut self, cx: &mut UpdateCx, state: Box<dyn Any>) {
         if state.downcast::<String>().is_ok() {
+            self.update_text_layout();
+            let text = if let Some(clip_txt) = self.clip_txt_buf.as_mut() {
+                clip_txt.lines.first().unwrap().text().to_owned()
+            } else {
+                self.buffer.get_untracked()
+            };
+
+            self.child.as_mut().update(cx, Box::new(text));
+
             cx.request_layout(self.id());
         } else {
             eprintln!("downcast failed");
@@ -893,6 +906,14 @@ impl View for TextInput {
         let style = cx.style();
         if self.font.read(cx) || self.text_buf.is_none() {
             self.update_text_layout();
+
+            let child = &mut self.child;
+            cx.style_view(child);
+            let child_view = cx.app_state_mut().view_state(child.id());
+            child_view.combined_style = child_view
+                .combined_style
+                .clone()
+                .set(FontSize, self.font_size());
             cx.app_state_mut().request_layout(self.id());
         }
         if self.style.read(cx) {
@@ -906,6 +927,8 @@ impl View for TextInput {
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
         cx.layout_node(self.id(), true, |cx| {
             self.is_focused = cx.app_state().is_focused(&self.id());
+
+            let label_node = cx.layout_view(self.child.as_mut());
 
             if self.text_node.is_none() {
                 self.text_node = Some(
@@ -939,6 +962,7 @@ impl View for TextInput {
                     APPROX_VISIBLE_CHARS_TARGET * self.glyph_max_size.width as f32
                 }
             };
+            dbg!(node_width, width_px);
             self.is_auto_width = matches!(style_width, PxPctAuto::Auto);
 
             let padding_left = match style.padding_left() {
@@ -960,7 +984,7 @@ impl View for TextInput {
                 .to_taffy_style();
             let _ = cx.app_state_mut().taffy.set_style(text_node, style);
 
-            vec![text_node]
+            vec![text_node, label_node]
         })
     }
 
@@ -973,11 +997,14 @@ impl View for TextInput {
         if !cx.app_state.is_focused(&self.id())
             && self.buffer.with_untracked(|buff| buff.is_empty())
         {
+            self.child.paint(cx);
             if let Some(placeholder_buff) = &self.placeholder_buff {
                 self.paint_placeholder_text(placeholder_buff, cx);
             }
             return;
         }
+
+        self.child.paint(cx);
 
         let text_node = self.text_node.unwrap();
         let text_buf = self.text_buf.as_ref().unwrap();
