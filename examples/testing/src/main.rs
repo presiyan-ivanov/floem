@@ -12,7 +12,7 @@ fn app_view() -> impl View {
 
     let view = h_stack((
         text("Label: "),
-        text_input(value).style(|s| s.width_pct(100.0)),
+        text_input(value).style(|s| s.width_pct(20.0)),
     ))
     .style(|s| s.width_full().items_center());
 

@@ -1,7 +1,7 @@
 use crate::action::exec_after;
 use crate::keyboard::{self, KeyEvent};
 use crate::reactive::{create_effect, RwSignal};
-use crate::style::{FontProps, FontSize, PaddingLeft};
+use crate::style::{FontProps, FontSize, PaddingLeft, TextOverflow, TextOverflowProp};
 use crate::style::{FontStyle, FontWeight, TextColor};
 use crate::unit::{PxPct, PxPctAuto};
 use crate::view::ViewData;
@@ -913,7 +913,8 @@ impl View for TextInput {
             child_view.combined_style = child_view
                 .combined_style
                 .clone()
-                .set(FontSize, self.font_size());
+                .set(FontSize, self.font_size())
+                .set(TextOverflowProp, TextOverflow::Clip);
             cx.app_state_mut().request_layout(self.id());
         }
         if self.style.read(cx) {
@@ -957,7 +958,7 @@ impl View for TextInput {
             let style_width = style.width();
             let width_px = match style_width {
                 crate::unit::PxPctAuto::Px(px) => px as f32,
-                crate::unit::PxPctAuto::Pct(pct) => pct as f32 / 100.0 * node_width,
+                crate::unit::PxPctAuto::Pct(pct) => node_width,
                 crate::unit::PxPctAuto::Auto => {
                     APPROX_VISIBLE_CHARS_TARGET * self.glyph_max_size.width as f32
                 }
