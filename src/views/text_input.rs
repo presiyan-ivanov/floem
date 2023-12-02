@@ -2,15 +2,15 @@ use crate::action::exec_after;
 use crate::keyboard::{self, KeyEvent};
 use crate::reactive::{create_effect, RwSignal};
 use crate::style::{
-    Background, BorderColor, FontProps, FontSize, PaddingLeft, TextOverflow, TextOverflowProp,
-    Width, MarginTop, MarginLeft,
+    Background, BorderColor, FontProps, FontSize, MarginLeft, MarginTop, PaddingLeft, TextOverflow,
+    TextOverflowProp, Width,
 };
 use crate::style::{FontStyle, FontWeight, TextColor};
 use crate::unit::{PxPct, PxPctAuto};
 use crate::view::ViewData;
 use crate::widgets::PlaceholderTextClass;
 use crate::{prop_extracter, Clipboard, EventPropagation};
-use floem_reactive::as_child_of_current_scope;
+use floem_reactive::{as_child_of_current_scope, create_rw_signal};
 use taffy::prelude::{Layout, Node};
 
 use floem_renderer::{cosmic_text::Cursor, Renderer};
@@ -64,6 +64,7 @@ enum InputKind {
 pub struct TextInput {
     data: ViewData,
     buffer: RwSignal<String>,
+    visible_text_mode: RwSignal<VisibleTextKind>,
     child: Box<dyn View>,
     pub(crate) placeholder_text: Option<String>,
     placeholder_buff: Option<TextLayout>,
@@ -112,20 +113,38 @@ pub enum Direction {
     Right,
 }
 
+pub(crate) struct TextInputState {
+    text: String,
+    vis_text_kind: VisibleTextKind,
+}
+
+#[derive(PartialEq, Clone, Debug, Copy)]
+enum VisibleTextKind {
+    Original,
+    Clipped { start: usize, end: usize },
+    Placeholder,
+}
+
 /// Text Input View
 pub fn text_input(buffer: RwSignal<String>) -> TextInput {
     let id = Id::next();
-    let view_fn = label(|| "kekw");
+    let view_fn = label(|| "");
+    let visible_text_mode = create_rw_signal(VisibleTextKind::Original);
 
     {
         create_effect(move |_| {
-            let text = buffer.get();
-            id.update_state(text, false);
+            println!("effect runs");
+            let text_input_state = TextInputState {
+                text: buffer.get(),
+                vis_text_kind: visible_text_mode.get(),
+            };
+            id.update_state(text_input_state, false);
         });
     }
 
     TextInput {
         data: ViewData::new(id),
+        visible_text_mode,
         child: Box::new(view_fn),
         cursor_glyph_idx: 0,
         placeholder_text: None,
@@ -298,13 +317,14 @@ impl TextInput {
             .hit_point(Point::new(clip_start_x + node_width, 0.0))
             .index;
 
-        let new_text = self
+        let new_text: String = self
             .buffer
             .get()
             .chars()
             .skip(clip_start)
             .take(clip_end - clip_start)
             .collect();
+        dbg!(&new_text);
 
         self.cursor_x -= clip_start_x;
         self.clip_start_idx = clip_start;
@@ -319,6 +339,10 @@ impl TextInput {
             }
             ClipDirection::Backward => self.clip_offset_x = 0.0,
         }
+        self.update_visible_text_mode(VisibleTextKind::Clipped {
+            start: clip_start,
+            end: clip_end,
+        });
     }
 
     fn get_cursor_rect(&self, node_layout: &Layout) -> Rect {
@@ -789,6 +813,12 @@ impl TextInput {
         let text_start_point = Point::new(node_location.x as f64, node_location.y as f64);
         cx.draw_text(placeholder_buff, text_start_point);
     }
+
+    fn update_visible_text_mode(&mut self, new_mode: VisibleTextKind) {
+        if self.visible_text_mode.with_untracked(|curr| *curr) != new_mode {
+            self.visible_text_mode.update(|mode| *mode = new_mode);
+        }
+    }
 }
 
 fn replace_range(buff: &mut String, del_range: Range<usize>, replacement: Option<&str>) {
@@ -851,20 +881,34 @@ impl View for TextInput {
     }
 
     fn update(&mut self, cx: &mut UpdateCx, state: Box<dyn Any>) {
-        if state.downcast::<String>().is_ok() {
-            let text = if let Some(clip_txt) = self.clip_txt_buf.as_mut() {
-                dbg!(clip_txt.lines.first().unwrap().text().to_owned())
-            } else if self.buffer.get_untracked().is_empty()
-                && self.placeholder_text.is_some()
-                && !cx.app_state.is_focused(&self.id())
-            {
-                self.placeholder_text.clone().unwrap()
-            } else {
-                self.buffer.get_untracked()
+        if let Ok(state) = state.downcast::<TextInputState>() {
+            let visible_text = match state.vis_text_kind {
+                VisibleTextKind::Original => self.buffer.get_untracked(),
+                VisibleTextKind::Clipped { .. } => self
+                    .clip_txt_buf
+                    .as_mut()
+                    .unwrap()
+                    .lines
+                    .first()
+                    .unwrap()
+                    .text()
+                    .to_owned(),
+                VisibleTextKind::Placeholder => self.placeholder_text.clone().unwrap(),
             };
 
+            // let text = if let Some(clip_txt) = self.clip_txt_buf.as_mut() {
+            //     dbg!(clip_txt.lines.first().unwrap().text().to_owned())
+            // } else if self.buffer.get_untracked().is_empty()
+            //     && self.placeholder_text.is_some()
+            //     && !cx.app_state.is_focused(&self.id())
+            // {
+            //     self.placeholder_text.clone().unwrap()
+            // } else {
+            //     self.buffer.get_untracked()
+            // };
+
             self.update_text_layout();
-            self.child.as_mut().update(cx, Box::new(text));
+            self.child.as_mut().update(cx, Box::new(visible_text));
 
             cx.request_all(self.id());
         } else {
@@ -917,6 +961,13 @@ impl View for TextInput {
 
             _ => false,
         };
+
+        if self.visible_text_mode.with_untracked(|mode| *mode) != VisibleTextKind::Placeholder
+            && self.buffer.with_untracked(|buff| buff.is_empty())
+            && self.placeholder_text.is_some()
+        {
+            self.update_visible_text_mode(VisibleTextKind::Placeholder);
+        }
 
         if is_handled {
             cx.app_state.request_layout(self.id());
@@ -1019,6 +1070,7 @@ impl View for TextInput {
 
     fn compute_layout(&mut self, cx: &mut crate::context::ComputeLayoutCx) -> Option<Rect> {
         self.update_text_layout();
+        println!("com layout");
 
         let text_node = self.text_node.unwrap();
         let text_buf = self.text_buf.as_ref().unwrap();
@@ -1040,6 +1092,8 @@ impl View for TextInput {
                         .unwrap()
                         .hit_position(self.cursor_glyph_idx);
                     self.cursor_x = hit_pos.point.x;
+
+                    self.update_visible_text_mode(VisibleTextKind::Original);
                 }
             }
             InputKind::MultiLine { .. } => {
