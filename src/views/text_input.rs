@@ -1,7 +1,10 @@
 use crate::action::exec_after;
 use crate::keyboard::{self, KeyEvent};
 use crate::reactive::{create_effect, RwSignal};
-use crate::style::{FontProps, FontSize, PaddingLeft, TextOverflow, TextOverflowProp};
+use crate::style::{
+    Background, BorderColor, FontProps, FontSize, PaddingLeft, TextOverflow, TextOverflowProp,
+    Width, MarginTop, MarginLeft,
+};
 use crate::style::{FontStyle, FontWeight, TextColor};
 use crate::unit::{PxPct, PxPctAuto};
 use crate::view::ViewData;
@@ -832,18 +835,38 @@ impl View for TextInput {
         format!("TextInput: {:?}", self.buffer.get_untracked()).into()
     }
 
+    fn for_each_child<'a>(&'a self, for_each: &mut dyn FnMut(&'a dyn View) -> bool) {
+        for_each(&self.child);
+    }
+
+    fn for_each_child_mut<'a>(&'a mut self, for_each: &mut dyn FnMut(&'a mut dyn View) -> bool) {
+        for_each(&mut self.child);
+    }
+
+    fn for_each_child_rev_mut<'a>(
+        &'a mut self,
+        for_each: &mut dyn FnMut(&'a mut dyn View) -> bool,
+    ) {
+        for_each(&mut self.child);
+    }
+
     fn update(&mut self, cx: &mut UpdateCx, state: Box<dyn Any>) {
         if state.downcast::<String>().is_ok() {
-            self.update_text_layout();
             let text = if let Some(clip_txt) = self.clip_txt_buf.as_mut() {
-                clip_txt.lines.first().unwrap().text().to_owned()
+                dbg!(clip_txt.lines.first().unwrap().text().to_owned())
+            } else if self.buffer.get_untracked().is_empty()
+                && self.placeholder_text.is_some()
+                && !cx.app_state.is_focused(&self.id())
+            {
+                self.placeholder_text.clone().unwrap()
             } else {
                 self.buffer.get_untracked()
             };
 
+            self.update_text_layout();
             self.child.as_mut().update(cx, Box::new(text));
 
-            cx.request_layout(self.id());
+            cx.request_all(self.id());
         } else {
             eprintln!("downcast failed");
         }
@@ -891,6 +914,7 @@ impl View for TextInput {
                 false
             }
             Event::KeyDown(event) => self.handle_key_down(cx, event),
+
             _ => false,
         };
 
@@ -914,11 +938,16 @@ impl View for TextInput {
                 .combined_style
                 .clone()
                 .set(FontSize, self.font_size())
-                .set(TextOverflowProp, TextOverflow::Clip);
-            cx.app_state_mut().request_layout(self.id());
+                .set(MarginLeft, PxPctAuto::Px(5.0))
+                .set(Width, PxPctAuto::Px(300.0))
+                .set(TextOverflowProp, TextOverflow::Clip)
+                .set(Background, Color::RED)
+                .set(TextColor, Color::RED)
+                .set(BorderColor, Color::RED);
         }
+
         if self.style.read(cx) {
-            cx.app_state_mut().request_paint(self.id());
+            cx.app_state_mut().request_paint(self.child.id());
         }
 
         let placeholder_style = style.clone().apply_class(PlaceholderTextClass);
@@ -963,7 +992,6 @@ impl View for TextInput {
                     APPROX_VISIBLE_CHARS_TARGET * self.glyph_max_size.width as f32
                 }
             };
-            dbg!(node_width, width_px);
             self.is_auto_width = matches!(style_width, PxPctAuto::Auto);
 
             let padding_left = match style.padding_left() {
@@ -989,34 +1017,14 @@ impl View for TextInput {
         })
     }
 
-    fn compute_layout(&mut self, _cx: &mut crate::context::ComputeLayoutCx) -> Option<Rect> {
+    fn compute_layout(&mut self, cx: &mut crate::context::ComputeLayoutCx) -> Option<Rect> {
         self.update_text_layout();
-        None
-    }
-
-    fn paint(&mut self, cx: &mut crate::context::PaintCx) {
-        if !cx.app_state.is_focused(&self.id())
-            && self.buffer.with_untracked(|buff| buff.is_empty())
-        {
-            self.child.paint(cx);
-            if let Some(placeholder_buff) = &self.placeholder_buff {
-                self.paint_placeholder_text(placeholder_buff, cx);
-            }
-            return;
-        }
-
-        self.child.paint(cx);
 
         let text_node = self.text_node.unwrap();
         let text_buf = self.text_buf.as_ref().unwrap();
         let buf_width = text_buf.size().width;
         let node_layout = *cx.app_state.taffy.layout(text_node).unwrap();
         let node_width = node_layout.size.width as f64;
-        let cursor_color = cx
-            .app_state
-            .get_computed_style(self.id())
-            .builtin()
-            .cursor_color();
 
         match self.input_kind {
             InputKind::SingleLine => {
@@ -1038,6 +1046,51 @@ impl View for TextInput {
                 todo!();
             }
         }
+        None
+    }
+
+    fn paint(&mut self, cx: &mut crate::context::PaintCx) {
+        if !cx.app_state.is_focused(&self.id())
+            && self.buffer.with_untracked(|buff| buff.is_empty())
+        {
+            self.child.paint(cx);
+            if let Some(placeholder_buff) = &self.placeholder_buff {
+                self.paint_placeholder_text(placeholder_buff, cx);
+            }
+            return;
+        }
+
+        let text_node = self.text_node.unwrap();
+        // let text_buf = self.text_buf.as_ref().unwrap();
+        // let buf_width = text_buf.size().width;
+        let node_layout = *cx.app_state.taffy.layout(text_node).unwrap();
+        let node_width = node_layout.size.width as f64;
+        let cursor_color = cx
+            .app_state
+            .get_computed_style(self.id())
+            .builtin()
+            .cursor_color();
+
+        // match self.input_kind {
+        //     InputKind::SingleLine => {
+        //         if buf_width > node_width {
+        //             self.clip_text(&node_layout);
+        //         } else {
+        //             self.clip_txt_buf = None;
+        //             self.clip_start_idx = 0;
+        //             self.clip_start_x = 0.0;
+        //             let hit_pos = self
+        //                 .text_buf
+        //                 .as_ref()
+        //                 .unwrap()
+        //                 .hit_position(self.cursor_glyph_idx);
+        //             self.cursor_x = hit_pos.point.x;
+        //         }
+        //     }
+        //     InputKind::MultiLine { .. } => {
+        //         todo!();
+        //     }
+        // }
 
         let location = node_layout.location;
         let text_start_point = Point::new(location.x as f64, location.y as f64);
@@ -1080,7 +1133,9 @@ impl View for TextInput {
             self.selection = None;
         }
 
+        self.child.paint(cx);
         let id = self.id();
+        //TODO: store timer token and cancel the timer if we handle an action in the event method
         exec_after(
             Duration::from_millis(CURSOR_BLINK_INTERVAL_MS),
             Box::new(move |_| {
