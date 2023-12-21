@@ -12,11 +12,11 @@ enum MovieFilter {
 }
 
 enum TvShowFilter {
+    CurrentlyAiring,
+    AiringToday,
     Trending,
     Popular,
     TopRated,
-    CurrentlyAiring,
-    AiringToday
     // Upcoming
 }
 
