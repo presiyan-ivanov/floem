@@ -3,7 +3,7 @@ use floem::{
     reactive::{create_signal, ReadSignal},
     style::Position,
     view::View,
-    views::{container, empty, h_stack, img, label, stack, static_label, v_stack, Decorators},
+    views::{container, empty, h_stack, img, label, stack, static_label, svg, v_stack, Decorators},
 };
 
 use crate::models::{Movie, Page};
@@ -30,6 +30,7 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         movie.with_untracked(|m| m.release_date.split('-').next().unwrap().to_owned());
     let movie_details_width = 700.0;
     let bg_container_width = 300.0;
+    let backdrop_gradient = include_str!("../../assets/backdrop_gradient.svg");
     h_stack((
         dyn_img().style(move |s| s.margin_left(bg_container_width).height_full()),
         empty().style(move |s| {
@@ -57,6 +58,12 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .width(movie_details_width)
                 .justify_center()
                 .height_full()
+        }),
+        svg(move || backdrop_gradient.to_string()).style(move |s| {
+            s.width(400.)
+                .height_full()
+                .margin_left(movie_details_width)
+                .position(Position::Absolute)
         }),
     ))
 }
