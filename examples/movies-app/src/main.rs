@@ -1,5 +1,6 @@
 pub mod data_provider;
 pub mod models;
+pub mod screens;
 
 use floem::{
     event::{Event, EventListener},
@@ -16,6 +17,7 @@ use floem::{
     widgets::button,
     EventPropagation,
 };
+use screens::home::home_view;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum MainTab {
@@ -122,7 +124,7 @@ fn app_view() -> impl View {
         .style(|s| {
             s.width_full()
                 .height_full()
-                .gap(5.0, 0.0)
+                .gap(0.0, 0.0)
                 .background(Color::rgb8(20, 20, 20))
         })
         .window_title(|| "Movies App".to_owned());
@@ -135,10 +137,6 @@ fn app_view() -> impl View {
             }
         }
     })
-}
-
-fn home_view() -> impl View {
-    static_label("Home").style(|s| s.font_size(24.0))
 }
 
 fn movies_view() -> impl View {

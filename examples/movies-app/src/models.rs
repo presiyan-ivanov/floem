@@ -1,25 +1,38 @@
-// #[derive(Debug, PartialEq, Deserialize, Serialize)]
-// pub struct Movie {
-//     pub id: u64,
-//     pub imdb_id: String,
-//     pub title: String,
-//     pub tagline: String,
-//     pub original_title: String,
-//     pub original_language: String,
-//     pub overview: Option<String>,
-//     //TODO: chrono-rs
-//     pub release_date: String,
-//     pub runtime: u32,
-//     pub homepage: Option<String>,
-//     pub genres: Vec<Genre>,
-//     pub poster_path: Option<String>,
-//     pub backdrop_path: Option<String>,
-//     pub popularity: f64,
-//     pub budget: u64,
-//     pub adult: bool,
-//     pub videos: Option<Results<Video>>,
-//     pub credits: Option<Credits>,
-// }
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Page<T> {
+    pub page: u32,
+    pub results: Vec<T>,
+    pub total_pages: u32,
+    pub total_results: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct Movie {
+    pub id: u64,
+    // pub imdb_id: String,
+    pub title: String,
+    // pub tagline: String,
+    pub original_title: String,
+    pub original_language: String,
+    pub overview: Option<String>,
+    //TODO: chrono-rs
+    pub release_date: String,
+    // pub runtime: u32,
+    pub homepage: Option<String>,
+    // pub genres: Vec<Genre>,
+    pub poster_path: Option<String>,
+    pub backdrop_path: Option<String>,
+    pub popularity: f64,
+    pub vote_count: usize,
+    pub vote_average: f64,
+    // pub budget: u64,
+    pub adult: bool,
+    // pub videos: Option<Results<Video>>,
+    // pub credits: Option<Credits>,
+}
+
 //
 // #[derive(Debug, PartialEq, Deserialize, Serialize)]
 // pub struct Episode {

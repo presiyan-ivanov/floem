@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 im = "15.1.0"
 floem = { path = "../.." }
+serde = "1.0.193"
+serde_json = "1.0.108"
