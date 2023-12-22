@@ -29,6 +29,7 @@ enum MainTab {
 
 static FG_COLOR: Color = Color::WHITE;
 static ACCENT_FG_COLOR: Color = Color::rgb8(64, 193, 173);
+static BG_COLOR: Color = Color::rgb8(20, 20, 20);
 
 fn app_view() -> impl View {
     let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows", "Search"]
