@@ -27,9 +27,11 @@ enum MainTab {
     TvShows,
 }
 
-static FG_COLOR: Color = Color::WHITE;
-static ACCENT_FG_COLOR: Color = Color::rgb8(64, 193, 173);
-static BG_COLOR: Color = Color::rgb8(20, 20, 20);
+static PRIMARY_FG_COLOR: Color = Color::WHITE;
+static ACCENT_COLOR: Color = Color::rgb8(64, 193, 173);
+static NEUTRAL_BG_COLOR: Color = Color::BLACK;
+static SECONDARY_BG_COLOR: Color = Color::rgb8(20, 20, 20);
+static BG_COLOR_2: Color = Color::rgb8(32, 33, 36);
 
 fn app_view() -> impl View {
     let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows", "Search"]
@@ -59,9 +61,9 @@ fn app_view() -> impl View {
                 x => panic!("Unknown tab: {}", x),
             })
             .style(move |s| {
-                s.size(22.px(), 22.px())
-                    .color(FG_COLOR)
-                    .apply_if(index == active_tab.get(), |s| s.color(ACCENT_FG_COLOR))
+                s.size(24.px(), 24.px())
+                    .color(PRIMARY_FG_COLOR)
+                    .apply_if(index == active_tab.get(), |s| s.color(ACCENT_COLOR))
             }),))
             .on_click_stop(move |_| {
                 set_active_tab.update(|v: &mut usize| {
@@ -75,13 +77,12 @@ fn app_view() -> impl View {
             .keyboard_navigatable()
             .draggable()
             .style(move |s| {
-                s.width(100.)
-                    .padding_vert(10.)
+                s.padding_vert(10.)
                     .transition(TextColor, Transition::linear(0.4))
-                    .color(FG_COLOR)
+                    .color(PRIMARY_FG_COLOR)
                     .items_center()
-                    .focus_visible(|s| s.border(1.).border_color(Color::BLUE))
-                    .hover(|s| s.background(Color::LIGHT_GRAY).cursor(CursorStyle::Pointer))
+                    .focus_visible(|s| s.border(1.).border_color(ACCENT_COLOR))
+                    .hover(|s| s.background(BG_COLOR_2).cursor(CursorStyle::Pointer))
             })
         },
     )
@@ -90,15 +91,16 @@ fn app_view() -> impl View {
             .height_full()
             .justify_content(Some(JustifyContent::SpaceAround))
             .padding_vert(60.)
-            .background(Color::BLACK)
-            .border_color(Color::rgb8(32, 33, 36))
+            .width(60.)
+            .background(NEUTRAL_BG_COLOR)
+            .border_color(BG_COLOR_2)
             .border_right(1.0)
     });
 
     let list = container(list).style(|s| s.flex_grow(1.0).min_height(0));
 
     let id = list.id();
-    let inspector = button(|| "Open Inspector")
+    let inspector = button(|| "Inspect")
         .on_click_stop(move |_| {
             id.inspect();
         })
@@ -126,15 +128,11 @@ fn app_view() -> impl View {
             .margin(0.)
             .height_full()
             .flex_grow(1.0)
-            .color(Color::WHITE)
+            .color(PRIMARY_FG_COLOR)
     });
 
     let view = h_stack((nav_left, tab_contents))
-        .style(|s| {
-            s.width_full()
-                .height_full()
-                .background(Color::rgb8(20, 20, 20))
-        })
+        .style(|s| s.width_full().height_full().background(SECONDARY_BG_COLOR))
         .window_title(|| "Movies App".to_owned());
 
     let id = view.id();
