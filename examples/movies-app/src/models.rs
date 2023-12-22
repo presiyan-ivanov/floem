@@ -1,14 +1,16 @@
+use std::hash::{Hash, Hasher};
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Page<T> {
+#[derive(Deserialize, Serialize)]
+pub struct Page<T: Clone> {
     pub page: u32,
-    pub results: Vec<T>,
+    pub results: im::Vector<T>,
     pub total_pages: u32,
     pub total_results: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Movie {
     pub id: u64,
     // pub imdb_id: String,
@@ -31,6 +33,20 @@ pub struct Movie {
     pub adult: bool,
     // pub videos: Option<Results<Video>>,
     // pub credits: Option<Credits>,
+}
+
+impl PartialEq for Movie {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Movie {}
+
+impl Hash for Movie {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 //

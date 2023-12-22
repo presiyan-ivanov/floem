@@ -1,4 +1,5 @@
 pub mod data_provider;
+pub mod linear_grad_backdrop;
 pub mod models;
 pub mod screens;
 
@@ -7,7 +8,7 @@ use floem::{
     keyboard::{Key, NamedKey},
     peniko::Color,
     reactive::create_signal,
-    style::{Background, CursorStyle, Transition},
+    style::{Background, CursorStyle, JustifyContent, TextColor, Transition},
     unit::UnitExt,
     view::View,
     views::{
@@ -26,8 +27,13 @@ enum MainTab {
     TvShows,
 }
 
+static FG_COLOR: Color = Color::WHITE;
+static ACCENT_FG_COLOR: Color = Color::rgb8(64, 193, 173);
+
 fn app_view() -> impl View {
-    let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows"].into_iter().collect();
+    let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows", "Search"]
+        .into_iter()
+        .collect();
     let (tabs, _set_tabs) = create_signal(tabs);
     let home_icon = include_str!("../assets/home_icon.svg");
     let movie_icon = include_str!("../assets/movie_icon.svg");
@@ -48,9 +54,14 @@ fn app_view() -> impl View {
                 "Home" => home_icon.to_string(),
                 "Movies" => movie_icon.to_string(),
                 "TvShows" => tv_icon.to_string(),
+                "Search" => home_icon.to_string(),
                 x => panic!("Unknown tab: {}", x),
             })
-            .style(|s| s.size(22., 22.).color(Color::WHITE)),))
+            .style(move |s| {
+                s.size(22.px(), 22.px())
+                    .color(FG_COLOR)
+                    .apply_if(index == active_tab.get(), |s| s.color(ACCENT_FG_COLOR))
+            }),))
             .on_click_stop(move |_| {
                 set_active_tab.update(|v: &mut usize| {
                     *v = tabs
@@ -63,27 +74,21 @@ fn app_view() -> impl View {
             .keyboard_navigatable()
             .draggable()
             .style(move |s| {
-                s.padding(5.0)
-                    .width(70.px())
-                    .margin_top(40.0)
-                    .transition(Background, Transition::linear(0.4))
+                s.width(100.)
+                    .padding_vert(10.)
+                    .transition(TextColor, Transition::linear(0.4))
+                    .color(FG_COLOR)
                     .items_center()
-                    .border_color(Color::LIGHT_GRAY)
-                    .apply_if(index == active_tab.get(), |s| {
-                        s.background(Color::GRAY.with_alpha_factor(0.6))
-                    })
-                    .focus_visible(|s| s.border(2.).border_color(Color::BLUE))
-                    .hover(|s| {
-                        s.background(Color::LIGHT_GRAY)
-                            .apply_if(index == active_tab.get(), |s| s.background(Color::GRAY))
-                            .cursor(CursorStyle::Pointer)
-                    })
+                    .focus_visible(|s| s.border(1.).border_color(Color::BLUE))
+                    .hover(|s| s.background(Color::LIGHT_GRAY).cursor(CursorStyle::Pointer))
             })
         },
     )
     .style(|s| {
         s.flex_col()
-            .padding_top(50.)
+            .height_full()
+            .justify_content(Some(JustifyContent::SpaceAround))
+            .padding_vert(60.)
             .background(Color::BLACK)
             .border_color(Color::rgb8(32, 33, 36))
             .border_right(1.0)
@@ -108,6 +113,7 @@ fn app_view() -> impl View {
             "Home" => container_box(home_view()),
             "Movies" => container_box(movies_view()),
             "TvShows" => container_box(tv_shows_view()),
+            "Search" => container_box(label(|| "Not implemented".to_owned())),
             _ => container_box(label(|| "Not implemented".to_owned())),
         },
     )
@@ -115,7 +121,9 @@ fn app_view() -> impl View {
 
     let tab_contents = scroll(tab).style(|s| {
         s.flex_basis(0)
-            .width_full()
+            .padding(0.0)
+            .margin(0.)
+            .height_full()
             .flex_grow(1.0)
             .color(Color::WHITE)
     });
@@ -124,7 +132,6 @@ fn app_view() -> impl View {
         .style(|s| {
             s.width_full()
                 .height_full()
-                .gap(0.0, 0.0)
                 .background(Color::rgb8(20, 20, 20))
         })
         .window_title(|| "Movies App".to_owned());

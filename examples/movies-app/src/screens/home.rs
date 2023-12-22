@@ -2,8 +2,12 @@ use floem::{
     peniko::Color,
     reactive::{create_signal, ReadSignal},
     style::Position,
+    unit::UnitExt,
     view::View,
-    views::{container, empty, h_stack, img, label, stack, static_label, svg, v_stack, Decorators},
+    views::{
+        container, empty, h_stack, img, label, scroll, stack, static_label, svg, v_stack,
+        virtual_list, Decorators, VirtualListDirection, VirtualListItemSize,
+    },
 };
 
 use crate::models::{Movie, Page};
@@ -13,10 +17,48 @@ pub fn home_view() -> impl View {
     let popular_movies: Page<Movie> =
         serde_json::from_str(trending).expect("JSON was not well-formatted");
     let popular_movies = popular_movies.results;
-    let most_popular_movie = popular_movies.first().unwrap();
+    let most_popular_movie = popular_movies.get(0).unwrap();
     let (most_popular_movie, _) = create_signal(most_popular_movie.to_owned());
+    let (popular_movies, _) = create_signal(popular_movies);
 
-    movie_hero_container(most_popular_movie)
+    scroll(v_stack((
+        movie_hero_container(most_popular_movie),
+        label(move || "Trending Movies").style(|s| s.font_size(20.0).margin_top(20.0).margin_right(0)),
+        carousel(popular_movies),
+    )))
+}
+
+pub fn carousel(movies: ReadSignal<im::Vector<Movie>>) -> impl View {
+    container(
+        scroll(
+            virtual_list(
+                VirtualListDirection::Horizontal,
+                VirtualListItemSize::Fixed(Box::new(|| 32.0)),
+                move || movies.get(),
+                move |item| item.id,
+                move |item| movie_card(),
+            )
+            .style(|s| s.gap(10.0, 0.)),
+        )
+        .style(|s| s.width_full()),
+    )
+    .style(|s| {
+        s.size(100.pct(), 100.pct())
+            .padding_vert(20.0)
+            .flex_col()
+            .items_center()
+    })
+}
+
+pub fn movie_card() -> impl View {
+    let poster = include_bytes!("../../assets/poster.jpg");
+
+    img(move || poster.to_vec()).style(|s| {
+        s.width(200.)
+            .height(320.)
+            .border(3.)
+            .border_color(Color::rgba(156., 163., 175., 0.1))
+    })
 }
 
 pub fn dyn_img() -> impl View {
@@ -30,7 +72,7 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         movie.with_untracked(|m| m.release_date.split('-').next().unwrap().to_owned());
     let movie_details_width = 700.0;
     let bg_container_width = 300.0;
-    let backdrop_gradient = include_str!("../../assets/backdrop_gradient.svg");
+    // let backdrop_gradient = include_str!("../../assets/backdrop_gradient.svg");
     h_stack((
         dyn_img().style(move |s| s.margin_left(bg_container_width).height_full()),
         empty().style(move |s| {
@@ -59,11 +101,11 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .justify_center()
                 .height_full()
         }),
-        svg(move || backdrop_gradient.to_string()).style(move |s| {
-            s.width(400.)
-                .height_full()
-                .margin_left(movie_details_width)
-                .position(Position::Absolute)
-        }),
+        // svg(move || backdrop_gradient.to_string()).style(move |s| {
+        //     s.width(400.)
+        //         .height_full()
+        //         .margin_left(movie_details_width)
+        //         .position(Position::Absolute)
+        // }),
     ))
 }
