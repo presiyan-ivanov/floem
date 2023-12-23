@@ -3,6 +3,7 @@ use std::rc::Rc;
 use floem_reactive::create_effect;
 use floem_renderer::Renderer;
 use image::{DynamicImage, GenericImageView};
+use kurbo::Rect;
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -92,6 +93,8 @@ pub struct Img {
     img_hash: Option<Vec<u8>>,
     img_dimensions: Option<(u32, u32)>,
     content_node: Option<Node>,
+    width: f32,
+    height: f32,
 }
 
 pub fn img(image: impl Fn() -> Vec<u8> + 'static) -> Img {
@@ -109,6 +112,8 @@ pub(crate) fn img_dynamic(image: impl Fn() -> Option<Rc<DynamicImage>> + 'static
         img_hash: None,
         img_dimensions: None,
         content_node: None,
+        width: 0.,
+        height: 0.,
     }
 }
 
@@ -138,6 +143,50 @@ impl View for Img {
         }
     }
 
+    fn compute_layout(&mut self, cx: &mut crate::context::ComputeLayoutCx) -> Option<Rect> {
+        let layout = cx.app_state.get_layout(self.id()).unwrap();
+        let style = cx.app_state_mut().get_builtin_style(self.id());
+        let node_width = layout.size.width;
+        let node_height = layout.size.height;
+        if node_width == 0. || node_height == 0. {
+            return None;
+        }
+
+        let (img_width, img_height) = self.img_dimensions.unwrap_or((0, 0));
+        dbg!(img_width, img_height);
+
+        let content_node_width = match style.width() {
+            crate::unit::PxPctAuto::Px(px) => px as f32,
+            crate::unit::PxPctAuto::Pct(pct) => node_width * pct as f32 / 100.,
+            crate::unit::PxPctAuto::Auto => img_width as f32,
+        } as u32;
+
+        let content_node_height = match style.height() {
+            crate::unit::PxPctAuto::Px(px) => px as f32,
+            crate::unit::PxPctAuto::Pct(pct) => node_height * pct as f32 / 100.,
+            crate::unit::PxPctAuto::Auto => img_height as f32,
+        } as u32;
+
+        let (width, height) =
+            if img_width != content_node_width || img_height != content_node_height {
+                let img = self.img.as_ref().unwrap();
+                let img = img.resize(
+                    content_node_width,
+                    content_node_height,
+                    image::imageops::FilterType::Triangle,
+                );
+                self.img = Some(Rc::new(img));
+                (content_node_width, content_node_height)
+            } else {
+                (img_width, img_height)
+            };
+
+        self.width = width as f32;
+        self.height = height as f32;
+
+        None
+    }
+
     fn layout(&mut self, cx: &mut crate::context::LayoutCx) -> taffy::prelude::Node {
         cx.layout_node(self.id(), true, |cx| {
             if self.content_node.is_none() {
@@ -150,45 +199,9 @@ impl View for Img {
             }
             let content_node = self.content_node.unwrap();
 
-            let layout = cx.app_state.get_layout(self.id()).unwrap();
-            let style = cx.app_state_mut().get_builtin_style(self.id());
-            let node_width = layout.size.width;
-            let node_height = layout.size.height;
-
-            let (img_width, img_height) = self.img_dimensions.unwrap_or((0, 0));
-            dbg!(img_width, img_height);
-
-            let content_node_width = match style.width() {
-                crate::unit::PxPctAuto::Px(px) => px as f32,
-                crate::unit::PxPctAuto::Pct(pct) => node_width * pct as f32 / 100.,
-                crate::unit::PxPctAuto::Auto => img_width as f32,
-            } as u32;
-
-            let content_node_height = match style.height() {
-                crate::unit::PxPctAuto::Px(px) => px as f32,
-                crate::unit::PxPctAuto::Pct(pct) => node_height * pct as f32 / 100.,
-                crate::unit::PxPctAuto::Auto => img_height as f32,
-            } as u32;
-
-            let (width, height) =
-                if img_width != content_node_width || img_height != content_node_height {
-                    let img = self.img.as_ref().unwrap();
-                    let img = img.resize(
-                        content_node_width,
-                        content_node_height,
-                        image::imageops::FilterType::Nearest,
-                    );
-                    self.img = Some(Rc::new(img));
-                    (content_node_width, content_node_height)
-                } else {
-                    (img_width, img_height)
-                };
-
-            println!("img dimensions: {:?}", (width, height));
-
             let style = Style::new()
-                .width((width as f64).px())
-                .height((height as f64).px())
+                .width(self.width)
+                .height(self.height)
                 .to_taffy_style();
             let _ = cx.app_state_mut().taffy.set_style(content_node, style);
 

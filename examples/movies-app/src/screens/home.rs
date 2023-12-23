@@ -21,7 +21,7 @@ pub fn home_view() -> impl View {
     let popular_movies: Page<Movie> =
         serde_json::from_str(trending).expect("JSON was not well-formatted");
     let popular_movies = popular_movies.results;
-    let most_popular_movie = popular_movies.get(1).unwrap();
+    let most_popular_movie = popular_movies.get(0).unwrap();
     let (most_popular_movie, _) = create_signal(most_popular_movie.to_owned());
     let (popular_movies, _) = create_signal(popular_movies.take(7));
 
@@ -32,7 +32,7 @@ pub fn home_view() -> impl View {
             // carousel(popular_movies),
         ))
         .style(|s| s.padding(20.0).width_full()),
-    )))
+    ))).style(|s| s.width_full())
 }
 
 pub fn carousel(movies: ReadSignal<im::Vector<Movie>>) -> impl View {
@@ -148,8 +148,8 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
 pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
     let release_year =
         movie.with_untracked(|m| m.release_date.split('-').next().unwrap().to_owned());
-    let movie_details_width = 900.0;
-    let bg_container_width = 450.0;
+    let movie_details_width = 50.pct();
+    let bg_container_width = 30.pct();
     let backdrop_gradient = include_bytes!("../../assets/black_gradient3.png");
 
     h_stack((
@@ -160,18 +160,18 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .background(NEUTRAL_BG_COLOR)
         }),
         movie_img(movie).style(move |s| {
-            s.width(1700.)
+            s.width(100.pct())
                 .margin_left(bg_container_width)
-                .max_height(800.px())
+                .height_full()
         }),
         img(move || backdrop_gradient.to_vec()).style(move |s| {
-            s.width(600.)
-                .height(1000.)
+            s.width(movie_details_width)
+                .height_full()
                 .margin_left(bg_container_width)
                 .position(Position::Absolute)
         }),
         v_stack((
-            label(move || movie.get().title).style(|s| s.font_size(32.0).margin_vert(15.0)),
+            label(move || movie.get().title).style(|s| s.font_size(40.0).margin_vert(15.0)),
             h_stack((
                 stars_rating_bar(movie.get().vote_average),
                 label(move || format!("{:.1}", movie.get().vote_average))
@@ -183,7 +183,7 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
             ))
             .style(|s| s.color(Color::rgb8(153, 153, 153))),
             label(move || movie.get().overview.unwrap_or_default())
-                .style(|s| s.color(PRIMARY_FG_COLOR).width_pct(70.).margin_top(20.0)),
+                .style(|s| s.color(PRIMARY_FG_COLOR).width_pct(70.).margin_top(20.0).font_size(18.)),
         ))
         .style(move |s| {
             s.position(Position::Absolute)
@@ -193,4 +193,5 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .height_full()
         }),
     ))
+    .style(|s| s.max_height_pct(70.).height(1000.).width(2000))
 }
