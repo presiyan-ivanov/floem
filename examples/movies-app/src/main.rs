@@ -80,9 +80,14 @@ fn app_view() -> impl View {
             .style(move |s| {
                 s.padding_vert(10.)
                     .transition(TextColor, Transition::linear(0.4))
+                    .transition(Background, Transition::linear(0.4))
                     .color(PRIMARY_FG_COLOR)
                     .items_center()
-                    .focus_visible(|s| s.border(1.).border_color(ACCENT_COLOR))
+                    .focus_visible(|s| {
+                        s.border(3.)
+                            .border_color(ACCENT_COLOR.with_alpha_factor(0.8))
+                            .border_radius(5.)
+                    })
                     .hover(|s| s.background(BG_COLOR_2).cursor(CursorStyle::Pointer))
             })
         },

@@ -155,19 +155,16 @@ impl View for Img {
             let node_width = layout.size.width;
             let node_height = layout.size.height;
 
-            let width_style = style.width();
-            let height_style = style.height();
-
             let (img_width, img_height) = self.img_dimensions.unwrap_or((0, 0));
             dbg!(img_width, img_height);
 
-            let content_node_width = match width_style {
+            let content_node_width = match style.width() {
                 crate::unit::PxPctAuto::Px(px) => px as f32,
                 crate::unit::PxPctAuto::Pct(pct) => node_width * pct as f32 / 100.,
                 crate::unit::PxPctAuto::Auto => img_width as f32,
             } as u32;
 
-            let content_node_height = match height_style {
+            let content_node_height = match style.height() {
                 crate::unit::PxPctAuto::Px(px) => px as f32,
                 crate::unit::PxPctAuto::Pct(pct) => node_height * pct as f32 / 100.,
                 crate::unit::PxPctAuto::Auto => img_height as f32,

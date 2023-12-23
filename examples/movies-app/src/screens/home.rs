@@ -83,7 +83,7 @@ pub fn five_stars(kind: StarsKind) -> impl View {
     )
 }
 
-pub fn stars_rating(rating: f64) -> impl View {
+pub fn stars_rating_bar(rating: f64) -> impl View {
     debug_assert!(rating >= 0. && rating <= 10.);
     let width = STAR_WIDTH * 5.;
     let height = STAR_HEIGHT;
@@ -124,7 +124,7 @@ pub fn movie_card(movie: Movie) -> impl View {
         v_stack((
             label(move || movie.title.clone()),
             h_stack((
-                stars_rating(movie.vote_average),
+                stars_rating_bar(movie.vote_average),
                 label(move || format!("{:.1}", movie.vote_average)).style(|s| s.margin_left(5.)),
             )),
         ))
@@ -166,14 +166,14 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         }),
         img(move || backdrop_gradient.to_vec()).style(move |s| {
             s.width(600.)
-                .height_full()
+                .height(1000.)
                 .margin_left(bg_container_width)
                 .position(Position::Absolute)
         }),
         v_stack((
             label(move || movie.get().title).style(|s| s.font_size(32.0).margin_vert(15.0)),
             h_stack((
-                stars_rating(movie.get().vote_average),
+                stars_rating_bar(movie.get().vote_average),
                 label(move || format!("{:.1}", movie.get().vote_average))
                     .style(|s| s.margin_horiz(12.0)),
                 label(move || format!("{} Reviews", movie.get().vote_count))
