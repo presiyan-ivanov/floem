@@ -1,0 +1,84 @@
+//
+// pub fn suspense<V>(
+//     /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading. By default this is the empty view.
+//     fallback: ViewFn,
+//     /// Children will be displayed once all `async` [`Resource`](leptos_reactive::Resource)s have resolved.
+//     children: Rc<dyn Fn() -> V>,
+// ) -> impl IntoView
+// where
+//     V: IntoView + 'static,
+// {
+//     let orig_children = children;
+//     let context = SuspenseContext::new();
+//
+//     #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+//     let owner =
+//         Owner::current().expect("<Suspense/> created with no reactive owner");
+//
+//     let current_id = HydrationCtx::next_component();
+//
+//     // provide this SuspenseContext to any resources below it
+//     // run in a memo so the children are children of this parent
+//     #[cfg(not(feature = "hydrate"))]
+//     let children = create_memo({
+//         let orig_children = Rc::clone(&orig_children);
+//         move |_| {
+//             provide_context(context);
+//             orig_children().into_view()
+//         }
+//     });
+//     // #[cfg(feature = "hydrate")]
+//     // let children = create_memo({
+//     //     let orig_children = Rc::clone(&orig_children);
+//     //     move |_| {
+//     //         provide_context(context);
+//     //         if SharedContext::fragment_has_local_resources(
+//     //             &current_id.to_string(),
+//     //         ) {
+//     //             HydrationCtx::with_hydration_off({
+//     //                 let orig_children = Rc::clone(&orig_children);
+//     //                 move || orig_children().into_view()
+//     //             })
+//     //         } else {
+//     //             orig_children().into_view()
+//     //         }
+//     //     }
+//     // });
+//
+//     // likewise for the fallback
+//     let fallback = create_memo({
+//         move |_| {
+//             provide_context(context);
+//             fallback.run()
+//         }
+//     });
+//
+//     #[cfg(any(feature = "csr", feature = "hydrate"))]
+//     let ready = context.ready();
+//
+//     // let child = DynChild::new({
+//     //     move || {
+//     //         // pull lazy memo before checking if context is ready
+//     //         let children_rendered = children.get_untracked();
+//     //
+//     //         #[cfg(any(feature = "csr", feature = "hydrate"))]
+//     //         {
+//     //             if ready.get() {
+//     //                 children_rendered
+//     //             } else {
+//     //                 fallback.get_untracked()
+//     //             }
+//     //         }
+//     //     }
+//     // })
+//     // .into_view();
+//     let core_component = match child {
+//         leptos_dom::View::CoreComponent(repr) => repr,
+//         _ => unreachable!(),
+//     };
+//
+//     HydrationCtx::continue_from(current_id);
+//     HydrationCtx::next_component();
+//
+//     leptos_dom::View::Suspense(current_id, core_component)
+// }

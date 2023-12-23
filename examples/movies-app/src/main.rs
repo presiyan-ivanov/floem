@@ -41,6 +41,7 @@ fn app_view() -> impl View {
     let home_icon = include_str!("../assets/home_icon.svg");
     let movie_icon = include_str!("../assets/movie_icon.svg");
     let tv_icon = include_str!("../assets/tv_icon.svg");
+    let search_icon = include_str!("../assets/search_icon.svg");
 
     let (active_tab, set_active_tab) = create_signal(0);
 
@@ -57,11 +58,11 @@ fn app_view() -> impl View {
                 "Home" => home_icon.to_string(),
                 "Movies" => movie_icon.to_string(),
                 "TvShows" => tv_icon.to_string(),
-                "Search" => home_icon.to_string(),
+                "Search" => search_icon.to_string(),
                 x => panic!("Unknown tab: {}", x),
             })
             .style(move |s| {
-                s.size(24.px(), 24.px())
+                s.size(22.px(), 22.px())
                     .color(PRIMARY_FG_COLOR)
                     .apply_if(index == active_tab.get(), |s| s.color(ACCENT_COLOR))
             }),))

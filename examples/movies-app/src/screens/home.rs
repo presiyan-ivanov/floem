@@ -21,17 +21,17 @@ pub fn home_view() -> impl View {
     let popular_movies: Page<Movie> =
         serde_json::from_str(trending).expect("JSON was not well-formatted");
     let popular_movies = popular_movies.results;
-    let most_popular_movie = popular_movies.get(0).unwrap();
+    let most_popular_movie = popular_movies.get(1).unwrap();
     let (most_popular_movie, _) = create_signal(most_popular_movie.to_owned());
-    let (popular_movies, _) = create_signal(popular_movies);
+    let (popular_movies, _) = create_signal(popular_movies.take(7));
 
     scroll(v_stack((
         movie_hero_container(most_popular_movie),
         v_stack((
             label(move || "Popular Movies").style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
-            carousel(popular_movies),
+            // carousel(popular_movies),
         ))
-        .style(|s| s.padding(20.0)),
+        .style(|s| s.padding(20.0).width_full()),
     )))
 }
 
@@ -75,8 +75,10 @@ pub fn five_stars(kind: StarsKind) -> impl View {
         || (0..5).collect::<Vec<i32>>(),
         move |n| *n,
         move |_| {
-            svg(|| star_icon.to_string())
-                .style(|s| s.size(STAR_WIDTH, STAR_HEIGHT).color(ACCENT_COLOR.with_alpha_factor(0.9)))
+            svg(|| star_icon.to_string()).style(|s| {
+                s.size(STAR_WIDTH, STAR_HEIGHT)
+                    .color(ACCENT_COLOR.with_alpha_factor(0.9))
+            })
         },
     )
 }
@@ -95,7 +97,22 @@ pub fn stars_rating(rating: f64) -> impl View {
 }
 
 pub fn movie_card(movie: Movie) -> impl View {
-    let poster = include_bytes!("../../assets/poster.jpg");
+    let url = reqwest::Url::parse(&format!(
+        "https://image.tmdb.org/t/p/w500{}",
+        movie.poster_path.unwrap()
+    ))
+    .unwrap();
+    // let client = reqwest::Client::new();
+    // let response = client.get(url).send().unwrap();
+    // let response = client.get(url).send().await.unwrap();
+    // let resource = Resource
+
+    // let adapter = futures::executor::block_on()
+    //     .ok_or_else(|| anyhow::anyhow!("can't get adapter"))?;
+    //
+    let res = reqwest::blocking::get(url.clone()).unwrap();
+    eprintln!("url: {}, status: {}", &url, res.status());
+    let poster = res.bytes().unwrap();
 
     v_stack((
         img(move || poster.to_vec()).style(|s| {
@@ -115,25 +132,43 @@ pub fn movie_card(movie: Movie) -> impl View {
     ))
 }
 
-pub fn dyn_img() -> impl View {
-    let poster = include_bytes!("../../assets/poster.jpg");
+pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
+    let url = reqwest::Url::parse(&format!(
+        "https://image.tmdb.org/t/p/original{}",
+        movie.get_untracked().backdrop_path.unwrap()
+    ))
+    .unwrap();
+    let res = reqwest::blocking::get(url.clone()).unwrap();
+    eprintln!("url: {}, status: {}", &url, res.status());
+    let poster = res.bytes().unwrap();
 
-    img(move || poster.to_vec()).style(|s| s.width(1280.).height(720.))
+    img(move || poster.to_vec())
 }
 
 pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
     let release_year =
         movie.with_untracked(|m| m.release_date.split('-').next().unwrap().to_owned());
-    let movie_details_width = 700.0;
-    let bg_container_width = 300.0;
-    // let backdrop_gradient = include_str!("../../assets/backdrop_gradient.svg");
+    let movie_details_width = 900.0;
+    let bg_container_width = 450.0;
+    let backdrop_gradient = include_bytes!("../../assets/black_gradient3.png");
+
     h_stack((
-        dyn_img().style(move |s| s.margin_left(bg_container_width).height_full()),
         empty().style(move |s| {
             s.position(Position::Absolute)
                 .width(bg_container_width)
                 .height_full()
                 .background(NEUTRAL_BG_COLOR)
+        }),
+        movie_img(movie).style(move |s| {
+            s.width(1700.)
+                .margin_left(bg_container_width)
+                .max_height(800.px())
+        }),
+        img(move || backdrop_gradient.to_vec()).style(move |s| {
+            s.width(600.)
+                .height_full()
+                .margin_left(bg_container_width)
+                .position(Position::Absolute)
         }),
         v_stack((
             label(move || movie.get().title).style(|s| s.font_size(32.0).margin_vert(15.0)),
@@ -157,11 +192,5 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .justify_center()
                 .height_full()
         }),
-        // svg(move || backdrop_gradient.to_string()).style(move |s| {
-        //     s.width(400.)
-        //         .height_full()
-        //         .margin_left(movie_details_width)
-        //         .position(Position::Absolute)
-        // }),
     ))
 }

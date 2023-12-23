@@ -150,7 +150,44 @@ impl View for Img {
             }
             let content_node = self.content_node.unwrap();
 
-            let (width, height) = self.img_dimensions.unwrap_or((0, 0));
+            let layout = cx.app_state.get_layout(self.id()).unwrap();
+            let style = cx.app_state_mut().get_builtin_style(self.id());
+            let node_width = layout.size.width;
+            let node_height = layout.size.height;
+
+            let width_style = style.width();
+            let height_style = style.height();
+
+            let (img_width, img_height) = self.img_dimensions.unwrap_or((0, 0));
+            dbg!(img_width, img_height);
+
+            let content_node_width = match width_style {
+                crate::unit::PxPctAuto::Px(px) => px as f32,
+                crate::unit::PxPctAuto::Pct(pct) => node_width * pct as f32 / 100.,
+                crate::unit::PxPctAuto::Auto => img_width as f32,
+            } as u32;
+
+            let content_node_height = match height_style {
+                crate::unit::PxPctAuto::Px(px) => px as f32,
+                crate::unit::PxPctAuto::Pct(pct) => node_height * pct as f32 / 100.,
+                crate::unit::PxPctAuto::Auto => img_height as f32,
+            } as u32;
+
+            let (width, height) =
+                if img_width != content_node_width || img_height != content_node_height {
+                    let img = self.img.as_ref().unwrap();
+                    let img = img.resize(
+                        content_node_width,
+                        content_node_height,
+                        image::imageops::FilterType::Nearest,
+                    );
+                    self.img = Some(Rc::new(img));
+                    (content_node_width, content_node_height)
+                } else {
+                    (img_width, img_height)
+                };
+
+            println!("img dimensions: {:?}", (width, height));
 
             let style = Style::new()
                 .width((width as f64).px())
