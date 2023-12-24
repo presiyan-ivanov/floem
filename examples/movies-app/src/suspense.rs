@@ -82,3 +82,59 @@
 //
 //     leptos_dom::View::Suspense(current_id, core_component)
 // }
+
+
+pub fn create_local_resource_with_initial_value<S, T, Fu>(
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+    initial_value: Option<T>,
+) -> Resource<S, T>
+where
+    S: PartialEq + Clone + 'static,
+    T: 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    let resolved = initial_value.is_some();
+    let (value, set_value) = create_signal(initial_value);
+
+    let (loading, set_loading) = create_signal(false);
+
+    let fetcher = Rc::new(move |s| {
+        Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
+    });
+    let source = create_memo(move |_| source());
+
+    let r = Rc::new(ResourceState {
+        value,
+        set_value,
+        loading,
+        set_loading,
+        source,
+        fetcher,
+        resolved: Rc::new(Cell::new(resolved)),
+        scheduled: Rc::new(Cell::new(false)),
+        version: Rc::new(Cell::new(0)),
+        suspense_contexts: Default::default(),
+    });
+
+    let id = with_runtime(|runtime| {
+        let r = Rc::clone(&r) as Rc<dyn UnserializableResource>;
+        let id = runtime.create_unserializable_resource(r);
+        runtime.push_scope_property(ScopeProperty::Resource(id));
+        id
+    })
+    .expect("tried to create a Resource in a runtime that has been disposed.");
+
+    // This is a local resource, so we're always going to handle it on the
+    // client
+    create_render_effect({
+        let r = Rc::clone(&r);
+        move |_| r.load(false, id)
+    });
+
+    Resource {
+        id,
+        source_ty: PhantomData,
+        out_ty: PhantomData,
+    }
+}

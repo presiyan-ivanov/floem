@@ -8,7 +8,7 @@ use crate::{
 
 /// A read write Signal which can acts as both a Getter and a Setter
 pub struct RwSignal<T> {
-    id: Id,
+    pub(crate) id: Id,
     ty: PhantomData<T>,
 }
 
@@ -100,6 +100,14 @@ impl<T> RwSignal<T> {
             f(None)
         }
     }
+
+    // pub fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+    //     if let Some(signal) = self.id.signal() {
+    //         Some(signal_with(&signal, |v| f(v)))
+    //     } else {
+    //         None
+    //     }
+    // }
 
     /// Only subcribes to the current runnig effect to this Signal.
     pub fn track(&self) {

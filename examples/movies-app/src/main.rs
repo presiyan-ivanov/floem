@@ -119,14 +119,14 @@ fn app_view() -> impl View {
         move || tabs.get(),
         |it| *it,
         |it| match it {
-            "Home" => container_box(home_view()),
+            "Home" => container_box(home_view()).style(|s| s.width_full()),
             "Movies" => container_box(movies_view()),
             "TvShows" => container_box(tv_shows_view()),
             "Search" => container_box(label(|| "Not implemented".to_owned())),
             _ => container_box(label(|| "Not implemented".to_owned())),
         },
     )
-    .style(|s| s.flex_row().items_start());
+    .style(|s| s.flex_row().items_start().width_full());
 
     let tab_contents = scroll(tab).style(|s| {
         s.flex_basis(0)

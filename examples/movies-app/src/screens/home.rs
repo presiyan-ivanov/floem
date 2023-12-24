@@ -1,15 +1,19 @@
+use std::{rc::Rc, sync::Mutex, time::Duration};
+
 use floem::{
+    action::exec_after,
     peniko::Color,
-    reactive::{create_signal, ReadSignal},
+    reactive::{create_rw_signal, create_signal, ReadSignal, RwSignal},
     style::Position,
     unit::UnitExt,
     view::View,
     views::{
-        clip, container, empty, h_stack, img, label, list, scroll, stack, static_label,
-        static_list, svg, v_stack, virtual_list, Decorators, VirtualListDirection,
+        clip, container, dyn_container, empty, h_stack, img, label, list, scroll, stack,
+        static_label, static_list, svg, v_stack, virtual_list, Decorators, VirtualListDirection,
         VirtualListItemSize,
     },
 };
+use reqwest::{Error, Response};
 
 use crate::{
     models::{Movie, Page},
@@ -21,18 +25,23 @@ pub fn home_view() -> impl View {
     let popular_movies: Page<Movie> =
         serde_json::from_str(trending).expect("JSON was not well-formatted");
     let popular_movies = popular_movies.results;
-    let most_popular_movie = popular_movies.get(0).unwrap();
+    let most_popular_movie = popular_movies.get(5).unwrap();
     let (most_popular_movie, _) = create_signal(most_popular_movie.to_owned());
     let (popular_movies, _) = create_signal(popular_movies.take(7));
 
-    scroll(v_stack((
-        movie_hero_container(most_popular_movie),
+    scroll(
         v_stack((
-            label(move || "Popular Movies").style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
-            // carousel(popular_movies),
+            movie_hero_container(most_popular_movie),
+            v_stack((
+                label(move || "Popular Movies")
+                    .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
+                // carousel(popular_movies),
+            ))
+            .style(|s| s.padding(20.0).width_full()),
         ))
-        .style(|s| s.padding(20.0).width_full()),
-    ))).style(|s| s.width_full())
+        .style(|s| s.width_full()),
+    )
+    .style(|s| s.width_full())
 }
 
 pub fn carousel(movies: ReadSignal<im::Vector<Movie>>) -> impl View {
@@ -138,11 +147,61 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
         movie.get_untracked().backdrop_path.unwrap()
     ))
     .unwrap();
-    let res = reqwest::blocking::get(url.clone()).unwrap();
-    eprintln!("url: {}, status: {}", &url, res.status());
-    let poster = res.bytes().unwrap();
+    let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
+    let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
-    img(move || poster.to_vec())
+    exec_after(Duration::ZERO, move |_| {
+        let xx = reqwest::blocking::get(url.clone());
+        match xx {
+            Ok(resp) => match resp.status() {
+                reqwest::StatusCode::OK => {
+                    bytes.update(|b| {
+                        *b = Some(resp.bytes().unwrap().to_vec());
+                    });
+                }
+                err_status => {
+                    error_msg.set(Some(format!("Status code :{}", err_status)));
+                }
+            },
+            Err(e) => {
+                error_msg.set(Some(e.to_string()));
+            }
+        }
+    });
+
+    dyn_container(
+        move || (bytes.get(), error_msg.get()),
+        move |(bytes, error_msg)| -> Box<dyn View> {
+            if let Some(e) = error_msg {
+                println!("error: {}", e);
+                Box::new(label(move || e.to_string()))
+            } else if let Some(b) = bytes {
+                println!("bytes: {}", b.len());
+                Box::new(img(move || b.to_vec()).style(|s| s.width(2000.).height(1000.)))
+            } else {
+                println!("loading...");
+                Box::new(label(move || "Loading..."))
+            }
+        }, //     if let Some(resp) = &mut guard {
+           //         let mut guard = resp.lock().unwrap();
+           //         match guard.as_mut() {
+           //             Ok(mut success) if success.status().is_success() => {
+           //                 let mut poster: Vec<u8> = vec![];
+           //                 success.copy_to(&mut poster).unwrap();
+           //
+           //                 Box::new(img(move || poster.to_vec()))
+           //             }
+           //             Ok(failed) => Box::new(label(move || {
+           //                 format!("Req failed. Status code: {}", failed.status())
+           //             })),
+           //             Err(e) => Box::new(label(move || format!("Error: {}", e.to_string()))),
+           //         }
+           //     } else {
+           //         Box::new(label(move || "Loading..."))
+           //     }
+           // },
+    )
+    .style(|s| s.width(2000.px()).height(877.))
 }
 
 pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
@@ -150,7 +209,8 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         movie.with_untracked(|m| m.release_date.split('-').next().unwrap().to_owned());
     let movie_details_width = 50.pct();
     let bg_container_width = 30.pct();
-    let backdrop_gradient = include_bytes!("../../assets/black_gradient3.png");
+    let backdrop_width = 1100.px();
+    let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
 
     h_stack((
         empty().style(move |s| {
@@ -162,13 +222,14 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         movie_img(movie).style(move |s| {
             s.width(100.pct())
                 .margin_left(bg_container_width)
-                .height_full()
+                .height(877.)
         }),
         img(move || backdrop_gradient.to_vec()).style(move |s| {
-            s.width(movie_details_width)
+            s.width(backdrop_width)
                 .height_full()
-                .margin_left(bg_container_width)
+                .margin_left(29.5.pct())
                 .position(Position::Absolute)
+            // .border_color(Color::rgba(0., 0., 0., 0.1))
         }),
         v_stack((
             label(move || movie.get().title).style(|s| s.font_size(40.0).margin_vert(15.0)),
@@ -182,8 +243,12 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 label(move || "1h 20m"),
             ))
             .style(|s| s.color(Color::rgb8(153, 153, 153))),
-            label(move || movie.get().overview.unwrap_or_default())
-                .style(|s| s.color(PRIMARY_FG_COLOR).width_pct(70.).margin_top(20.0).font_size(18.)),
+            label(move || movie.get().overview.unwrap_or_default()).style(|s| {
+                s.color(PRIMARY_FG_COLOR)
+                    .width_pct(70.)
+                    .margin_top(20.0)
+                    .font_size(18.)
+            }),
         ))
         .style(move |s| {
             s.position(Position::Absolute)
@@ -193,5 +258,5 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .height_full()
         }),
     ))
-    .style(|s| s.max_height_pct(70.).height(1000.).width(2000))
+    .style(|s| s.width(1280.px()).max_height_pct(70.).height(1000.))
 }

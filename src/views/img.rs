@@ -180,6 +180,8 @@ impl View for Img {
             } else {
                 (img_width, img_height)
             };
+        println!("{} {} {} {}",
+            self.width, self.height, width, height);
 
         self.width = width as f32;
         self.height = height as f32;

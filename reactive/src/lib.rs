@@ -6,6 +6,7 @@ mod runtime;
 mod scope;
 mod signal;
 mod trigger;
+// mod resource;
 
 pub use context::{provide_context, use_context};
 pub use effect::{batch, create_effect, create_stateful_updater, create_updater, untrack};
