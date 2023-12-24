@@ -387,7 +387,9 @@ impl Renderer for VgerRenderer {
                         self.vger
                             .quad_to(self.vger_point(quad.p1), self.vger_point(quad.p2));
                     }
-                    peniko::kurbo::PathSeg::Cubic(_) => {}
+                    peniko::kurbo::PathSeg::Cubic(c) => {
+                        dbg!(c.p1);
+                    }
                 }
             }
             self.vger.fill(paint);

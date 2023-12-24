@@ -3,11 +3,10 @@ use std::time::{Duration, Instant};
 use floem::{
     action::exec_after,
     context,
-    kurbo::{ Point, Rect, Size},
+    kurbo::{CircleSegment, Point},
     peniko::Color,
     style::Style,
     taffy::{self, prelude::*},
-    views::empty,
     Renderer,
 };
 
@@ -63,48 +62,39 @@ impl View for Spinner {
     }
 
     fn paint(&mut self, cx: &mut context::PaintCx) {
-        let dims = 700.;
-        let w = dims;
-        let h = dims;
-        let w2 = w / 2.;
-        let h2 = h / 2.;
-        let q = dims / 4.;
-
-        let total_circles = 70;
+        let id = self.id();
         let spin_duration_sec = 1.;
-        let target_num_spins = 3;
 
-        let circles_to_draw = if let Some(last_paint_on) = self.last_paint_on {
+        let progress = if let Some(last_paint_on) = self.last_paint_on {
             let elapsed_sec = last_paint_on.elapsed().as_secs_f64();
-            let curr_spin_elapsed = elapsed_sec % spin_duration_sec;
-            let num_spins = elapsed_sec / spin_duration_sec;
+            let curr_spin_progress = elapsed_sec % spin_duration_sec;
 
-            if elapsed_sec > spin_duration_sec * target_num_spins as f64 {
+            if elapsed_sec >= spin_duration_sec {
                 self.last_paint_on = Some(Instant::now());
             }
 
-            total_circles as f64 * curr_spin_elapsed * num_spins
+            curr_spin_progress
         } else {
             self.last_paint_on = Some(Instant::now());
             0.
         };
 
-        let circle_size = Size::new(8., 8.);
+        let sweep_deg: f64 = 260.0;
+        let start_deg: f64 = progress * 360.;
+        let inner_radius = 80.0;
+        let outer_radius = 70.0;
+        let segment = CircleSegment::new(
+            Point::new(200.0, 200.0),
+            outer_radius,
+            inner_radius,
+            start_deg.to_radians(),
+            sweep_deg.to_radians(),
+        );
 
-        for t in 0..=circles_to_draw.round() as i32 {
-            let t = t as f64 * 0.1;
-            // or 
-            // let t = t as f64;
-            let x = w2 + q * t.cos();
-            let y = h2 + q * t.sin();
-            let circle = Rect::from_center_size(Point::new(x, y), circle_size).to_rounded_rect(40.);
-            cx.fill(&circle, Color::WHITE, 0.0);
-        }
-        let update_interval = Duration::from_millis(16);
+        cx.fill(&segment, Color::WHITE, 0.0);
 
-        let id = self.id();
         exec_after(
-            update_interval,
+            Duration::from_millis(16),
             Box::new(move |_| {
                 id.request_paint();
             }),
