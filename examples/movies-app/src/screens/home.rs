@@ -25,9 +25,9 @@ pub fn home_view() -> impl View {
     let popular_movies: Page<Movie> =
         serde_json::from_str(trending).expect("JSON was not well-formatted");
     let popular_movies = popular_movies.results;
-    let most_popular_movie = popular_movies.get(5).unwrap();
+    let most_popular_movie = popular_movies.get(0).unwrap();
     let (most_popular_movie, _) = create_signal(most_popular_movie.to_owned());
-    let (popular_movies, _) = create_signal(popular_movies.take(7));
+    let (popular_movies, _) = create_signal(popular_movies.take(9));
 
     scroll(
         v_stack((
@@ -35,7 +35,7 @@ pub fn home_view() -> impl View {
             v_stack((
                 label(move || "Popular Movies")
                     .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
-                // carousel(popular_movies),
+                carousel(popular_movies),
             ))
             .style(|s| s.padding(20.0).width_full()),
         ))
@@ -111,25 +111,54 @@ pub fn movie_card(movie: Movie) -> impl View {
         movie.poster_path.unwrap()
     ))
     .unwrap();
-    // let client = reqwest::Client::new();
-    // let response = client.get(url).send().unwrap();
-    // let response = client.get(url).send().await.unwrap();
-    // let resource = Resource
 
-    // let adapter = futures::executor::block_on()
-    //     .ok_or_else(|| anyhow::anyhow!("can't get adapter"))?;
-    //
-    let res = reqwest::blocking::get(url.clone()).unwrap();
-    eprintln!("url: {}, status: {}", &url, res.status());
-    let poster = res.bytes().unwrap();
+    let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
+    let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
+
+    exec_after(Duration::from_secs(1), move |_| {
+        let xx = reqwest::blocking::get(url.clone());
+        match xx {
+            Ok(resp) => match resp.status() {
+                reqwest::StatusCode::OK => {
+                    bytes.update(|b| {
+                        *b = Some(resp.bytes().unwrap().to_vec());
+                    });
+                }
+                err_status => {
+                    error_msg.set(Some(format!("Status code :{}", err_status)));
+                }
+            },
+            Err(e) => {
+                error_msg.set(Some(e.to_string()));
+            }
+        }
+    });
 
     v_stack((
-        img(move || poster.to_vec()).style(|s| {
+        dyn_container(
+            move || (bytes.get(), error_msg.get()),
+            move |(bytes, error_msg)| -> Box<dyn View> {
+                if let Some(e) = error_msg {
+                    Box::new(label(move || e.to_string()))
+                } else if let Some(b) = bytes {
+                    Box::new(img(move || b.to_vec()).style(|s| s.width_full().height_full()))
+                } else {
+                    Box::new(label(move || "Loading..."))
+                }
+            },
+        )
+        .style(|s| {
             s.width(200.)
                 .height(300.)
-                .border(3.)
+                .border(4.)
                 .border_color(Color::rgba(156., 163., 175., 0.1))
         }),
+        // img(move || poster.to_vec()).style(|s| {
+        //     s.width(200.)
+        //         .height(300.)
+        //         .border(3.)
+        //         .border_color(Color::rgba(156., 163., 175., 0.1))
+        // }),
         v_stack((
             label(move || movie.title.clone()),
             h_stack((
@@ -150,7 +179,7 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
     let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
     let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
-    exec_after(Duration::ZERO, move |_| {
+    exec_after(Duration::from_secs(1), move |_| {
         let xx = reqwest::blocking::get(url.clone());
         match xx {
             Ok(resp) => match resp.status() {
@@ -173,35 +202,15 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
         move || (bytes.get(), error_msg.get()),
         move |(bytes, error_msg)| -> Box<dyn View> {
             if let Some(e) = error_msg {
-                println!("error: {}", e);
                 Box::new(label(move || e.to_string()))
             } else if let Some(b) = bytes {
-                println!("bytes: {}", b.len());
-                Box::new(img(move || b.to_vec()).style(|s| s.width(2000.).height(1000.)))
+                Box::new(img(move || b.to_vec()).style(|s| s.width_full().height_full()))
             } else {
-                println!("loading...");
                 Box::new(label(move || "Loading..."))
             }
-        }, //     if let Some(resp) = &mut guard {
-           //         let mut guard = resp.lock().unwrap();
-           //         match guard.as_mut() {
-           //             Ok(mut success) if success.status().is_success() => {
-           //                 let mut poster: Vec<u8> = vec![];
-           //                 success.copy_to(&mut poster).unwrap();
-           //
-           //                 Box::new(img(move || poster.to_vec()))
-           //             }
-           //             Ok(failed) => Box::new(label(move || {
-           //                 format!("Req failed. Status code: {}", failed.status())
-           //             })),
-           //             Err(e) => Box::new(label(move || format!("Error: {}", e.to_string()))),
-           //         }
-           //     } else {
-           //         Box::new(label(move || "Loading..."))
-           //     }
-           // },
+        },
     )
-    .style(|s| s.width(2000.px()).height(877.))
+    .style(|s| s.width_full().height_full())
 }
 
 pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
@@ -222,7 +231,7 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         movie_img(movie).style(move |s| {
             s.width(100.pct())
                 .margin_left(bg_container_width)
-                .height(877.)
+                .height_full()
         }),
         img(move || backdrop_gradient.to_vec()).style(move |s| {
             s.width(backdrop_width)
@@ -258,5 +267,5 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .height_full()
         }),
     ))
-    .style(|s| s.width(1280.px()).max_height_pct(70.).height(1000.))
+    .style(|s| s.width_full().height(720.))
 }
