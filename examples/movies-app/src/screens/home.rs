@@ -17,7 +17,7 @@ use reqwest::{Error, Response};
 
 use crate::{
     models::{Movie, Page},
-    ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
+    ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR, spinner::{self, spinner},
 };
 
 pub fn home_view() -> impl View {
@@ -143,7 +143,7 @@ pub fn movie_card(movie: Movie) -> impl View {
                 } else if let Some(b) = bytes {
                     Box::new(img(move || b.to_vec()).style(|s| s.width_full().height_full()))
                 } else {
-                    Box::new(label(move || "Loading..."))
+                    Box::new(spinner())
                 }
             },
         )
@@ -179,24 +179,24 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
     let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
     let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
-    exec_after(Duration::from_secs(1), move |_| {
-        let xx = reqwest::blocking::get(url.clone());
-        match xx {
-            Ok(resp) => match resp.status() {
-                reqwest::StatusCode::OK => {
-                    bytes.update(|b| {
-                        *b = Some(resp.bytes().unwrap().to_vec());
-                    });
-                }
-                err_status => {
-                    error_msg.set(Some(format!("Status code :{}", err_status)));
-                }
-            },
-            Err(e) => {
-                error_msg.set(Some(e.to_string()));
-            }
-        }
-    });
+    // exec_after(Duration::from_secs(1), move |_| {
+    //     let xx = reqwest::blocking::get(url.clone());
+    //     match xx {
+    //         Ok(resp) => match resp.status() {
+    //             reqwest::StatusCode::OK => {
+    //                 bytes.update(|b| {
+    //                     *b = Some(resp.bytes().unwrap().to_vec());
+    //                 });
+    //             }
+    //             err_status => {
+    //                 error_msg.set(Some(format!("Status code :{}", err_status)));
+    //             }
+    //         },
+    //         Err(e) => {
+    //             error_msg.set(Some(e.to_string()));
+    //         }
+    //     }
+    // });
 
     dyn_container(
         move || (bytes.get(), error_msg.get()),
@@ -204,9 +204,13 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
             if let Some(e) = error_msg {
                 Box::new(label(move || e.to_string()))
             } else if let Some(b) = bytes {
-                Box::new(img(move || b.to_vec()).style(|s| s.width_full().height_full()))
+                println!("success");
+                Box::new(spinner().style(|s| s.margin_left(30.pct())))
+                // Box::new(img(move || b.to_vec()).style(|s| s.width_full().height_full()))
             } else {
-                Box::new(label(move || "Loading..."))
+                println!("loading");
+                Box::new(spinner())
+                // Box::new(label(move || "Loading..."))
             }
         },
     )

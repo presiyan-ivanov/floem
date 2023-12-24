@@ -2,6 +2,7 @@ pub mod data_provider;
 pub mod linear_grad_backdrop;
 pub mod models;
 pub mod screens;
+pub mod spinner;
 
 use floem::{
     event::{Event, EventListener},
