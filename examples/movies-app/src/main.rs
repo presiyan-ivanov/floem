@@ -155,7 +155,7 @@ fn app_view() -> impl View {
                     s.hover(|s| s.background(Color::rgba8(166, 166, 166, 30)))
                 })
         })
-        .window_title(|| "Movies App".to_owned());
+        .window_title(|| "Floem Movies".to_owned());
 
     let id = app_view.id();
     app_view.on_event_stop(EventListener::KeyUp, move |e| {
@@ -171,10 +171,14 @@ fn footer() -> impl View {
     let lapce_logo = include_str!("../assets/lapce_logo.svg");
     v_stack(
         (
-        svg(move || lapce_logo.to_string()) .style(|s| s.size(30.px(), 30.px()).margin(20.0).color(ACCENT_COLOR)),
-        text("Designed by the Nuxt Movies authors, and ported by the Floem devs, with the original data provided by TMDb.")
+            h_stack(
+            (
+            svg(move || lapce_logo.to_string()) .style(|s| s.size(30.px(), 30.px()).color(ACCENT_COLOR)),
+            text("Floem Movies").style(|s| s.font_size(20.).height(30.px()).margin_left(5.))
+        )).style(|s| s.height(70.px()).padding_vert(20.)),
+            text("Designed by the Nuxt Movies authors, and ported by the Floem devs, with the original data provided by TMDb.")
         )
-    )
+    ).style(|s| s.margin_left(40.))
 }
 
 fn movies_view() -> impl View {

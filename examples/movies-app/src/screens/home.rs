@@ -1,10 +1,19 @@
-use std::{rc::Rc, sync::Mutex, time::Duration};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 use floem::{
     action::exec_after,
+    ext_event::create_signal_from_channel,
     peniko::Color,
-    reactive::{create_rw_signal, create_signal, ReadSignal, RwSignal},
-    style::{BorderColor, BorderRadius, CursorStyle, Position, Transition},
+    reactive::{create_effect, create_rw_signal, create_signal, ReadSignal, RwSignal},
+    style::{
+        BorderBottom, BorderColor, BorderLeft, BorderRadius, BorderRight, BorderTop, CursorStyle,
+        Position, Transition,
+    },
     unit::UnitExt,
     view::View,
     views::{
@@ -51,6 +60,7 @@ pub fn home_view() -> impl View {
             .take(13)
             .collect(),
     );
+    let (available_width, set_available_width) = create_signal(1200.);
 
     scroll(
         v_stack((
@@ -60,16 +70,20 @@ pub fn home_view() -> impl View {
                     .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
                 carousel(popular_movies),
             ))
-            .style(|s| s.padding(20.0).width_full()),
+            .style(move |s| s.padding(20.0).width(available_width.get())),
             v_stack((
                 label(move || "Popular TV shows")
                     .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
                 carousel(popular_tv_shows),
             ))
-            .style(|s| s.padding(20.0).width_full()),
+            .style(move |s| s.padding(20.0).width(available_width.get())),
         ))
         .style(|s| s.width_full()),
     )
+    .on_resize(move |rect| {
+        println!("size: {:?}", rect.size());
+        set_available_width.update(move |width| *width = rect.width());
+    })
     .style(|s| s.width_full())
 }
 
@@ -110,7 +124,7 @@ impl PosterCarouselItem {
 }
 
 pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View {
-    container(
+    let container = container(
         scroll(
             list(
                 move || movies.get(),
@@ -119,9 +133,11 @@ pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View
             )
             .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
         )
-        .style(|s| s.width(1600.px())),
+        .style(move |s| s.width_full()),
     )
-    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
+    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col());
+
+    container
 }
 
 pub enum StarsKind {
@@ -129,8 +145,8 @@ pub enum StarsKind {
     Unfilled,
 }
 
-static STAR_WIDTH: f64 = 18.;
-static STAR_HEIGHT: f64 = 16.;
+static STAR_WIDTH: f64 = 16.;
+static STAR_HEIGHT: f64 = 14.;
 
 pub fn five_stars(kind: StarsKind) -> impl View {
     let star_icon = match kind {
@@ -176,24 +192,100 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
     let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
-    exec_after(Duration::from_secs(1), move |_| {
-        let req = reqwest::blocking::get(url.clone());
-        match req {
-            Ok(resp) => match resp.status() {
-                reqwest::StatusCode::OK => {
-                    bytes.update(|b| {
-                        *b = Some(resp.bytes().unwrap().to_vec());
-                    });
-                }
-                err_status => {
-                    error_msg.set(Some(format!("Status code :{}", err_status)));
-                }
-            },
-            Err(e) => {
-                error_msg.set(Some(e.to_string()));
-            }
+    let (success_tx, success_rx) = crossbeam_channel::bounded(1);
+    // let (error_tx, error_rx) = crossbeam_channel::bounded(1);
+    let chan_bytes = create_signal_from_channel(success_rx);
+    // let chan_error = create_signal_from_channel(error_rx);
+    create_effect(move |_| {
+        // if let Some(error) = chan_error.get() {
+        //     error_msg.set(Some(error));
+        // }
+
+        if let Some(success) = chan_bytes.get() {
+            // println!("Got bytes: {:?}", success);
+            bytes.set(Some(success));
         }
     });
+
+    std::thread::spawn(move || {
+        let res = reqwest::blocking::get(url.clone());
+        match res {
+            Ok(resp) => match resp.status() {
+                reqwest::StatusCode::OK => {
+                    success_tx.send(resp.bytes().unwrap().to_vec()).unwrap();
+                }
+                // err_status => {
+                //     error_tx.send(Some(format!("Status code :{}", err_status)));
+                // }
+                //
+                _ => {
+                    panic!("x")
+                } // Err(e) => {
+            },
+            _ => {
+                panic!("x")
+            } // Err(e) => {
+              //     error_tx.send(Some(e.to_string()));
+              // }
+        }
+        println!("Exit");
+    });
+
+    // let (tx, rx) = crossbeam_channel::bounded(1);
+    // let notification = create_signal_from_channel(rx);
+    // let latest_release = app_data.latest_release;
+    // create_effect(move |_| {
+    //     if let Some(release) = notification.get() {
+    //         latest_release.set(Arc::new(Some(release)));
+    //     }
+    // });
+    // std::thread::spawn(move || loop {
+    //     if let Ok(release) = crate::update::get_latest_release() {
+    //         let _ = tx.send(release);
+    //     }
+    //     std::thread::sleep(std::time::Duration::from_secs(60 * 60));
+    // });
+
+    // thread::spawn(move || {
+    //     println!("Spawn");
+    //     let req = reqwest::blocking::get(url.clone());
+    //     match req {
+    //         Ok(resp) => match resp.status() {
+    //             reqwest::StatusCode::OK => {
+    //                 println!("Success");
+    //                 bytes.update(|b| {
+    //                     *b = Some(resp.bytes().unwrap().to_vec());
+    //                 });
+    //             }
+    //             err_status => {
+    //                 error_msg.set(Some(format!("Status code :{}", err_status)));
+    //             }
+    //         },
+    //         Err(e) => {
+    //             error_msg.set(Some(e.to_string()));
+    //         }
+    //     }
+    //     println!("Exit");
+    // });
+
+    // exec_after(Duration::from_secs(1), move |_| {
+    //     let req = reqwest::blocking::get(url.clone());
+    //     match req {
+    //         Ok(resp) => match resp.status() {
+    //             reqwest::StatusCode::OK => {
+    //                 bytes.update(|b| {
+    //                     *b = Some(resp.bytes().unwrap().to_vec());
+    //                 });
+    //             }
+    //             err_status => {
+    //                 error_msg.set(Some(format!("Status code :{}", err_status)));
+    //             }
+    //         },
+    //         Err(e) => {
+    //             error_msg.set(Some(e.to_string()));
+    //         }
+    //     }
+    // });
 
     let vote_average = item.vote_average();
     v_stack((
@@ -211,13 +303,20 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
         )
         .style(|s| {
             s.width(CAROUSEL_CARD_WIDTH)
-                .transition(BorderColor, Transition::linear(0.3))
+                .transition(BorderColor, Transition::linear(0.5))
+                .transition(BorderLeft, Transition::linear(0.5))
+                .transition(BorderRight, Transition::linear(0.5))
+                .transition(BorderTop, Transition::linear(0.5))
+                .transition(BorderBottom, Transition::linear(0.5))
                 .height(CAROUSEL_CARD_HEIGHT)
                 .border(4.)
-                .border_color(Color::rgba8(156, 163, 175, 25))
+                //TODO: transition doesnt look good if it has opacity here, because the border
+                //edges are overlapping
+                .border_color(Color::rgb8(37, 37, 38))
                 .hover(|s| {
                     s.cursor(CursorStyle::Pointer)
-                        .border_color(Color::rgba8(156, 163, 175, 170))
+                        .border(7.0)
+                        .border_color(Color::rgb8(107, 107, 107))
                 })
         }),
         // img(move || poster.to_vec()).style(|s| {
@@ -317,7 +416,7 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 stars_rating_bar(movie.get().vote_average),
                 label(move || format!("{:.1}", movie.get().vote_average))
                     .style(|s| s.margin_horiz(12.0)),
-                label(move || format!("{} Reviews", movie.get().vote_count))
+                label(move || format!("{} Reviews", pretty_format_number(movie.get().vote_count)))
                     .style(|s| s.margin_right(12.0)),
                 label(move || release_year.clone()).style(|s| s.margin_right(12.0)),
                 label(move || "1h 20m"),
@@ -339,4 +438,20 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         }),
     ))
     .style(|s| s.width_full().height(720.))
+}
+
+fn pretty_format_number(num: u64) -> String {
+    let thousands: u64 = 1_000;
+    let mil: u64 = 1_000_000;
+    let bil: u64 = 1_000_000_000;
+
+    if num < thousands {
+        num.to_string()
+    } else if num < mil {
+        format!("{:.1}K", num as f64 / thousands as f64)
+    } else if num < bil {
+        format!("{:.1}M", num as f64 / mil as f64)
+    } else {
+        format!("{:.1}B", num as f64 / bil as f64)
+    }
 }

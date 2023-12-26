@@ -1,6 +1,6 @@
 enum DataProvider {
     LocalSnapshot,
-    Tmdb
+    Tmdb,
 }
 
 enum MovieFilter {
@@ -21,12 +21,7 @@ enum TvShowFilter {
 }
 
 impl DataProvider {
+    fn get_movies(&self) {}
 
-    fn get_movies(&self) {
-
-    }
-
-    fn get_tv_shows(&self) {
-
-    }
+    fn get_tv_shows(&self) {}
 }

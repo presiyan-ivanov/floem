@@ -27,7 +27,7 @@ pub struct Movie {
     pub poster_path: Option<String>,
     pub backdrop_path: Option<String>,
     pub popularity: f64,
-    pub vote_count: usize,
+    pub vote_count: u64,
     pub vote_average: f64,
     // pub budget: u64,
     pub adult: bool,

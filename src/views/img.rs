@@ -153,7 +153,7 @@ impl View for Img {
         }
 
         let (img_width, img_height) = self.img_dimensions.unwrap_or((0, 0));
-        dbg!(img_width, img_height);
+        // dbg!(img_width, img_height);
 
         let content_node_width = match style.width() {
             crate::unit::PxPctAuto::Px(px) => px as f32,
@@ -180,8 +180,7 @@ impl View for Img {
             } else {
                 (img_width, img_height)
             };
-        println!("{} {} {} {}",
-            self.width, self.height, width, height);
+        // println!("{} {} {} {}", self.width, self.height, width, height);
 
         self.width = width as f32;
         self.height = height as f32;
