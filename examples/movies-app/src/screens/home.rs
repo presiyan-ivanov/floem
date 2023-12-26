@@ -16,18 +16,41 @@ use floem::{
 use reqwest::{Error, Response};
 
 use crate::{
-    models::{Movie, Page},
-    ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR, spinner::{self, spinner},
+    models::{Movie, Page, TvShow},
+    spinner::{self, spinner},
+    ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
 };
 
 pub fn home_view() -> impl View {
-    let trending = include_str!("../../assets/data/popular_movies.json");
+    let movies_json = include_str!("../../assets/data/popular_movies.json");
+    let tv_shows_json = include_str!("../../assets/data/popular_tv_shows.json");
     let popular_movies: Page<Movie> =
-        serde_json::from_str(trending).expect("JSON was not well-formatted");
+        serde_json::from_str(movies_json).expect("JSON was not well-formatted");
+
+    let popular_tv_shows: Page<TvShow> =
+        serde_json::from_str(tv_shows_json).expect("JSON was not well-formatted");
+
     let popular_movies = popular_movies.results;
     let most_popular_movie = popular_movies.get(0).unwrap();
     let (most_popular_movie, _) = create_signal(most_popular_movie.to_owned());
-    let (popular_movies, _) = create_signal(popular_movies.take(9));
+    let (popular_movies, _) = create_signal(
+        popular_movies
+            .into_iter()
+            .map(|m| CarouselItem::Movie(m).to_owned())
+            .take(13)
+            .collect(),
+    );
+
+    let popular_tv_shows = popular_tv_shows.results;
+    let most_popular_tv_show = popular_tv_shows.get(0).unwrap();
+    let (most_popular_tv_show, _) = create_signal(most_popular_tv_show.to_owned());
+    let (popular_tv_shows, _) = create_signal(
+        popular_tv_shows
+            .into_iter()
+            .map(|m| CarouselItem::TvShow(m).to_owned())
+            .take(13)
+            .collect(),
+    );
 
     scroll(
         v_stack((
@@ -38,25 +61,65 @@ pub fn home_view() -> impl View {
                 carousel(popular_movies),
             ))
             .style(|s| s.padding(20.0).width_full()),
+            v_stack((
+                label(move || "Popular TV shows")
+                    .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
+                carousel(popular_tv_shows),
+            ))
+            .style(|s| s.padding(20.0).width_full()),
         ))
         .style(|s| s.width_full()),
     )
     .style(|s| s.width_full())
 }
 
-pub fn carousel(movies: ReadSignal<im::Vector<Movie>>) -> impl View {
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum CarouselItem {
+    Movie(Movie),
+    TvShow(TvShow),
+}
+
+impl CarouselItem {
+    fn id(&self) -> u64 {
+        match self {
+            Self::Movie(m) => m.id,
+            Self::TvShow(t) => t.id,
+        }
+    }
+
+    fn display_name(&self) -> String {
+        match self {
+            Self::Movie(m) => m.title.clone(),
+            Self::TvShow(t) => t.name.clone(),
+        }
+    }
+
+    fn vote_average(&self) -> f64 {
+        match self {
+            Self::Movie(m) => m.vote_average,
+            Self::TvShow(t) => t.vote_average,
+        }
+    }
+
+    fn poster_path(&self) -> Option<String> {
+        match self {
+            Self::Movie(m) => m.poster_path.clone(),
+            Self::TvShow(t) => t.poster_path.clone(),
+        }
+    }
+}
+
+pub fn carousel(movies: ReadSignal<im::Vector<CarouselItem>>) -> impl View {
     container(
         scroll(
-            virtual_list(
-                VirtualListDirection::Horizontal,
-                VirtualListItemSize::Fixed(Box::new(|| 32.0)),
+            list(
                 move || movies.get(),
-                move |item| item.id,
-                move |item| movie_card(item),
+                move |item| item.id(),
+                move |item| carousel_item(item),
             )
             .style(|s| s.gap(10.0, 0.)),
         )
-        .style(|s| s.width_full()),
+        .style(|s| s.width(1200.)),
     )
     .style(|s| {
         s.size(100.pct(), 100.pct())
@@ -105,10 +168,13 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
     .style(move |s| s.width(width).height(height))
 }
 
-pub fn movie_card(movie: Movie) -> impl View {
+static CAROUSEL_CARD_WIDTH: f64 = 200.;
+static CAROUSEL_CARD_HEIGHT: f64 = 300.;
+
+pub fn carousel_item(item: CarouselItem) -> impl View {
     let url = reqwest::Url::parse(&format!(
         "https://image.tmdb.org/t/p/w500{}",
-        movie.poster_path.unwrap()
+        item.poster_path().unwrap()
     ))
     .unwrap();
 
@@ -116,8 +182,8 @@ pub fn movie_card(movie: Movie) -> impl View {
     let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
     exec_after(Duration::from_secs(1), move |_| {
-        let xx = reqwest::blocking::get(url.clone());
-        match xx {
+        let req = reqwest::blocking::get(url.clone());
+        match req {
             Ok(resp) => match resp.status() {
                 reqwest::StatusCode::OK => {
                     bytes.update(|b| {
@@ -134,6 +200,7 @@ pub fn movie_card(movie: Movie) -> impl View {
         }
     });
 
+    let vote_average = item.vote_average();
     v_stack((
         dyn_container(
             move || (bytes.get(), error_msg.get()),
@@ -148,8 +215,8 @@ pub fn movie_card(movie: Movie) -> impl View {
             },
         )
         .style(|s| {
-            s.width(200.)
-                .height(300.)
+            s.width(CAROUSEL_CARD_WIDTH)
+                .height(CAROUSEL_CARD_HEIGHT)
                 .border(4.)
                 .border_color(Color::rgba(156., 163., 175., 0.1))
         }),
@@ -160,10 +227,10 @@ pub fn movie_card(movie: Movie) -> impl View {
         //         .border_color(Color::rgba(156., 163., 175., 0.1))
         // }),
         v_stack((
-            label(move || movie.title.clone()),
+            label(move || item.display_name().clone()),
             h_stack((
-                stars_rating_bar(movie.vote_average),
-                label(move || format!("{:.1}", movie.vote_average)).style(|s| s.margin_left(5.)),
+                stars_rating_bar(vote_average),
+                label(move || format!("{:.1}", vote_average)).style(|s| s.margin_left(5.)),
             )),
         ))
         .style(|s| s.font_size(14.).width(200.)),

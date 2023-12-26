@@ -139,7 +139,22 @@ fn app_view() -> impl View {
     });
 
     let view = h_stack((nav_left, tab_contents))
-        .style(|s| s.width_full().height_full().background(SECONDARY_BG_COLOR))
+        .style(|s| {
+            s.width_full()
+                .height_full()
+                .background(SECONDARY_BG_COLOR)
+                .class(scroll::Handle, |s| {
+                    s.border_radius(4.0)
+                        .background(Color::rgba8(166, 166, 166, 140))
+                        .set(scroll::Thickness, 12.0)
+                        .set(scroll::Rounded, true)
+                        .active(|s| s.background(Color::rgb8(166, 166, 166)))
+                        .hover(|s| s.background(Color::rgb8(184, 184, 184)))
+                })
+                .class(scroll::Track, |s| {
+                    s.hover(|s| s.background(Color::rgba8(166, 166, 166, 30)))
+                })
+        })
         .window_title(|| "Movies App".to_owned());
 
     let id = view.id();

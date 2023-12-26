@@ -49,6 +49,45 @@ impl Hash for Movie {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+pub struct TvShow {
+    pub id: u64,
+    // pub imdb_id: String,
+    pub name: String,
+    // pub tagline: String,
+    // pub original_title: String,
+    pub original_language: String,
+    pub overview: Option<String>,
+    //TODO: chrono-rs
+    // pub release_date: String,
+    // pub runtime: u32,
+    pub homepage: Option<String>,
+    // pub genres: Vec<Genre>,
+    pub poster_path: Option<String>,
+    pub backdrop_path: Option<String>,
+    pub popularity: f64,
+    pub vote_count: usize,
+    pub vote_average: f64,
+    // pub budget: u64,
+    pub adult: bool,
+    // pub videos: Option<Results<Video>>,
+    // pub credits: Option<Credits>,
+}
+
+impl PartialEq for TvShow {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for TvShow {}
+
+impl Hash for TvShow {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
 //
 // #[derive(Debug, PartialEq, Deserialize, Serialize)]
 // pub struct Episode {
@@ -64,39 +103,39 @@ impl Hash for Movie {
 //     pub vote_count: u64,
 // }
 //
-// #[derive(Debug, PartialEq, Deserialize, Serialize)]
-// pub struct TvShow {
-//     pub id: u64,
-//     pub backdrop_path: Option<String>,
-//     pub created_by: Vec<TVCreator>,
-//     pub episode_run_time: Vec<u64>,
-//     pub first_air_date: String,
-//     pub genres: Vec<Genre>,
-//     pub homepage: Option<String>,
-//     pub in_production: bool,
-//     pub languages: Vec<String>,
-//     pub last_air_date: String,
-//     pub last_episode_to_air: Option<Episode>,
-//     pub name: String,
-//     pub networks: Vec<Network>,
-//     pub number_of_episodes: u32,
-//     pub number_of_seasons: u32,
-//     pub origin_country: Vec<String>,
-//     pub original_language: String,
-//     pub original_name: String,
-//     pub overview: String,
-//     pub popularity: f64,
-//     pub poster_path: Option<String>,
-//     pub production_companies: Vec<ProductionCompany>,
-//     pub seasons: Vec<Season>,
-//     pub status: String,
-//     #[serde(rename = "type")]
-//     pub show_type: String,
-//     pub vote_average: f64,
-//     pub vote_count: u64,
-//     // pub videos: Option<Results<Video>>,
-//     pub credits: Option<TVCredits>,
-// }
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct TvShowDetails {
+    pub id: u64,
+    pub backdrop_path: Option<String>,
+    // pub created_by: Vec<TVCreator>,
+    // pub episode_run_time: Vec<u64>,
+    // pub first_air_date: String,
+    // pub genres: Vec<Genre>,
+    // pub homepage: Option<String>,
+    // pub in_production: bool,
+    // pub languages: Vec<String>,
+    // pub last_air_date: String,
+    // pub last_episode_to_air: Option<Episode>,
+    // pub name: String,
+    // pub networks: Vec<Network>,
+    // pub number_of_episodes: u32,
+    // pub number_of_seasons: u32,
+    // pub origin_country: Vec<String>,
+    // pub original_language: String,
+    // pub original_name: String,
+    // pub overview: String,
+    // pub popularity: f64,
+    // pub poster_path: Option<String>,
+    // pub production_companies: Vec<ProductionCompany>,
+    // pub seasons: Vec<Season>,
+    // pub status: String,
+    // #[serde(rename = "type")]
+    // pub show_type: String,
+    // pub vote_average: f64,
+    // pub vote_count: u64,
+    // // pub videos: Option<Results<Video>>,
+    // pub credits: Option<TVCredits>,
+}
 //
 // #[derive(Debug, PartialEq, Deserialize, Serialize)]
 // pub struct ProductionCompany {
