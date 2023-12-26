@@ -14,7 +14,7 @@ use floem::{
     view::View,
     views::{
         container, container_box, h_stack, label, list, scroll, stack, static_label, svg, tab,
-        v_stack, virtual_list, Decorators, VirtualListDirection, VirtualListItemSize,
+        text, v_stack, virtual_list, Decorators, VirtualListDirection, VirtualListItemSize,
     },
     widgets::button,
     EventPropagation,
@@ -129,7 +129,7 @@ fn app_view() -> impl View {
     )
     .style(|s| s.flex_row().items_start().width_full());
 
-    let tab_contents = scroll(tab).style(|s| {
+    let tab_contents = scroll(v_stack((tab.style(|s| s.flex_grow(1.)), footer()))).style(|s| {
         s.flex_basis(0)
             .padding(0.0)
             .margin(0.)
@@ -138,7 +138,7 @@ fn app_view() -> impl View {
             .color(PRIMARY_FG_COLOR)
     });
 
-    let view = h_stack((nav_left, tab_contents))
+    let app_view = h_stack((nav_left, tab_contents))
         .style(|s| {
             s.width_full()
                 .height_full()
@@ -146,7 +146,7 @@ fn app_view() -> impl View {
                 .class(scroll::Handle, |s| {
                     s.border_radius(4.0)
                         .background(Color::rgba8(166, 166, 166, 140))
-                        .set(scroll::Thickness, 12.0)
+                        .set(scroll::Thickness, 10.0)
                         .set(scroll::Rounded, true)
                         .active(|s| s.background(Color::rgb8(166, 166, 166)))
                         .hover(|s| s.background(Color::rgb8(184, 184, 184)))
@@ -157,14 +157,24 @@ fn app_view() -> impl View {
         })
         .window_title(|| "Movies App".to_owned());
 
-    let id = view.id();
-    view.on_event_stop(EventListener::KeyUp, move |e| {
+    let id = app_view.id();
+    app_view.on_event_stop(EventListener::KeyUp, move |e| {
         if let Event::KeyUp(e) = e {
             if e.key.logical_key == Key::Named(NamedKey::F11) {
                 id.inspect();
             }
         }
     })
+}
+
+fn footer() -> impl View {
+    let lapce_logo = include_str!("../assets/lapce_logo.svg");
+    v_stack(
+        (
+        svg(move || lapce_logo.to_string()) .style(|s| s.size(30.px(), 30.px()).margin(20.0).color(ACCENT_COLOR)),
+        text("Designed by the Nuxt Movies authors, and ported by the Floem devs, with the original data provided by TMDb.")
+        )
+    )
 }
 
 fn movies_view() -> impl View {

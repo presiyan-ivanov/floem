@@ -4,7 +4,7 @@ use floem::{
     action::exec_after,
     peniko::Color,
     reactive::{create_rw_signal, create_signal, ReadSignal, RwSignal},
-    style::Position,
+    style::{BorderColor, BorderRadius, CursorStyle, Position, Transition},
     unit::UnitExt,
     view::View,
     views::{
@@ -36,7 +36,7 @@ pub fn home_view() -> impl View {
     let (popular_movies, _) = create_signal(
         popular_movies
             .into_iter()
-            .map(|m| CarouselItem::Movie(m).to_owned())
+            .map(|m| PosterCarouselItem::Movie(m).to_owned())
             .take(13)
             .collect(),
     );
@@ -47,7 +47,7 @@ pub fn home_view() -> impl View {
     let (popular_tv_shows, _) = create_signal(
         popular_tv_shows
             .into_iter()
-            .map(|m| CarouselItem::TvShow(m).to_owned())
+            .map(|m| PosterCarouselItem::TvShow(m).to_owned())
             .take(13)
             .collect(),
     );
@@ -74,12 +74,12 @@ pub fn home_view() -> impl View {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum CarouselItem {
+pub enum PosterCarouselItem {
     Movie(Movie),
     TvShow(TvShow),
 }
 
-impl CarouselItem {
+impl PosterCarouselItem {
     fn id(&self) -> u64 {
         match self {
             Self::Movie(m) => m.id,
@@ -109,24 +109,19 @@ impl CarouselItem {
     }
 }
 
-pub fn carousel(movies: ReadSignal<im::Vector<CarouselItem>>) -> impl View {
+pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View {
     container(
         scroll(
             list(
                 move || movies.get(),
                 move |item| item.id(),
-                move |item| carousel_item(item),
+                move |item| poster_carousel_item(item),
             )
-            .style(|s| s.gap(10.0, 0.)),
+            .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
         )
-        .style(|s| s.width(1200.)),
+        .style(|s| s.width(1600.px())),
     )
-    .style(|s| {
-        s.size(100.pct(), 100.pct())
-            .padding_vert(20.0)
-            .flex_col()
-            .items_center()
-    })
+    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
 }
 
 pub enum StarsKind {
@@ -171,7 +166,7 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
 static CAROUSEL_CARD_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_HEIGHT: f64 = 300.;
 
-pub fn carousel_item(item: CarouselItem) -> impl View {
+pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let url = reqwest::Url::parse(&format!(
         "https://image.tmdb.org/t/p/w500{}",
         item.poster_path().unwrap()
@@ -216,9 +211,14 @@ pub fn carousel_item(item: CarouselItem) -> impl View {
         )
         .style(|s| {
             s.width(CAROUSEL_CARD_WIDTH)
+                .transition(BorderColor, Transition::linear(0.3))
                 .height(CAROUSEL_CARD_HEIGHT)
                 .border(4.)
-                .border_color(Color::rgba(156., 163., 175., 0.1))
+                .border_color(Color::rgba8(156, 163, 175, 25))
+                .hover(|s| {
+                    s.cursor(CursorStyle::Pointer)
+                        .border_color(Color::rgba8(156, 163, 175, 170))
+                })
         }),
         // img(move || poster.to_vec()).style(|s| {
         //     s.width(200.)
