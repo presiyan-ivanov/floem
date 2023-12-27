@@ -1,6 +1,6 @@
 use std::{
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::{atomic::AtomicUsize, Arc, Mutex},
     thread,
     time::Duration,
 };
@@ -46,7 +46,7 @@ pub fn home_view() -> impl View {
         popular_movies
             .into_iter()
             .map(|m| PosterCarouselItem::Movie(m).to_owned())
-            .take(13)
+            .take(12)
             .collect(),
     );
 
@@ -57,7 +57,7 @@ pub fn home_view() -> impl View {
         popular_tv_shows
             .into_iter()
             .map(|m| PosterCarouselItem::TvShow(m).to_owned())
-            .take(13)
+            .take(12)
             .collect(),
     );
     let (available_width, set_available_width) = create_signal(1200.);
@@ -181,6 +181,7 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
 
 static CAROUSEL_CARD_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_HEIGHT: f64 = 300.;
+static THREADS_RAN: AtomicUsize = AtomicUsize::new(0);
 
 fn get_bytes(url: reqwest::Url) -> Result<Vec<u8>, Error> {
     reqwest::blocking::get(url)?
@@ -211,12 +212,13 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     });
 
     std::thread::spawn(move || {
-        println!("Spawning thread");
         let result = get_bytes(url);
         match result {
-            Ok(body) => success_tx.send(body).unwrap(),
+            Ok(body) => {
+                println!("success");
+                success_tx.send(body).unwrap()
+            }
             Err(e) => {
-                dbg!(&e);
                 error_tx.send(e.to_string()).unwrap();
             }
         }
