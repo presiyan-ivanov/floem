@@ -189,108 +189,44 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     ))
     .unwrap();
 
-    let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
+    let body: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
     let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
-    // let (error_tx, error_rx) = crossbeam_channel::bounded(1);
+    let (error_tx, error_rx) = crossbeam_channel::bounded(1);
     let chan_bytes = create_signal_from_channel(success_rx);
-    // let chan_error = create_signal_from_channel(error_rx);
+    let chan_error = create_signal_from_channel(error_rx);
     create_effect(move |_| {
-        // if let Some(error) = chan_error.get() {
-        //     error_msg.set(Some(error));
-        // }
+        if let Some(error) = chan_error.get() {
+            error_msg.set(Some(error));
+        }
 
         if let Some(success) = chan_bytes.get() {
-            // println!("Got bytes: {:?}", success);
-            bytes.set(Some(success));
+            body.set(Some(success));
         }
     });
 
     std::thread::spawn(move || {
-        let res = reqwest::blocking::get(url.clone());
-        match res {
-            Ok(resp) => match resp.status() {
+        let result = reqwest::blocking::get(url.clone());
+        match result {
+            Ok(server_resp) => match server_resp.status() {
                 reqwest::StatusCode::OK => {
-                    success_tx.send(resp.bytes().unwrap().to_vec()).unwrap();
+                    let _ = success_tx.send(server_resp.bytes().unwrap().to_vec());
                 }
-                // err_status => {
-                //     error_tx.send(Some(format!("Status code :{}", err_status)));
-                // }
-                //
-                _ => {
-                    panic!("x")
-                } // Err(e) => {
+                err_status => {
+                    let _ = error_tx.send(format!("Received response status code:{err_status}"));
+                }
             },
-            _ => {
-                panic!("x")
-            } // Err(e) => {
-              //     error_tx.send(Some(e.to_string()));
-              // }
+            Err(e) => {
+                let _ = error_tx.send(e.to_string());
+            }
         }
-        println!("Exit");
     });
-
-    // let (tx, rx) = crossbeam_channel::bounded(1);
-    // let notification = create_signal_from_channel(rx);
-    // let latest_release = app_data.latest_release;
-    // create_effect(move |_| {
-    //     if let Some(release) = notification.get() {
-    //         latest_release.set(Arc::new(Some(release)));
-    //     }
-    // });
-    // std::thread::spawn(move || loop {
-    //     if let Ok(release) = crate::update::get_latest_release() {
-    //         let _ = tx.send(release);
-    //     }
-    //     std::thread::sleep(std::time::Duration::from_secs(60 * 60));
-    // });
-
-    // thread::spawn(move || {
-    //     println!("Spawn");
-    //     let req = reqwest::blocking::get(url.clone());
-    //     match req {
-    //         Ok(resp) => match resp.status() {
-    //             reqwest::StatusCode::OK => {
-    //                 println!("Success");
-    //                 bytes.update(|b| {
-    //                     *b = Some(resp.bytes().unwrap().to_vec());
-    //                 });
-    //             }
-    //             err_status => {
-    //                 error_msg.set(Some(format!("Status code :{}", err_status)));
-    //             }
-    //         },
-    //         Err(e) => {
-    //             error_msg.set(Some(e.to_string()));
-    //         }
-    //     }
-    //     println!("Exit");
-    // });
-
-    // exec_after(Duration::from_secs(1), move |_| {
-    //     let req = reqwest::blocking::get(url.clone());
-    //     match req {
-    //         Ok(resp) => match resp.status() {
-    //             reqwest::StatusCode::OK => {
-    //                 bytes.update(|b| {
-    //                     *b = Some(resp.bytes().unwrap().to_vec());
-    //                 });
-    //             }
-    //             err_status => {
-    //                 error_msg.set(Some(format!("Status code :{}", err_status)));
-    //             }
-    //         },
-    //         Err(e) => {
-    //             error_msg.set(Some(e.to_string()));
-    //         }
-    //     }
-    // });
 
     let vote_average = item.vote_average();
     v_stack((
         dyn_container(
-            move || (bytes.get(), error_msg.get()),
+            move || (body.get(), error_msg.get()),
             move |(bytes, error_msg)| -> Box<dyn View> {
                 if let Some(e) = error_msg {
                     Box::new(label(move || e.to_string()))
