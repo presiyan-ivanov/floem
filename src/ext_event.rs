@@ -39,7 +39,6 @@ pub fn create_ext_action<T: Send + 'static>(
     action: impl FnOnce(T) + 'static,
 ) -> impl FnOnce(T) {
     let view = get_current_view();
-    dbg!(view);
     let cx = cx.create_child();
     let trigger = cx.create_trigger();
     let data = Arc::new(Mutex::new(None));

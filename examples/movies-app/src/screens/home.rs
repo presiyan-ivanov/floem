@@ -60,7 +60,7 @@ pub fn home_view() -> impl View {
             .take(12)
             .collect(),
     );
-    let (available_width, set_available_width) = create_signal(1200.);
+    let (available_width, set_available_width) = create_signal(2100.);
 
     scroll(
         v_stack((
@@ -181,9 +181,8 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
 
 static CAROUSEL_CARD_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_HEIGHT: f64 = 300.;
-static THREADS_RAN: AtomicUsize = AtomicUsize::new(0);
 
-fn get_bytes(url: reqwest::Url) -> Result<Vec<u8>, Error> {
+fn get_bytes(url: reqwest::Url) -> Result<Vec<u8>, reqwest::Error> {
     reqwest::blocking::get(url)?
         .error_for_status()?
         .bytes()
@@ -197,44 +196,42 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     ))
     .unwrap();
 
-    let img_bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
-    let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
+    let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
+    // let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
     // The reactive runtime is thread-local, so we need to go through a channel
     // when we are doing work in another thread
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
-    let (error_tx, error_rx) = crossbeam_channel::bounded(1);
+    // let (error_tx, error_rx) = crossbeam_channel::bounded(1);
     let chan_bytes = create_signal_from_channel(success_rx);
-    let chan_error = create_signal_from_channel(error_rx);
+    // let chan_error = create_signal_from_channel(error_rx);
     create_effect(move |_| {
-        error_msg.set(chan_error.get());
+        // error_msg.set(chan_error.get());
         img_bytes.set(chan_bytes.get());
     });
 
     std::thread::spawn(move || {
-        let result = get_bytes(url);
-        match result {
-            Ok(body) => {
-                println!("success");
-                success_tx.send(body).unwrap()
-            }
-            Err(e) => {
-                error_tx.send(e.to_string()).unwrap();
-            }
-        }
+        let result = get_bytes(url).map_err(|e| e.to_string());
+        success_tx.send(result).unwrap();
     });
 
     let vote_average = item.vote_average();
     v_stack((
         dyn_container(
-            move || (img_bytes.get(), error_msg.get()),
-            move |(img_bytes, error_msg)| -> Box<dyn View> {
-                if let Some(err) = error_msg {
-                    Box::new(label(move || err.to_string()))
-                } else if let Some(bytes) = img_bytes {
-                    Box::new(img(move || bytes.to_vec()).style(|s| s.width_full().height_full()))
-                } else {
-                    Box::new(spinner())
+            move || img_bytes.get(),
+            move |img_bytes| -> Box<dyn View> {
+                match img_bytes {
+                    Some(resp) => match resp {
+                        Ok(bytes) => Box::new(
+                            img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
+                        ),
+                        Err(err_msg) => {
+                            eprintln!("error: {}", err_msg);
+                            let image_error = include_str!("../../assets/image-error.svg");
+                            Box::new(svg(move || image_error.to_owned()))
+                        }
+                    },
+                    None => Box::new(spinner()),
                 }
             },
         )

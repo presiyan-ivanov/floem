@@ -388,7 +388,15 @@ impl Renderer for VgerRenderer {
                             .quad_to(self.vger_point(quad.p1), self.vger_point(quad.p2));
                     }
                     peniko::kurbo::PathSeg::Cubic(c) => {
-                        dbg!(c.p1);
+                        if first {
+                            first = false;
+                            self.vger.move_to(self.vger_point(c.p0));
+                        }
+                        let quads = c.to_quads(0.01);
+                        for (_, _, quad) in quads {
+                            self.vger
+                                .quad_to(self.vger_point(quad.p1), self.vger_point(quad.p2));
+                        }
                     }
                 }
             }
