@@ -182,6 +182,13 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
 static CAROUSEL_CARD_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_HEIGHT: f64 = 300.;
 
+fn get_bytes(url: reqwest::Url) -> Result<Vec<u8>, Error> {
+    reqwest::blocking::get(url)?
+        .error_for_status()?
+        .bytes()
+        .map(|b| b.to_vec())
+}
+
 pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let url = reqwest::Url::parse(&format!(
         "https://image.tmdb.org/t/p/w500{}",
@@ -189,36 +196,28 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     ))
     .unwrap();
 
-    let body: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
+    let img_bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
     let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
+    // The reactive runtime is thread-local, so we need to go through a channel
+    // when we are doing work in another thread
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
     let (error_tx, error_rx) = crossbeam_channel::bounded(1);
     let chan_bytes = create_signal_from_channel(success_rx);
     let chan_error = create_signal_from_channel(error_rx);
     create_effect(move |_| {
-        if let Some(error) = chan_error.get() {
-            error_msg.set(Some(error));
-        }
-
-        if let Some(success) = chan_bytes.get() {
-            body.set(Some(success));
-        }
+        error_msg.set(chan_error.get());
+        img_bytes.set(chan_bytes.get());
     });
 
     std::thread::spawn(move || {
-        let result = reqwest::blocking::get(url.clone());
+        println!("Spawning thread");
+        let result = get_bytes(url);
         match result {
-            Ok(server_resp) => match server_resp.status() {
-                reqwest::StatusCode::OK => {
-                    let _ = success_tx.send(server_resp.bytes().unwrap().to_vec());
-                }
-                err_status => {
-                    let _ = error_tx.send(format!("Received response status code:{err_status}"));
-                }
-            },
+            Ok(body) => success_tx.send(body).unwrap(),
             Err(e) => {
-                let _ = error_tx.send(e.to_string());
+                dbg!(&e);
+                error_tx.send(e.to_string()).unwrap();
             }
         }
     });
@@ -226,12 +225,12 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let vote_average = item.vote_average();
     v_stack((
         dyn_container(
-            move || (body.get(), error_msg.get()),
-            move |(bytes, error_msg)| -> Box<dyn View> {
-                if let Some(e) = error_msg {
-                    Box::new(label(move || e.to_string()))
-                } else if let Some(b) = bytes {
-                    Box::new(img(move || b.to_vec()).style(|s| s.width_full().height_full()))
+            move || (img_bytes.get(), error_msg.get()),
+            move |(img_bytes, error_msg)| -> Box<dyn View> {
+                if let Some(err) = error_msg {
+                    Box::new(label(move || err.to_string()))
+                } else if let Some(bytes) = img_bytes {
+                    Box::new(img(move || bytes.to_vec()).style(|s| s.width_full().height_full()))
                 } else {
                     Box::new(spinner())
                 }
@@ -280,25 +279,6 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
     .unwrap();
     let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
     let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
-
-    // exec_after(Duration::from_secs(1), move |_| {
-    //     let xx = reqwest::blocking::get(url.clone());
-    //     match xx {
-    //         Ok(resp) => match resp.status() {
-    //             reqwest::StatusCode::OK => {
-    //                 bytes.update(|b| {
-    //                     *b = Some(resp.bytes().unwrap().to_vec());
-    //                 });
-    //             }
-    //             err_status => {
-    //                 error_msg.set(Some(format!("Status code :{}", err_status)));
-    //             }
-    //         },
-    //         Err(e) => {
-    //             error_msg.set(Some(e.to_string()));
-    //         }
-    //     }
-    // });
 
     dyn_container(
         move || (bytes.get(), error_msg.get()),

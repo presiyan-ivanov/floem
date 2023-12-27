@@ -68,14 +68,8 @@ impl Renderer {
     {
         let size = Size::new(size.width.max(1.0), size.height.max(1.0));
 
-        let force_tiny_skia = if let Some(val) = std::env::var("FLOEM_FORCE_TINY_SKIA")
-            .ok()
-            .map(|val| val.as_str() == "1")
-        {
-            val
-        } else {
-            false
-        };
+        let force_tiny_skia =
+            std::env::var("FLOEM_FORCE_TINY_SKIA").is_ok_and(|v| v.as_str() == "1");
 
         let vger_err = if !force_tiny_skia {
             match VgerRenderer::new(window, size.width as u32, size.height as u32, scale) {
