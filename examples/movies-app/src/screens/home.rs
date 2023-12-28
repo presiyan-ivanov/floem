@@ -62,7 +62,8 @@ pub fn home_view() -> impl View {
             .take(12)
             .collect(),
     );
-    let (available_width, set_available_width) = create_signal(2100.);
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let win_size = state.main_tab_size;
 
     scroll(
         v_stack((
@@ -72,20 +73,20 @@ pub fn home_view() -> impl View {
                     .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
                 carousel(popular_movies),
             ))
-            .style(move |s| s.padding(20.0).width(available_width.get())),
+            .style(move |s| s.padding(20.0).width(win_size.get().width)),
             v_stack((
                 label(move || "Popular TV shows")
                     .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
                 carousel(popular_tv_shows),
             ))
-            .style(move |s| s.padding(20.0).width(available_width.get())),
+            .style(move |s| s.padding(20.0).width(win_size.get().width)),
         ))
         .style(|s| s.width_full()),
     )
-    .on_resize(move |rect| {
-        println!("size: {:?}", rect.size());
-        set_available_width.update(move |width| *width = rect.width());
-    })
+    // .on_resize(move |rect| {
+    //     println!("size: {:?}", rect.size());
+    //     set_available_width.update(move |width| *width = rect.width());
+    // })
     .style(|s| s.width_full())
 }
 
@@ -182,6 +183,7 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
 
 static CAROUSEL_CARD_IMG_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_IMG_HEIGHT: f64 = 300.;
+static CAROUSEL_CARD_BORDER_WIDTH: f64 = 2.;
 
 fn get_bytes(url: reqwest::Url) -> Result<Vec<u8>, reqwest::Error> {
     reqwest::blocking::get(url)?
@@ -248,10 +250,11 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
                 .transition(BorderTop, Transition::linear(0.5))
                 .transition(BorderBottom, Transition::linear(0.5))
                 .height(CAROUSEL_CARD_IMG_HEIGHT)
-                .border(2.)
+                .border(CAROUSEL_CARD_BORDER_WIDTH)
                 //TODO: transition doesnt look good if it has opacity here, because the border
                 //edges are overlapping
                 .border_color(Color::rgb8(37, 37, 38))
+                // .border_radius(4.)
                 .hover(|s| {
                     s.cursor(CursorStyle::Pointer)
                         .border(7.0)
@@ -275,15 +278,16 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
         .style(|s| {
             s.font_size(14.)
                 .width(200.)
-                .padding_vert(10.)
-                .padding_horiz(5.)
-                .background(BG_COLOR_2)
-                .border_radius(10.)
+                .padding_bottom(10.)
+                .padding_top(5.)
+                .padding_horiz(1.)
+                // .background(BG_COLOR_2)
         }),
     ))
 }
 
 pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
+    println!("movie: {:?}", movie.get().backdrop_path);
     let url = reqwest::Url::parse(&format!(
         "https://image.tmdb.org/t/p/original{}",
         movie.get_untracked().backdrop_path.unwrap()
@@ -304,9 +308,9 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
     });
 
     dyn_container(
-        move || img_bytes,
+        move || img_bytes.get(),
         move |img_bytes| -> Box<dyn View> {
-            match img_bytes.get() {
+            match img_bytes {
                 Some(resp) => match resp {
                     Ok(bytes) => {
                         println!("bytes: {:?}", bytes.len());
@@ -334,10 +338,12 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
     let bg_container_width = 30.pct();
     let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
     let state: Arc<GlobalState> = use_context().unwrap();
-    let win_size = create_rw_signal(Size::new(2100., 800.));
+    let win_size = state.main_tab_size;
     // let backdrop_width = window_width / 2.;
     // dbg!(window_width);
-    println!("win size: {:?}", win_size.get().width);
+    create_effect(move |_| {
+        println!("win size: {:?}", win_size.get());
+    });
 
     h_stack((
         empty().style(move |s| {
@@ -346,8 +352,11 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .height_full()
                 .background(NEUTRAL_BG_COLOR)
         }),
-        movie_img(movie)
-            .style(move |s| s.width_full().margin_left(bg_container_width).height_full()),
+        movie_img(movie).style(move |s| {
+            s.width_full()
+                .margin_left(bg_container_width)
+                .height(win_size.get().width / 2.5)
+        }),
         img(move || backdrop_gradient.to_vec()).style(move |s| {
             s.width(win_size.get().width)
                 .height_full()
@@ -384,7 +393,7 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
     ))
     .style(move |s| {
         s.width(win_size.get().width)
-            .height(win_size.get().width / 2.)
+            .height(win_size.get().width / 2.5)
     })
 }
 

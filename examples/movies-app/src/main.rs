@@ -11,7 +11,7 @@ use floem::{
     keyboard::{Key, NamedKey},
     kurbo::Size,
     peniko::Color,
-    reactive::{create_rw_signal, create_signal, provide_context, RwSignal},
+    reactive::{create_effect, create_rw_signal, create_signal, provide_context, RwSignal},
     style::{Background, CursorStyle, JustifyContent, TextColor, Transition},
     unit::UnitExt,
     view::View,
@@ -162,17 +162,22 @@ static BG_COLOR_2: Color = Color::rgb8(32, 33, 36);
 struct GlobalState {
     active_tab: RwSignal<Tab>,
     window_size: RwSignal<Size>,
+    main_tab_size: RwSignal<Size>,
     // tab_state: RwSignal<Option<TabState>>,
 }
+
+static MAIN_TAB_WIDTH: f64 = 60.0;
 
 fn app_view() -> impl View {
     let state = Arc::new(GlobalState {
         active_tab: create_rw_signal(Tab::Home),
         window_size: create_rw_signal(Size::ZERO),
+        main_tab_size: create_rw_signal(Size::ZERO),
     });
 
     let active_tab = state.active_tab;
     let window_size = state.window_size;
+    let main_tab_size = state.main_tab_size;
     provide_context(state.clone());
     let tabs: im::Vector<&str> = vec![
         "Home",
@@ -190,6 +195,12 @@ fn app_view() -> impl View {
     let movie_icon = include_str!("../assets/movie_icon.svg");
     let tv_icon = include_str!("../assets/tv_icon.svg");
     let search_icon = include_str!("../assets/search_icon.svg");
+
+    create_effect(move |_| {
+        let window_size = window_size.get();
+        let size = Size::new(window_size.width - MAIN_TAB_WIDTH, window_size.height);
+        main_tab_size.set(size);
+    });
 
     let list = list(
         move || tabs.get(),
@@ -249,7 +260,7 @@ fn app_view() -> impl View {
             .height_full()
             .justify_content(Some(JustifyContent::SpaceAround))
             .padding_vert(60.)
-            .width(60.)
+            .width(MAIN_TAB_WIDTH)
             .background(NEUTRAL_BG_COLOR)
             .border_color(BG_COLOR_2)
             .border_right(1.0)
