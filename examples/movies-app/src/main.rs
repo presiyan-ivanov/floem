@@ -163,7 +163,45 @@ struct GlobalState {
     active_tab: RwSignal<Tab>,
     window_size: RwSignal<Size>,
     main_tab_size: RwSignal<Size>,
+    data_provider: DataProvider,
     // tab_state: RwSignal<Option<TabState>>,
+}
+
+struct DataProvider {
+    client: reqwest::blocking::Client,
+}
+
+impl DataProvider {
+    fn get_bytes(&self, url: reqwest::Url) -> Result<Vec<u8>, reqwest::Error> {
+        self.client
+            .get(url)
+            .send()?
+            .error_for_status()?
+            .bytes()
+            .map(|b| b.to_vec())
+    }
+
+    fn build_backdrop_url(&self, poster: &str) -> reqwest::Url {
+        reqwest::Url::parse(&format!("https://image.tmdb.org/t/p/original{}", poster)).unwrap()
+    }
+
+    fn build_poster_url(&self, poster: &str) -> reqwest::Url {
+        reqwest::Url::parse(&format!("https://image.tmdb.org/t/p/w500{}", poster)).unwrap()
+    }
+
+    fn get_poster_img(&self, id: &str) -> Result<Vec<u8>, reqwest::Error> {
+        self.get_bytes(self.build_poster_url(id))
+    }
+
+    fn get_backdrop_img(&self, id: &str) -> Result<Vec<u8>, reqwest::Error> {
+        self.get_bytes(self.build_backdrop_url(id))
+    }
+}
+
+struct Db {
+    tv_shows: im::HashMap<u64, models::TvShow>,
+    movies: im::HashMap<u64, models::Movie>,
+    // actors: im::HashMap<u64, models::Actor>,
 }
 
 static MAIN_TAB_WIDTH: f64 = 60.0;
@@ -173,6 +211,9 @@ fn app_view() -> impl View {
         active_tab: create_rw_signal(Tab::Home),
         window_size: create_rw_signal(Size::ZERO),
         main_tab_size: create_rw_signal(Size::ZERO),
+        data_provider: DataProvider {
+            client: reqwest::blocking::Client::new(),
+        },
     });
 
     let active_tab = state.active_tab;

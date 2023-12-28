@@ -1,0 +1,338 @@
+{
+  "adult": false,
+  "backdrop_path": "/sRLC052ieEzkQs9dEtPMfFxYkej.jpg",
+  "belongs_to_collection": {
+    "id": 934765,
+    "name": "Rebel Moon Collection",
+    "poster_path": "/990xOjKvSiIxeKlwaH1i5WiH4zv.jpg",
+    "backdrop_path": "/tCo96jmjKEMoWa5eCZNNss3MtMH.jpg"
+  },
+  "budget": 83000000,
+  "genres": [
+    {
+      "id": 878,
+      "name": "Science Fiction"
+    },
+    {
+      "id": 28,
+      "name": "Action"
+    },
+    {
+      "id": 12,
+      "name": "Adventure"
+    }
+  ],
+  "homepage": "https://www.rebelmoon70mm.com",
+  "id": 848326,
+  "imdb_id": "tt14998742",
+  "original_language": "en",
+  "original_title": "Rebel Moon - Part One: A Child of Fire",
+  "overview": "When a peaceful colony on the edge of the galaxy finds itself threatened by the armies of the tyrannical Regent Balisarius, they dispatch Kora, a young woman with a mysterious past, to seek out warriors from neighboring planets to help them take a stand.",
+  "popularity": 1810.823,
+  "poster_path": "/ui4DrH1cKk2vkHshcUcGt2lKxCm.jpg",
+  "production_companies": [
+    {
+      "id": 114152,
+      "logo_path": null,
+      "name": "The Stone Quarry",
+      "origin_country": "US"
+    },
+    {
+      "id": 156880,
+      "logo_path": null,
+      "name": "Grand Electric",
+      "origin_country": "US"
+    }
+  ],
+  "production_countries": [
+    {
+      "iso_3166_1": "US",
+      "name": "United States of America"
+    }
+  ],
+  "release_date": "2023-12-15",
+  "revenue": 0,
+  "runtime": 134,
+  "spoken_languages": [
+    {
+      "english_name": "English",
+      "iso_639_1": "en",
+      "name": "English"
+    }
+  ],
+  "status": "Released",
+  "tagline": "There are no heroes. Only rebels.",
+  "title": "Rebel Moon - Part One: A Child of Fire",
+  "video": false,
+  "vote_average": 6.465,
+  "vote_count": 602,
+  "images": {
+    "backdrops": [],
+    "logos": [],
+    "posters": []
+  },
+  "videos": {
+    "results": [
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "\"Breaking News: Watch Anime Free in Hindi! Introducing Our New Streaming Platform!\"",
+        "key": "mv8uyegB83Q",
+        "site": "YouTube",
+        "size": 2160,
+        "type": "Trailer",
+        "official": false,
+        "published_at": "2023-12-28T09:53:24.000Z",
+        "id": "658d4a19f2cf2563334cbcd0"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Training Day with Zack Snyder and Sofia Boutella",
+        "key": "HhfrYWxHCJw",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Behind the Scenes",
+        "official": true,
+        "published_at": "2023-12-23T22:00:00.000Z",
+        "id": "658a9757e039f1574cbdced2"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "The Rebel Moon Cast Competes in Speed-Wrapping Presents",
+        "key": "eh8M1gTGRWI",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Featurette",
+        "official": true,
+        "published_at": "2023-12-23T18:00:00.000Z",
+        "id": "658a972e4da3d463a1435f39"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Sci-Fi ASMR with the Cast of Rebel Moon",
+        "key": "d68E2eYb0F4",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Featurette",
+        "official": true,
+        "published_at": "2023-12-23T17:00:00.000Z",
+        "id": "658a9819688cd057eb85bc46"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Zack Snyder's On-Set Diary",
+        "key": "DfO2MCV7KZo",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Behind the Scenes",
+        "official": true,
+        "published_at": "2023-12-20T01:00:00.000Z",
+        "id": "6583a943f1759c408710c30e"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Sofia Boutella's Fight Training for Rebel Moon",
+        "key": "d9SnnkiO9r0",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Behind the Scenes",
+        "official": true,
+        "published_at": "2023-12-19T22:00:00.000Z",
+        "id": "6583abdb083547446f3ee76d"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "The Rebel Moon Cast Destroys Strength Test Machines",
+        "key": "ptH4u2-oMDI",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Featurette",
+        "official": true,
+        "published_at": "2023-12-19T18:00:00.000Z",
+        "id": "6583a9ddf1759c3fd910fe12"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "How the Guys of Rebel Moon Got Ripped",
+        "key": "UEkPx2kJniE",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Featurette",
+        "official": true,
+        "published_at": "2023-12-17T22:00:00.000Z",
+        "id": "658181ad0e64af0839a90b69"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Zack Snyder Breaks Down the Trailer",
+        "key": "jCPke0EIt-c",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Featurette",
+        "official": true,
+        "published_at": "2023-11-13T01:00:00.000Z",
+        "id": "6557a52dea84c71096de46cc"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Official Trailer",
+        "key": "fhr3MzT6exg",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Trailer",
+        "official": true,
+        "published_at": "2023-11-12T21:25:00.000Z",
+        "id": "655146100816c700abba6517"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Official Teaser Trailer",
+        "key": "_rHLOXbFZtI",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Trailer",
+        "official": true,
+        "published_at": "2023-08-22T18:24:37.000Z",
+        "id": "64e4fdd4e894a6011ef67f24"
+      },
+      {
+        "iso_639_1": "en",
+        "iso_3166_1": "US",
+        "name": "Behind the Scenes",
+        "key": "7nc4TDtogcs",
+        "site": "YouTube",
+        "size": 1080,
+        "type": "Behind the Scenes",
+        "official": true,
+        "published_at": "2023-06-17T22:19:01.000Z",
+        "id": "648e4c15c2ff3d00ad01f5f1"
+      }
+    ]
+  },
+  "credits": {
+    "cast": [
+      {
+        "adult": false,
+        "gender": 1,
+        "id": 568657,
+        "known_for_department": "Acting",
+        "name": "Sofia Boutella",
+        "original_name": "Sofia Boutella",
+        "popularity": 205.356,
+        "profile_path": "/lGFhhjcjARQCM8AiGidyyyfDowh.jpg",
+        "cast_id": 12,
+        "character": "Kora",
+        "credit_id": "61818dfd11386c002a9b6ed9",
+        "order": 0
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 91520,
+        "known_for_department": "Acting",
+        "name": "Michiel Huisman",
+        "original_name": "Michiel Huisman",
+        "popularity": 45.601,
+        "profile_path": "/pCxnCahwncPtWZw61Sy5qFgSkJ2.jpg",
+        "cast_id": 32,
+        "character": "Gunnar",
+        "credit_id": "6250b2765a07f50050fbcc8a",
+        "order": 1
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 1047649,
+        "known_for_department": "Acting",
+        "name": "Ed Skrein",
+        "original_name": "Ed Skrein",
+        "popularity": 66.756,
+        "profile_path": "/AaMTvZkroI8uo5JXQiJ5pSLEgSJ.jpg",
+        "cast_id": 39,
+        "character": "Atticus Noble",
+        "credit_id": "62828f91cee481541cfbdf8f",
+        "order": 2
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 938,
+        "known_for_department": "Acting",
+        "name": "Djimon Hounsou",
+        "original_name": "Djimon Hounsou",
+        "popularity": 37.957,
+        "profile_path": "/mVJmaJyo6oDGUI9rS7gUJN203Vw.jpg",
+        "cast_id": 24,
+        "character": "Titus",
+        "credit_id": "62041b861da7a600cb180536",
+        "order": 3
+      },
+      {
+        "adult": false,
+        "gender": 1,
+        "id": 21688,
+        "known_for_department": "Acting",
+        "name": "Bae Doona",
+        "original_name": "Bae Doona",
+        "popularity": 33.31,
+        "profile_path": "/lCL08q20zkqHcLLLZQRlJfG09P4.jpg",
+        "cast_id": 22,
+        "character": "Nemesis",
+        "credit_id": "62041b7d90b87e0098b02fe7",
+        "order": 4
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 1564557,
+        "known_for_department": "Acting",
+        "name": "Staz Nair",
+        "original_name": "Staz Nair",
+        "popularity": 18.457,
+        "profile_path": "/piy88vdM9eKQ8ZjbF73BXz84cRu.jpg",
+        "cast_id": 18,
+        "character": "Tarak",
+        "credit_id": "62041b46f9a3fb00680f3215",
+        "order": 5
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 56365,
+        "known_for_department": "Acting",
+        "name": "Charlie Hunnam",
+        "original_name": "Charlie Hunnam",
+        "popularity": 85.605,
+        "profile_path": "/nw9LsDNsDkPwotG7YpxRNBXmaCQ.jpg",
+        "cast_id": 23,
+        "character": "Kai",
+        "credit_id": "62041b7d0792e10099d0f5ea",
+        "order": 6
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 1313559,
+        "known_for_department": "Acting",
+        "name": "Ray Fisher",
+        "original_name": "Ray Fisher",
+        "popularity": 17.381,
+        "profile_path": "/310snvA05xDOQZDn2fJSp242GHw.jpg",
+        "cast_id": 16,
+        "character": "Bloodaxe",
+        "credit_id": "62041b33ec0c5800b62ba990",
+        "order": 7
+      },
+    ]
+  }
+}

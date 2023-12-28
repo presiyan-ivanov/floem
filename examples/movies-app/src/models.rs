@@ -2,6 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 
+
 #[derive(Deserialize, Serialize)]
 pub struct Page<T: Clone> {
     pub page: u32,

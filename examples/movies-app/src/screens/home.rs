@@ -137,7 +137,7 @@ pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View
             )
             .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
         )
-        .style(move |s| s.width(state.window_size.get().width)),
+        .style(move |s| s.width(state.main_tab_size.get().width)),
     )
     .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col());
 
@@ -185,20 +185,7 @@ static CAROUSEL_CARD_IMG_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_IMG_HEIGHT: f64 = 300.;
 static CAROUSEL_CARD_BORDER_WIDTH: f64 = 2.;
 
-fn get_bytes(url: reqwest::Url) -> Result<Vec<u8>, reqwest::Error> {
-    reqwest::blocking::get(url)?
-        .error_for_status()?
-        .bytes()
-        .map(|b| b.to_vec())
-}
-
 pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
-    let url = reqwest::Url::parse(&format!(
-        "https://image.tmdb.org/t/p/w500{}",
-        item.poster_path().unwrap()
-    ))
-    .unwrap();
-
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
 
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
@@ -208,9 +195,14 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     create_effect(move |_| {
         img_bytes.set(chan_bytes.get());
     });
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let poster = item.poster_path().unwrap();
 
     std::thread::spawn(move || {
-        let result = get_bytes(url).map_err(|e| e.to_string());
+        let result = state
+            .data_provider
+            .get_poster_img(&poster)
+            .map_err(|e| e.to_string());
         success_tx.send(result).unwrap();
     });
 
@@ -271,7 +263,8 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
             label(move || item.display_name().clone()),
             h_stack((
                 stars_rating_bar(vote_average),
-                label(move || format!("{:.1}", vote_average)).style(|s| s.margin_left(5.)),
+                label(move || format!("{:.1}", vote_average))
+                    .style(|s| s.margin_left(5.).padding_bottom(5.)),
             ))
             .style(|s| s.margin_top(5.).width_full()),
         ))
@@ -281,18 +274,12 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
                 .padding_bottom(10.)
                 .padding_top(5.)
                 .padding_horiz(1.)
-                // .background(BG_COLOR_2)
+            // .background(BG_COLOR_2)
         }),
     ))
 }
 
 pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
-    println!("movie: {:?}", movie.get().backdrop_path);
-    let url = reqwest::Url::parse(&format!(
-        "https://image.tmdb.org/t/p/original{}",
-        movie.get_untracked().backdrop_path.unwrap()
-    ))
-    .unwrap();
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
@@ -302,8 +289,14 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
         img_bytes.set(chan_bytes.get());
     });
 
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let backdrop_path = movie.get_untracked().backdrop_path.unwrap();
+
     std::thread::spawn(move || {
-        let result = get_bytes(url).map_err(|e| e.to_string());
+        let result = state
+            .data_provider
+            .get_backdrop_img(&backdrop_path)
+            .map_err(|e| e.to_string());
         success_tx.send(result).unwrap();
     });
 
@@ -312,14 +305,10 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
         move |img_bytes| -> Box<dyn View> {
             match img_bytes {
                 Some(resp) => match resp {
-                    Ok(bytes) => {
-                        println!("bytes: {:?}", bytes.len());
-                        Box::new(
-                            img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
-                        )
-                    }
+                    Ok(bytes) => Box::new(
+                        img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
+                    ),
                     Err(err_msg) => {
-                        eprintln!("error: {}", err_msg);
                         let image_error = include_str!("../../assets/image-error.svg");
                         Box::new(svg(move || image_error.to_owned()))
                     }
