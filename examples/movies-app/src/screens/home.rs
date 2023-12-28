@@ -8,8 +8,9 @@ use std::{
 use floem::{
     action::exec_after,
     ext_event::create_signal_from_channel,
+    kurbo::Size,
     peniko::Color,
-    reactive::{create_effect, create_rw_signal, create_signal, ReadSignal, RwSignal},
+    reactive::{create_effect, create_rw_signal, create_signal, use_context, ReadSignal, RwSignal},
     style::{
         BorderBottom, BorderColor, BorderLeft, BorderRadius, BorderRight, BorderTop, CursorStyle,
         Position, Transition,
@@ -27,7 +28,8 @@ use reqwest::{Error, Response};
 use crate::{
     models::{Movie, Page, TvShow},
     spinner::{self, spinner},
-    ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
+    GlobalState, MovieDetails, Tab, ACCENT_COLOR, BG_COLOR_2, DIMMED_ACCENT_COLOR,
+    NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
 };
 
 pub fn home_view() -> impl View {
@@ -124,6 +126,7 @@ impl PosterCarouselItem {
 }
 
 pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View {
+    let state: Arc<GlobalState> = use_context().unwrap();
     let container = container(
         scroll(
             list(
@@ -133,7 +136,7 @@ pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View
             )
             .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
         )
-        .style(move |s| s.width_full()),
+        .style(move |s| s.width(state.window_size.get().width)),
     )
     .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col());
 
@@ -145,8 +148,8 @@ pub enum StarsKind {
     Unfilled,
 }
 
-static STAR_WIDTH: f64 = 16.;
-static STAR_HEIGHT: f64 = 14.;
+static STAR_WIDTH: f64 = 14.;
+static STAR_HEIGHT: f64 = 12.;
 
 pub fn five_stars(kind: StarsKind) -> impl View {
     let star_icon = match kind {
@@ -158,10 +161,8 @@ pub fn five_stars(kind: StarsKind) -> impl View {
         || (0..5).collect::<Vec<i32>>(),
         move |n| *n,
         move |_| {
-            svg(|| star_icon.to_string()).style(|s| {
-                s.size(STAR_WIDTH, STAR_HEIGHT)
-                    .color(ACCENT_COLOR.with_alpha_factor(0.9))
-            })
+            svg(|| star_icon.to_string())
+                .style(|s| s.size(STAR_WIDTH, STAR_HEIGHT).color(DIMMED_ACCENT_COLOR))
         },
     )
 }
@@ -179,8 +180,8 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
     .style(move |s| s.width(width).height(height))
 }
 
-static CAROUSEL_CARD_WIDTH: f64 = 200.;
-static CAROUSEL_CARD_HEIGHT: f64 = 300.;
+static CAROUSEL_CARD_IMG_WIDTH: f64 = 200.;
+static CAROUSEL_CARD_IMG_HEIGHT: f64 = 300.;
 
 fn get_bytes(url: reqwest::Url) -> Result<Vec<u8>, reqwest::Error> {
     reqwest::blocking::get(url)?
@@ -197,16 +198,12 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     .unwrap();
 
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
-    // let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
 
-    // The reactive runtime is thread-local, so we need to go through a channel
-    // when we are doing work in another thread
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
-    // let (error_tx, error_rx) = crossbeam_channel::bounded(1);
+    // The reactive runtime is thread-local, so we need to notify the runtime
+    // when we are doing work in another thread
     let chan_bytes = create_signal_from_channel(success_rx);
-    // let chan_error = create_signal_from_channel(error_rx);
     create_effect(move |_| {
-        // error_msg.set(chan_error.get());
         img_bytes.set(chan_bytes.get());
     });
 
@@ -216,6 +213,10 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     });
 
     let vote_average = item.vote_average();
+    let id = item.id();
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let active_tab = state.active_tab;
+    // let tab_state = state.tab_state;
     v_stack((
         dyn_container(
             move || img_bytes.get(),
@@ -235,15 +236,19 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
                 }
             },
         )
+        .on_click_stop(move |_| {
+            active_tab
+                .update(move |tab| *tab = Tab::MovieDetails(Some(MovieDetails { movie_id: id })));
+        })
         .style(|s| {
-            s.width(CAROUSEL_CARD_WIDTH)
+            s.width(CAROUSEL_CARD_IMG_WIDTH)
                 .transition(BorderColor, Transition::linear(0.5))
                 .transition(BorderLeft, Transition::linear(0.5))
                 .transition(BorderRight, Transition::linear(0.5))
                 .transition(BorderTop, Transition::linear(0.5))
                 .transition(BorderBottom, Transition::linear(0.5))
-                .height(CAROUSEL_CARD_HEIGHT)
-                .border(4.)
+                .height(CAROUSEL_CARD_IMG_HEIGHT)
+                .border(2.)
                 //TODO: transition doesnt look good if it has opacity here, because the border
                 //edges are overlapping
                 .border_color(Color::rgb8(37, 37, 38))
@@ -264,9 +269,17 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
             h_stack((
                 stars_rating_bar(vote_average),
                 label(move || format!("{:.1}", vote_average)).style(|s| s.margin_left(5.)),
-            )),
+            ))
+            .style(|s| s.margin_top(5.).width_full()),
         ))
-        .style(|s| s.font_size(14.).width(200.)),
+        .style(|s| {
+            s.font_size(14.)
+                .width(200.)
+                .padding_vert(10.)
+                .padding_horiz(5.)
+                .background(BG_COLOR_2)
+                .border_radius(10.)
+        }),
     ))
 }
 
@@ -276,22 +289,38 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
         movie.get_untracked().backdrop_path.unwrap()
     ))
     .unwrap();
-    let bytes: RwSignal<Option<Vec<u8>>> = create_rw_signal(None);
-    let error_msg: RwSignal<Option<String>> = create_rw_signal(None);
+    let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
+    let (success_tx, success_rx) = crossbeam_channel::bounded(1);
+    // The reactive runtime is thread-local, so we need to notify the runtime
+    // when we are doing work in another thread
+    let chan_bytes = create_signal_from_channel(success_rx);
+    create_effect(move |_| {
+        img_bytes.set(chan_bytes.get());
+    });
+
+    std::thread::spawn(move || {
+        let result = get_bytes(url).map_err(|e| e.to_string());
+        success_tx.send(result).unwrap();
+    });
 
     dyn_container(
-        move || (bytes.get(), error_msg.get()),
-        move |(bytes, error_msg)| -> Box<dyn View> {
-            if let Some(e) = error_msg {
-                Box::new(label(move || e.to_string()))
-            } else if let Some(b) = bytes {
-                println!("success");
-                Box::new(spinner().style(|s| s.margin_left(30.pct())))
-                // Box::new(img(move || b.to_vec()).style(|s| s.width_full().height_full()))
-            } else {
-                println!("loading");
-                Box::new(spinner())
-                // Box::new(label(move || "Loading..."))
+        move || img_bytes,
+        move |img_bytes| -> Box<dyn View> {
+            match img_bytes.get() {
+                Some(resp) => match resp {
+                    Ok(bytes) => {
+                        println!("bytes: {:?}", bytes.len());
+                        Box::new(
+                            img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
+                        )
+                    }
+                    Err(err_msg) => {
+                        eprintln!("error: {}", err_msg);
+                        let image_error = include_str!("../../assets/image-error.svg");
+                        Box::new(svg(move || image_error.to_owned()))
+                    }
+                },
+                None => Box::new(spinner()),
             }
         },
     )
@@ -303,8 +332,12 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
         movie.with_untracked(|m| m.release_date.split('-').next().unwrap().to_owned());
     let movie_details_width = 50.pct();
     let bg_container_width = 30.pct();
-    let backdrop_width = 1100.px();
     let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let win_size = create_rw_signal(Size::new(2100., 800.));
+    // let backdrop_width = window_width / 2.;
+    // dbg!(window_width);
+    println!("win size: {:?}", win_size.get().width);
 
     h_stack((
         empty().style(move |s| {
@@ -313,13 +346,10 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .height_full()
                 .background(NEUTRAL_BG_COLOR)
         }),
-        movie_img(movie).style(move |s| {
-            s.width(100.pct())
-                .margin_left(bg_container_width)
-                .height_full()
-        }),
+        movie_img(movie)
+            .style(move |s| s.width_full().margin_left(bg_container_width).height_full()),
         img(move || backdrop_gradient.to_vec()).style(move |s| {
-            s.width(backdrop_width)
+            s.width(win_size.get().width)
                 .height_full()
                 .margin_left(29.5.pct())
                 .position(Position::Absolute)
@@ -352,7 +382,10 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .height_full()
         }),
     ))
-    .style(|s| s.width_full().height(720.))
+    .style(move |s| {
+        s.width(win_size.get().width)
+            .height(win_size.get().width / 2.)
+    })
 }
 
 fn pretty_format_number(num: u64) -> String {

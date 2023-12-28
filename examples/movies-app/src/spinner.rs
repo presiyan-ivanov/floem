@@ -82,16 +82,16 @@ impl View for Spinner {
         let sweep_deg: f64 = 260.0;
         let start_deg: f64 = progress * 360.;
         let inner_radius = 80.0;
-        let outer_radius = 70.0;
+        let outer_radius = 75.0;
         let segment = CircleSegment::new(
-            Point::new(200.0, 200.0),
+            Point::new(100.0, 100.0),
             outer_radius,
             inner_radius,
             start_deg.to_radians(),
             sweep_deg.to_radians(),
         );
 
-        cx.fill(&segment, Color::WHITE, 0.0);
+        cx.fill(&segment, Color::WHITE, 20.0);
 
         exec_after(
             Duration::from_millis(16),

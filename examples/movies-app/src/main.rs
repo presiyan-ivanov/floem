@@ -4,47 +4,192 @@ pub mod models;
 pub mod screens;
 pub mod spinner;
 
+use std::sync::Arc;
+
 use floem::{
     event::{Event, EventListener},
     keyboard::{Key, NamedKey},
+    kurbo::Size,
     peniko::Color,
-    reactive::create_signal,
+    reactive::{create_rw_signal, create_signal, provide_context, RwSignal},
     style::{Background, CursorStyle, JustifyContent, TextColor, Transition},
     unit::UnitExt,
     view::View,
     views::{
-        container, container_box, h_stack, label, list, scroll, stack, static_label, svg, tab,
-        text, v_stack, virtual_list, Decorators, VirtualListDirection, VirtualListItemSize,
+        container, container_box, empty, h_stack, label, list, scroll, stack, static_label, svg,
+        tab, text, v_stack, virtual_list, Decorators, VirtualListDirection, VirtualListItemSize,
     },
     widgets::button,
     EventPropagation,
 };
 use screens::home::home_view;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-enum MainTab {
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+enum Tab {
     Home,
     Movies,
     TvShows,
+    Search,
+    MovieDetails(Option<MovieDetails>),
+    TvShowDetails,
+    ActorDetails,
+}
+
+impl Tab {
+    fn is_visible_in_nav(&self) -> bool {
+        match self {
+            Tab::Home => true,
+            Tab::Movies => true,
+            Tab::TvShows => true,
+            Tab::Search => true,
+            Tab::MovieDetails(_) => false,
+            Tab::TvShowDetails => false,
+            Tab::ActorDetails => false,
+        }
+    }
+    fn movie_id(&self) -> Option<u64> {
+        match self {
+            Tab::MovieDetails(Some(MovieDetails { movie_id })) => Some(*movie_id),
+            x => None,
+        }
+    }
+
+    fn tv_show_id(&self) -> Option<u64> {
+        match self {
+            Tab::TvShowDetails => Some(0),
+            _ => None,
+        }
+    }
+
+    fn actor_id(&self) -> Option<u64> {
+        match self {
+            Tab::ActorDetails => Some(0),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+struct MovieDetails {
+    movie_id: u64,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+struct TvShowDetails {
+    tv_show_id: u64,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+struct ActorDetails {
+    actor_id: u64,
+}
+
+// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+// enum TabState {
+//     MovieDetails { movie_id: u64 },
+//     TvShowDetails { tv_show_id: u64 },
+//     ActorDetails { actor_id: u64 },
+// }
+//
+// impl TabState {
+//     fn movie_id(&self) -> Option<u64> {
+//         match self {
+//             TabState::MovieDetails { movie_id } => Some(*movie_id),
+//             _ => None,
+//         }
+//     }
+
+// fn tv_show_id(&self) -> Option<u64> {
+//     match self {
+//         TabState::TvShowDetails { tv_show_id } => Some(*tv_show_id),
+//         _ => None,
+//     }
+// }
+//
+// fn actor_id(&self) -> Option<u64> {
+//     match self {
+//         TabState::ActorDetails { actor_id } => Some(*actor_id),
+//         _ => None,
+//     }
+// }
+// }
+
+impl Tab {
+    fn index(&self) -> usize {
+        match self {
+            Tab::Home => 0,
+            Tab::Movies => 1,
+            Tab::TvShows => 2,
+            Tab::Search => 3,
+            Tab::MovieDetails { .. } => 4,
+            Tab::TvShowDetails => 5,
+            Tab::ActorDetails => 6,
+        }
+    }
+
+    fn from_str(s: &str) -> Option<Tab> {
+        dbg!(s);
+        match s {
+            "Home" => Some(Tab::Home),
+            "Movies" => Some(Tab::Movies),
+            "TvShows" => Some(Tab::TvShows),
+            "Search" => Some(Tab::Search),
+            "MovieDetails" => Some(Tab::MovieDetails(None)),
+            "TvShowDetails" => Some(Tab::TvShowDetails),
+            "ActorDetails" => Some(Tab::ActorDetails),
+            _ => None,
+        }
+    }
+
+    fn from_index(idx: usize) -> Tab {
+        match idx {
+            0 => Tab::Home,
+            1 => Tab::Movies,
+            2 => Tab::TvShows,
+            3 => Tab::Search,
+            _ => panic!("Invalid tab : {}", idx),
+        }
+    }
 }
 
 static PRIMARY_FG_COLOR: Color = Color::WHITE;
 static ACCENT_COLOR: Color = Color::rgb8(64, 193, 173);
+static DIMMED_ACCENT_COLOR: Color = Color::rgb8(0, 173, 153);
 static NEUTRAL_BG_COLOR: Color = Color::BLACK;
 static SECONDARY_BG_COLOR: Color = Color::rgb8(20, 20, 20);
 static BG_COLOR_2: Color = Color::rgb8(32, 33, 36);
 
+struct GlobalState {
+    active_tab: RwSignal<Tab>,
+    window_size: RwSignal<Size>,
+    // tab_state: RwSignal<Option<TabState>>,
+}
+
 fn app_view() -> impl View {
-    let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows", "Search"]
-        .into_iter()
-        .collect();
+    let state = Arc::new(GlobalState {
+        active_tab: create_rw_signal(Tab::Home),
+        window_size: create_rw_signal(Size::ZERO),
+    });
+
+    let active_tab = state.active_tab;
+    let window_size = state.window_size;
+    provide_context(state.clone());
+    let tabs: im::Vector<&str> = vec![
+        "Home",
+        "Movies",
+        "TvShows",
+        "Search",
+        "MovieDetails",
+        "TvShowDetails",
+        "ActorDetails",
+    ]
+    .into_iter()
+    .collect();
     let (tabs, _set_tabs) = create_signal(tabs);
     let home_icon = include_str!("../assets/home_icon.svg");
     let movie_icon = include_str!("../assets/movie_icon.svg");
     let tv_icon = include_str!("../assets/tv_icon.svg");
     let search_icon = include_str!("../assets/search_icon.svg");
-
-    let (active_tab, set_active_tab) = create_signal(0);
 
     let list = list(
         move || tabs.get(),
@@ -55,25 +200,31 @@ fn app_view() -> impl View {
                 .iter()
                 .position(|it| *it == item)
                 .unwrap();
-            v_stack((svg(move || match item {
-                "Home" => home_icon.to_string(),
-                "Movies" => movie_icon.to_string(),
-                "TvShows" => tv_icon.to_string(),
-                "Search" => search_icon.to_string(),
-                x => panic!("Unknown tab: {}", x),
+            let tab = Tab::from_str(item).unwrap();
+            let tab2 = tab.clone();
+            v_stack((svg(move || match tab {
+                Tab::Home => home_icon.to_string(),
+                Tab::Movies => movie_icon.to_string(),
+                Tab::TvShows => tv_icon.to_string(),
+                Tab::Search => search_icon.to_string(),
+                Tab::MovieDetails(_) => "".to_owned(),
+                Tab::TvShowDetails => "".to_owned(),
+                Tab::ActorDetails => "".to_owned(),
             })
             .style(move |s| {
                 s.size(22.px(), 22.px())
                     .color(PRIMARY_FG_COLOR)
-                    .apply_if(index == active_tab.get(), |s| s.color(ACCENT_COLOR))
+                    .apply_if(!tab2.is_visible_in_nav(), move |s| s.hide())
+                    .apply_if(index == active_tab.get().index(), |s| s.color(ACCENT_COLOR))
             }),))
             .on_click_stop(move |_| {
-                set_active_tab.update(|v: &mut usize| {
-                    *v = tabs
-                        .get_untracked()
-                        .iter()
-                        .position(|it| *it == item)
-                        .unwrap();
+                active_tab.update(|v: &mut Tab| {
+                    *v = Tab::from_index(
+                        tabs.get_untracked()
+                            .iter()
+                            .position(|it| *it == item)
+                            .unwrap(),
+                    );
                 });
             })
             .keyboard_navigatable()
@@ -115,16 +266,21 @@ fn app_view() -> impl View {
 
     let nav_left = v_stack((list, inspector)).style(|s| s.height_full().gap(0.0, 5.0));
 
+    // let tab_state = state.tab_state;
     let tab = tab(
-        move || active_tab.get(),
+        move || active_tab.get().index(),
         move || tabs.get(),
         |it| *it,
-        |it| match it {
-            "Home" => container_box(home_view()).style(|s| s.width_full()),
-            "Movies" => container_box(movies_view()),
-            "TvShows" => container_box(tv_shows_view()),
-            "Search" => container_box(label(|| "Not implemented".to_owned())),
-            _ => container_box(label(|| "Not implemented".to_owned())),
+        move |it| match Tab::from_str(it).unwrap() {
+            Tab::Home => container_box(home_view()).style(|s| s.width_full()),
+            Tab::Movies => container_box(movies_view()),
+            Tab::TvShows => container_box(tv_shows_view()),
+            Tab::Search => container_box(label(|| "Not implemented".to_owned())),
+            Tab::MovieDetails(_) => container_box(label(move || {
+                format!("Movie {:?}", active_tab.get().movie_id())
+            })),
+            Tab::TvShowDetails => container_box(label(move || format!("TvShow ??"))),
+            Tab::ActorDetails => container_box(label(move || format!("Actor ??"))),
         },
     )
     .style(|s| s.flex_row().items_start().width_full());
@@ -155,6 +311,11 @@ fn app_view() -> impl View {
                     s.hover(|s| s.background(Color::rgba8(166, 166, 166, 30)))
                 })
         })
+        .on_event_stop(EventListener::WindowResized, move |event| {
+            if let Event::WindowResized(size) = event {
+                window_size.set(*size);
+            }
+        })
         .window_title(|| "Floem Movies".to_owned());
 
     let id = app_view.id();
@@ -166,6 +327,14 @@ fn app_view() -> impl View {
         }
     })
 }
+
+struct State {
+    active_tab: Tab,
+}
+
+struct MovieDb {}
+
+impl MovieDb {}
 
 fn footer() -> impl View {
     let lapce_logo = include_str!("../assets/lapce_logo.svg");

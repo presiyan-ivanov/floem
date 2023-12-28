@@ -70,6 +70,7 @@ impl Renderer {
 
         let force_tiny_skia =
             std::env::var("FLOEM_FORCE_TINY_SKIA").is_ok_and(|v| v.as_str() == "1");
+        dbg!(force_tiny_skia);
 
         let vger_err = if !force_tiny_skia {
             match VgerRenderer::new(window, size.width as u32, size.height as u32, scale) {
