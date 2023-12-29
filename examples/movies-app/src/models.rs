@@ -2,13 +2,62 @@ use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Deserialize, Serialize)]
 pub struct Page<T: Clone> {
     pub page: u32,
     pub results: im::Vector<T>,
     pub total_pages: u32,
     pub total_results: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Genre {
+    pub id: u64,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct MovieDetails {
+    pub id: u64,
+    pub imdb_id: String,
+    pub title: String,
+    pub tagline: String,
+    pub original_title: String,
+    pub original_language: String,
+    pub overview: Option<String>,
+    pub release_date: String, // ToDo: Date Type
+    pub runtime: u32,
+    pub homepage: Option<String>,
+    pub genres: Vec<Genre>,
+    pub poster_path: Option<String>,
+    pub backdrop_path: Option<String>,
+    pub vote_count: u64,
+    pub vote_average: f64,
+    pub popularity: f64,
+    pub budget: u64,
+    pub adult: bool,
+    // pub videos: Option<Results<Video>>,
+    // pub credits: Option<Credits>,
+}
+
+impl From<MovieDetails> for Movie {
+    fn from(movie_details: MovieDetails) -> Self {
+        Movie {
+            id: movie_details.id,
+            title: movie_details.title,
+            original_title: movie_details.original_title,
+            original_language: movie_details.original_language,
+            overview: movie_details.overview,
+            release_date: movie_details.release_date,
+            homepage: movie_details.homepage,
+            poster_path: movie_details.poster_path,
+            backdrop_path: movie_details.backdrop_path,
+            popularity: movie_details.popularity,
+            vote_count: movie_details.vote_count,
+            vote_average: movie_details.vote_average,
+            adult: movie_details.adult,
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize)]

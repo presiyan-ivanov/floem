@@ -1,35 +1,25 @@
-use std::{
-    rc::Rc,
-    sync::{atomic::AtomicUsize, Arc, Mutex},
-    thread,
-    time::Duration,
-};
+use std::sync::Arc;
 
 use floem::{
-    action::exec_after,
     ext_event::create_signal_from_channel,
-    kurbo::Size,
     peniko::Color,
     reactive::{create_effect, create_rw_signal, create_signal, use_context, ReadSignal, RwSignal},
     style::{
-        BorderBottom, BorderColor, BorderLeft, BorderRadius, BorderRight, BorderTop, CursorStyle,
-        Position, Transition,
+        BorderBottom, BorderColor, BorderLeft, BorderRight, BorderTop, CursorStyle, Position,
+        Transition,
     },
     unit::UnitExt,
     view::View,
     views::{
-        clip, container, dyn_container, empty, h_stack, img, label, list, scroll, stack,
-        static_label, static_list, svg, v_stack, virtual_list, Decorators, VirtualListDirection,
-        VirtualListItemSize,
+        clip, container, dyn_container, empty, h_stack, img, label, list, scroll, svg, v_stack,
+        Decorators,
     },
 };
-use reqwest::{Error, Response};
 
 use crate::{
     models::{Movie, Page, TvShow},
-    spinner::{self, spinner},
-    GlobalState, MovieDetails, Tab, ACCENT_COLOR, BG_COLOR_2, DIMMED_ACCENT_COLOR,
-    NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
+    spinner::spinner,
+    GlobalState, MovieDetailsState, Tab, DIMMED_ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
 };
 
 pub fn home_view() -> impl View {
@@ -232,7 +222,7 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
         )
         .on_click_stop(move |_| {
             active_tab
-                .update(move |tab| *tab = Tab::MovieDetails(Some(MovieDetails { movie_id: id })));
+                .update(move |tab| *tab = Tab::MovieDetails(Some(MovieDetailsState { movie_id: id })));
         })
         .style(|s| {
             s.width(CAROUSEL_CARD_IMG_WIDTH)
