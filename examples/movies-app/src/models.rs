@@ -60,7 +60,7 @@ impl From<MovieDetails> for Movie {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Movie {
     pub id: u64,
     // pub imdb_id: String,

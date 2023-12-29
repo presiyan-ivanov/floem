@@ -19,7 +19,8 @@ use floem::{
 use crate::{
     models::{Movie, Page, TvShow},
     spinner::spinner,
-    GlobalState, MovieDetailsState, Tab, DIMMED_ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
+    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, DIMMED_ACCENT_COLOR,
+    NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
 };
 
 pub fn home_view() -> impl View {
@@ -33,7 +34,7 @@ pub fn home_view() -> impl View {
 
     let popular_movies = popular_movies.results;
     let most_popular_movie = popular_movies.get(0).unwrap();
-    let (most_popular_movie, _) = create_signal(most_popular_movie.to_owned());
+    let (most_popular_movie, _) = create_signal(Some(most_popular_movie.to_owned()));
     let (popular_movies, _) = create_signal(
         popular_movies
             .into_iter()
@@ -60,23 +61,19 @@ pub fn home_view() -> impl View {
             movie_hero_container(most_popular_movie),
             v_stack((
                 label(move || "Popular Movies")
-                    .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
+                    .style(|s| s.font_size(20.).margin_top(5.).padding(5.)),
                 carousel(popular_movies),
             ))
             .style(move |s| s.padding(20.0).width(win_size.get().width)),
             v_stack((
                 label(move || "Popular TV shows")
-                    .style(|s| s.font_size(20.).margin_top(10.).padding(5.)),
+                    .style(|s| s.font_size(20.).margin_top(5.).padding(5.)),
                 carousel(popular_tv_shows),
             ))
             .style(move |s| s.padding(20.0).width(win_size.get().width)),
         ))
         .style(|s| s.width_full()),
     )
-    // .on_resize(move |rect| {
-    //     println!("size: {:?}", rect.size());
-    //     set_available_width.update(move |width| *width = rect.width());
-    // })
     .style(|s| s.width_full())
 }
 
@@ -221,8 +218,9 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
             },
         )
         .on_click_stop(move |_| {
-            active_tab
-                .update(move |tab| *tab = Tab::MovieDetails(Some(MovieDetailsState { movie_id: id })));
+            active_tab.update(move |tab| {
+                *tab = ActiveTabKind::Sub(SubTab::MovieDetails(MovieDetailsState { movie_id: id }))
+            });
         })
         .style(|s| {
             s.width(CAROUSEL_CARD_IMG_WIDTH)
@@ -232,16 +230,11 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
                 .transition(BorderTop, Transition::linear(0.5))
                 .transition(BorderBottom, Transition::linear(0.5))
                 .height(CAROUSEL_CARD_IMG_HEIGHT)
-                .border(CAROUSEL_CARD_BORDER_WIDTH)
                 //TODO: transition doesnt look good if it has opacity here, because the border
                 //edges are overlapping
                 .border_color(Color::rgb8(37, 37, 38))
                 // .border_radius(4.)
-                .hover(|s| {
-                    s.cursor(CursorStyle::Pointer)
-                        .border(7.0)
-                        .border_color(Color::rgb8(107, 107, 107))
-                })
+                .hover(|s| s.cursor(CursorStyle::Pointer))
         }),
         // img(move || poster.to_vec()).style(|s| {
         //     s.width(200.)
@@ -269,7 +262,8 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     ))
 }
 
-pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
+pub fn movie_img(movie: Movie) -> impl View {
+    println!("movie: {:?}", movie.id);
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
@@ -279,9 +273,9 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
         img_bytes.set(chan_bytes.get());
     });
 
-    let state: Arc<GlobalState> = use_context().unwrap();
-    let backdrop_path = movie.get_untracked().backdrop_path.unwrap();
+    let backdrop_path = movie.backdrop_path.unwrap();
 
+    let state: Arc<GlobalState> = use_context().unwrap();
     std::thread::spawn(move || {
         let result = state
             .data_provider
@@ -310,20 +304,15 @@ pub fn movie_img(movie: ReadSignal<Movie>) -> impl View {
     .style(|s| s.width_full().height_full())
 }
 
-pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
-    let release_year =
-        movie.with_untracked(|m| m.release_date.split('-').next().unwrap().to_owned());
-    let movie_details_width = 50.pct();
+pub fn movie_hero_container(movie: ReadSignal<Option<Movie>>) -> impl View {
     let bg_container_width = 30.pct();
     let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
     let state: Arc<GlobalState> = use_context().unwrap();
     let win_size = state.main_tab_size;
     // let backdrop_width = window_width / 2.;
     // dbg!(window_width);
-    create_effect(move |_| {
-        println!("win size: {:?}", win_size.get());
-    });
 
+    // dbg!(movie.get_untracked());
     h_stack((
         empty().style(move |s| {
             s.position(Position::Absolute)
@@ -331,49 +320,70 @@ pub fn movie_hero_container(movie: ReadSignal<Movie>) -> impl View {
                 .height_full()
                 .background(NEUTRAL_BG_COLOR)
         }),
-        movie_img(movie).style(move |s| {
-            s.width_full()
-                .margin_left(bg_container_width)
-                .height(win_size.get().width / 2.5)
-        }),
+        dyn_movie_description(movie),
+        dyn_movie_img(movie),
         img(move || backdrop_gradient.to_vec()).style(move |s| {
-            s.width(win_size.get().width)
+            s.width_pct(60.)
                 .height_full()
                 .margin_left(29.5.pct())
                 .position(Position::Absolute)
-            // .border_color(Color::rgba(0., 0., 0., 0.1))
-        }),
-        v_stack((
-            label(move || movie.get().title).style(|s| s.font_size(40.0).margin_vert(15.0)),
-            h_stack((
-                stars_rating_bar(movie.get().vote_average),
-                label(move || format!("{:.1}", movie.get().vote_average))
-                    .style(|s| s.margin_horiz(12.0)),
-                label(move || format!("{} Reviews", pretty_format_number(movie.get().vote_count)))
-                    .style(|s| s.margin_right(12.0)),
-                label(move || release_year.clone()).style(|s| s.margin_right(12.0)),
-                label(move || "1h 20m"),
-            ))
-            .style(|s| s.color(Color::rgb8(153, 153, 153))),
-            label(move || movie.get().overview.unwrap_or_default()).style(|s| {
-                s.color(PRIMARY_FG_COLOR)
-                    .width_pct(70.)
-                    .margin_top(20.0)
-                    .font_size(18.)
-            }),
-        ))
-        .style(move |s| {
-            s.position(Position::Absolute)
-                .padding(20.)
-                .width(movie_details_width)
-                .justify_center()
-                .height_full()
+                .border_color(Color::rgba(0., 0., 0., 0.1))
         }),
     ))
     .style(move |s| {
         s.width(win_size.get().width)
             .height(win_size.get().width / 2.5)
     })
+}
+
+fn dyn_movie_img(movie: ReadSignal<Option<Movie>>) -> impl View {
+    dyn_container(
+        move || movie.get(),
+        move |movie| -> Box<dyn View> {
+            match movie {
+                Some(movie) => Box::new(movie_img(movie)),
+                None => Box::new(spinner()),
+            }
+        },
+    )
+    .style(move |s| s.width_full().height_full().margin_left(30.pct()))
+}
+
+fn dyn_movie_description(movie: ReadSignal<Option<Movie>>) -> impl View {
+    dyn_container(
+        move || movie.get(),
+        move |movie| -> Box<dyn View> {
+            match movie {
+                Some(movie) => Box::new(movie_description(movie)),
+                None => Box::new(spinner()),
+            }
+        },
+    )
+    .style(move |s| s.position(Position::Absolute).width(30.pct()).height_full())
+}
+
+fn movie_description(movie: Movie) -> impl View {
+    let release_year = movie.release_date.split('-').next().unwrap().to_owned();
+    dbg!(&movie);
+    v_stack((
+        label(move || movie.title.clone()).style(|s| s.font_size(40.0).margin_vert(15.0)),
+        h_stack((
+            stars_rating_bar(movie.vote_average),
+            label(move || format!("{:.1}", movie.vote_average)).style(|s| s.margin_horiz(12.0)),
+            label(move || format!("{} Reviews", pretty_format_number(movie.vote_count)))
+                .style(|s| s.margin_right(12.0)),
+            label(move || release_year.clone()).style(|s| s.margin_right(12.0)),
+            label(move || "1h 20m"),
+        ))
+        .style(|s| s.color(Color::rgb8(153, 153, 153))),
+        label(move || movie.overview.clone().unwrap_or_default()).style(|s| {
+            s.color(PRIMARY_FG_COLOR)
+                .width_pct(70.)
+                .margin_top(20.0)
+                .font_size(18.)
+        }),
+    ))
+    .style(|s| s.width_full().padding(20.).justify_center().height_full())
 }
 
 fn pretty_format_number(num: u64) -> String {
