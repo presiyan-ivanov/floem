@@ -172,7 +172,7 @@ static CAROUSEL_CARD_IMG_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_IMG_HEIGHT: f64 = 300.;
 static CAROUSEL_CARD_BORDER_WIDTH: f64 = 2.;
 
-pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
+pub fn dyn_poster_img(poster_path: String) -> impl View {
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
 
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
@@ -183,66 +183,63 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
         img_bytes.set(chan_bytes.get());
     });
     let state: Arc<GlobalState> = use_context().unwrap();
-    let poster = item.poster_path().unwrap();
 
     std::thread::spawn(move || {
         let result = state
             .data_provider
-            .get_poster_img(&poster)
+            .get_poster_img(&poster_path)
             .map_err(|e| e.to_string());
         success_tx.send(result).unwrap();
     });
 
+    dyn_container(
+        move || img_bytes.get(),
+        move |img_bytes| -> Box<dyn View> {
+            match img_bytes {
+                Some(resp) => match resp {
+                    Ok(bytes) => Box::new(
+                        img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
+                    ),
+                    Err(err_msg) => {
+                        eprintln!("error: {}", err_msg);
+                        let image_error = include_str!("../../assets/image-error.svg");
+                        Box::new(svg(move || image_error.to_owned()))
+                    }
+                },
+                None => Box::new(spinner()),
+            }
+        },
+    )
+    .style(|s| {
+        s.width(CAROUSEL_CARD_IMG_WIDTH)
+            .transition(BorderColor, Transition::linear(0.5))
+            .transition(BorderLeft, Transition::linear(0.5))
+            .transition(BorderRight, Transition::linear(0.5))
+            .transition(BorderTop, Transition::linear(0.5))
+            .transition(BorderBottom, Transition::linear(0.5))
+            .height(CAROUSEL_CARD_IMG_HEIGHT)
+            //TODO: transition doesnt look good if it has opacity here, because the border
+            //edges are overlapping
+            .border_color(Color::rgb8(37, 37, 38))
+            // .border_radius(4.)
+            .hover(|s| s.cursor(CursorStyle::Pointer))
+    })
+}
+
+pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let vote_average = item.vote_average();
     let id = item.id();
     let state: Arc<GlobalState> = use_context().unwrap();
     let active_tab = state.active_tab;
+    let poster = item.poster_path().unwrap();
     // let tab_state = state.tab_state;
     v_stack((
-        dyn_container(
-            move || img_bytes.get(),
-            move |img_bytes| -> Box<dyn View> {
-                match img_bytes {
-                    Some(resp) => match resp {
-                        Ok(bytes) => Box::new(
-                            img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
-                        ),
-                        Err(err_msg) => {
-                            eprintln!("error: {}", err_msg);
-                            let image_error = include_str!("../../assets/image-error.svg");
-                            Box::new(svg(move || image_error.to_owned()))
-                        }
-                    },
-                    None => Box::new(spinner()),
-                }
-            },
-        )
-        .on_click_stop(move |_| {
+        dyn_poster_img(poster).on_click_stop(move |_| {
             active_tab.update(move |tab| {
                 *tab = ActiveTabKind::Sub(SubTab::MovieDetails(MovieDetailsState { movie_id: id }));
                 println!("set tab to: {:?}", tab);
             });
-        })
-        .style(|s| {
-            s.width(CAROUSEL_CARD_IMG_WIDTH)
-                .transition(BorderColor, Transition::linear(0.5))
-                .transition(BorderLeft, Transition::linear(0.5))
-                .transition(BorderRight, Transition::linear(0.5))
-                .transition(BorderTop, Transition::linear(0.5))
-                .transition(BorderBottom, Transition::linear(0.5))
-                .height(CAROUSEL_CARD_IMG_HEIGHT)
-                //TODO: transition doesnt look good if it has opacity here, because the border
-                //edges are overlapping
-                .border_color(Color::rgb8(37, 37, 38))
-                // .border_radius(4.)
-                .hover(|s| s.cursor(CursorStyle::Pointer))
         }),
-        // img(move || poster.to_vec()).style(|s| {
-        //     s.width(200.)
-        //         .height(300.)
-        //         .border(3.)
-        //         .border_color(Color::rgba(156., 163., 175., 0.1))
-        // }),
         v_stack((
             label(move || item.display_name().clone()),
             h_stack((
