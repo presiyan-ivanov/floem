@@ -238,9 +238,10 @@ impl DataProvider {
     }
 
     fn get_movie_details(&self, movie_id: u64) -> Result<MovieDetails> {
-        let path = &format!("./../assets/data/movie_details/{movie_id}.json");
+        let path = &format!("./assets/data/movie_details/848326.json");
         let path = Path::new(path);
-        let data = fs::read_to_string(path).context("Failed to read movie details")?;
+        println!("{:?}", fs::canonicalize(&path));
+        let data = fs::read_to_string(path).context("Failed to read movie details file")?;
         serde_json::from_str::<MovieDetails>(&data).context("Failed to parse movie details json")
     }
 }
@@ -386,7 +387,9 @@ fn app_view() -> impl View {
                 ),
 
                 ActiveTabKind::Sub(sub_tab) => Box::new(match sub_tab {
-                    SubTab::MovieDetails(mov_det) => container_box(movie_details_screen(mov_det)),
+                    SubTab::MovieDetails(mov_det) => {
+                        container_box(movie_details_screen(mov_det)).style(|s| s.width_full())
+                    }
                     SubTab::TvShowDetails => container_box(label(|| "Not implemented".to_owned())),
                     SubTab::ActorDetails => container_box(label(|| "Not implemented".to_owned())),
                 }),

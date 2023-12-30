@@ -219,7 +219,8 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
         )
         .on_click_stop(move |_| {
             active_tab.update(move |tab| {
-                *tab = ActiveTabKind::Sub(SubTab::MovieDetails(MovieDetailsState { movie_id: id }))
+                *tab = ActiveTabKind::Sub(SubTab::MovieDetails(MovieDetailsState { movie_id: id }));
+                println!("set tab to: {:?}", tab);
             });
         })
         .style(|s| {
@@ -305,7 +306,7 @@ pub fn movie_img(movie: Movie) -> impl View {
 }
 
 pub fn movie_hero_container(movie: ReadSignal<Option<Movie>>) -> impl View {
-    let bg_container_width = 30.pct();
+    let bg_container_width = 40.pct();
     let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
     let state: Arc<GlobalState> = use_context().unwrap();
     let win_size = state.main_tab_size;
@@ -364,7 +365,7 @@ fn dyn_movie_description(movie: ReadSignal<Option<Movie>>) -> impl View {
 
 fn movie_description(movie: Movie) -> impl View {
     let release_year = movie.release_date.split('-').next().unwrap().to_owned();
-    dbg!(&movie);
+    // dbg!(&movie);
     v_stack((
         label(move || movie.title.clone()).style(|s| s.font_size(40.0).margin_vert(15.0)),
         h_stack((
