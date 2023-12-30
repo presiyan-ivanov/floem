@@ -172,7 +172,13 @@ static CAROUSEL_CARD_IMG_WIDTH: f64 = 200.;
 static CAROUSEL_CARD_IMG_HEIGHT: f64 = 300.;
 static CAROUSEL_CARD_BORDER_WIDTH: f64 = 2.;
 
-pub fn dyn_poster_img(poster_path: String) -> impl View {
+///The aspect ratio is 1:1.5, e.g. for width 200(px), height is 300(px)
+pub enum PosterImgSize {
+    Width200,
+    Width300,
+}
+
+pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl View {
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
 
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
@@ -192,6 +198,12 @@ pub fn dyn_poster_img(poster_path: String) -> impl View {
         success_tx.send(result).unwrap();
     });
 
+    let width = match poster_size {
+        PosterImgSize::Width200 => 200.,
+        PosterImgSize::Width300 => 300.,
+    };
+    let height = width * 1.5;
+
     dyn_container(
         move || img_bytes.get(),
         move |img_bytes| -> Box<dyn View> {
@@ -210,18 +222,10 @@ pub fn dyn_poster_img(poster_path: String) -> impl View {
             }
         },
     )
-    .style(|s| {
-        s.width(CAROUSEL_CARD_IMG_WIDTH)
-            .transition(BorderColor, Transition::linear(0.5))
-            .transition(BorderLeft, Transition::linear(0.5))
-            .transition(BorderRight, Transition::linear(0.5))
-            .transition(BorderTop, Transition::linear(0.5))
-            .transition(BorderBottom, Transition::linear(0.5))
-            .height(CAROUSEL_CARD_IMG_HEIGHT)
-            //TODO: transition doesnt look good if it has opacity here, because the border
-            //edges are overlapping
+    .style(move |s| {
+        s.width(width)
+            .height(height)
             .border_color(Color::rgb8(37, 37, 38))
-            // .border_radius(4.)
             .hover(|s| s.cursor(CursorStyle::Pointer))
     })
 }
@@ -234,10 +238,9 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let poster = item.poster_path().unwrap();
     // let tab_state = state.tab_state;
     v_stack((
-        dyn_poster_img(poster).on_click_stop(move |_| {
+        dyn_poster_img(poster, PosterImgSize::Width200).on_click_stop(move |_| {
             active_tab.update(move |tab| {
                 *tab = ActiveTabKind::Sub(SubTab::MovieDetails(MovieDetailsState { movie_id: id }));
-                println!("set tab to: {:?}", tab);
             });
         }),
         v_stack((

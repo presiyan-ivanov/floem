@@ -1,8 +1,6 @@
+use isolang::Language;
 use std::sync::Arc;
 
-
-use num_format::{Locale, ToFormattedString};
-use anyhow::Error;
 use floem::{
     ext_event::create_signal_from_channel,
     peniko::Color,
@@ -19,12 +17,13 @@ use floem::{
         static_label, svg, tab, v_stack, Decorators, Label,
     },
 };
+use num_format::{Locale, ToFormattedString};
 
 use crate::{
     models::{Movie, MovieDetails, Page, TvShow},
     spinner::spinner,
     GlobalState, MainTab, MovieDetailsState, BG_COLOR_2, DIMMED_ACCENT_COLOR, NEUTRAL_BG_COLOR,
-    PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
+    PRIMARY_FG_COLOR, SECONDARY_BG_COLOR, screens::home::PosterImgSize,
 };
 
 use super::home::{dyn_poster_img, movie_hero_container, stars_rating_bar};
@@ -176,7 +175,7 @@ fn movie_det_overview(movie_details: Result<MovieDetails, String>) -> impl View 
     }
 
     h_stack((
-        dyn_poster_img(poster_path.unwrap()),
+        dyn_poster_img(poster_path.unwrap(), PosterImgSize::Width300),
         v_stack((
             static_label("Storyline").style(|s| s.font_size(26.).margin_bottom(20)),
             label(move || overview.clone()).style(|s| s.font_size(14.).margin_bottom(15.)),
@@ -217,7 +216,11 @@ fn movie_det_overview(movie_details: Result<MovieDetails, String>) -> impl View 
             overview_row(
                 overview_field_container(
                     field_name("Language"),
-                    label(move || movie_details.original_language.clone()),
+                    label(move || {
+                        Language::from_639_1(&movie_details.original_language)
+                            .expect("language should be in ISO 639-1 format")
+                            .to_name()
+                    }),
                 ),
                 overview_field_container(
                     field_name("Production"),

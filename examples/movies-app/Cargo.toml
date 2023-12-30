@@ -13,6 +13,7 @@ futures = "0.3.29"
 crossbeam-channel = "0.5.10"
 anyhow = "1.0.77"
 num-format = "0.4.4"
+isolang = "2.4.0"
 
 # A profile which compiles all (non-workspace) dependencies in release mode
 # but Lapce code in dev mode. This gives a good debugging experience for your
