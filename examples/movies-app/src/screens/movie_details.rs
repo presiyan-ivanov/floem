@@ -21,7 +21,7 @@ use crate::{
     models::{Movie, MovieDetails, Page, TvShow},
     spinner::spinner,
     GlobalState, MainTab, MovieDetailsState, BG_COLOR_2, DIMMED_ACCENT_COLOR, NEUTRAL_BG_COLOR,
-    PRIMARY_FG_COLOR,
+    PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
 };
 
 use super::home::movie_hero_container;
@@ -78,13 +78,14 @@ fn movie_details_main_content(
     let tab_item = move |name: &str, index: usize| {
         static_label(name.to_owned().to_uppercase())
             .style(move |s| {
-                s.color(PRIMARY_FG_COLOR)
+                s.color(Color::rgb8(65, 65, 65))
                     .border_bottom(2.0)
                     .border_color(Color::TRANSPARENT)
+                    .font_size(16.)
                     .cursor(CursorStyle::Pointer)
                     .padding(5.0)
                     .apply_if(selected.get() == index, |s| {
-                        s.border_color(PRIMARY_FG_COLOR)
+                        s.color(PRIMARY_FG_COLOR).border_color(PRIMARY_FG_COLOR)
                     })
             })
             .on_click_stop(move |_| selected.set(index))
@@ -96,7 +97,7 @@ fn movie_details_main_content(
         tab_item("Photos", 2),
     ))
     .keyboard_navigatable()
-    .style(|s| s.justify_center().flex_grow(1.).font_size(16.));
+    .style(|s| s.justify_center().flex_grow(1.).gap(20, 0).padding_vert(20.));
 
     let tab = tab(
         move || selected.get(),
