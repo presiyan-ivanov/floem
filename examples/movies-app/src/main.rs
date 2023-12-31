@@ -44,8 +44,13 @@ enum MainTab {
 #[derive(Clone, Debug)]
 enum SubTab {
     MovieDetails(MovieDetailsState),
-    TvShowDetails,
-    ActorDetails,
+    // TvShowDetails,
+    PersonProfile(PersonProfileState),
+}
+
+#[derive(Clone, Debug)]
+struct PersonProfileState {
+    person_id: u64,
 }
 
 impl SubTab {
@@ -197,6 +202,7 @@ impl MainTab {
 }
 
 static PRIMARY_FG_COLOR: Color = Color::WHITE;
+static SECONDARY_FG_COLOR: Color = Color::rgb8(176, 176, 176);
 static ACCENT_COLOR: Color = Color::rgb8(64, 193, 173);
 static DIMMED_ACCENT_COLOR: Color = Color::rgb8(0, 173, 153);
 static NEUTRAL_BG_COLOR: Color = Color::BLACK;
@@ -390,8 +396,10 @@ fn app_view() -> impl View {
                     SubTab::MovieDetails(mov_det) => {
                         container_box(movie_details_screen(mov_det)).style(|s| s.width_full())
                     }
-                    SubTab::TvShowDetails => container_box(label(|| "Not implemented".to_owned())),
-                    SubTab::ActorDetails => container_box(label(|| "Not implemented".to_owned())),
+                    // SubTab::TvShowDetails => container_box(label(|| "Not implemented".to_owned())),
+                    SubTab::PersonProfile(_) => {
+                        container_box(label(|| "Not implemented".to_owned()))
+                    }
                 }),
             },
         ),

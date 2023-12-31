@@ -1,5 +1,5 @@
 use isolang::Language;
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use floem::{
     ext_event::create_signal_from_channel,
@@ -20,23 +20,24 @@ use floem::{
 use num_format::{Locale, ToFormattedString};
 
 use crate::{
-    models::{Movie, MovieDetails, Page, TvShow},
+    models::{CastMember, Movie, MovieDetails, Page, TvShow},
+    screens::home::PosterImgSize,
     spinner::spinner,
-    GlobalState, MainTab, MovieDetailsState, BG_COLOR_2, DIMMED_ACCENT_COLOR, NEUTRAL_BG_COLOR,
-    PRIMARY_FG_COLOR, SECONDARY_BG_COLOR, screens::home::PosterImgSize,
+    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, BG_COLOR_2,
+    DIMMED_ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
+    SECONDARY_FG_COLOR,
 };
 
-use super::home::{dyn_poster_img, movie_hero_container, stars_rating_bar};
+use super::home::{dyn_poster_img, movie_hero_container, movie_poster_carousel, stars_rating_bar};
 
 pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
-    // let state = use_context::<Arc<GlobalState>>().unwrap();
     let movie_id = tab_state.movie_id;
     let movie_details: RwSignal<Option<Result<MovieDetails, String>>> = create_rw_signal(None);
     let (movie, set_movie) = create_signal(None);
 
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
-    // when we are doing work in another thread
+    // when we finish doing work in another thread
     let res = create_signal_from_channel(success_rx);
     create_effect(move |_| {
         movie_details.set(res.get());
@@ -55,22 +56,20 @@ pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
             .data_provider
             .get_movie_details(movie_id)
             .map_err(|e| e.to_string());
-        dbg!(&result);
         success_tx.send(result).unwrap();
     });
 
     scroll(
         v_stack((
             movie_hero_container(movie),
-            movie_details_main_content(movie_details),
-            // movie_cast()
+            details_main_content(movie_details),
         ))
         .style(|s| s.width_full()),
     )
     .style(|s| s.width_full())
 }
 
-fn movie_details_main_content(
+fn details_main_content(
     movie_details: RwSignal<Option<Result<MovieDetails, String>>>,
 ) -> impl View {
     let tabs: im::Vector<&str> = vec!["Overview", "Videos", "Photos"].into_iter().collect();
@@ -144,35 +143,99 @@ fn dyn_movie_det_overview(
 style_class!(pub OverviewFieldName);
 style_class!(pub OverviewFieldVal);
 
+fn overview_row(left: impl View + 'static, right: impl View + 'static) -> impl View {
+    h_stack((left, right))
+        .style(|s| {
+            s.width_full()
+                .color(SECONDARY_FG_COLOR)
+                .justify_between()
+                .margin_top(15.)
+                .gap(20, 0)
+        })
+        .class(OverviewFieldVal)
+}
+
+fn overview_field_container(name: Label, val: Label) -> impl View {
+    h_stack((name, val))
+        .style(|s| s.width(50.pct()))
+        .class(OverviewFieldVal)
+}
+
 fn movie_det_overview(movie_details: Result<MovieDetails, String>) -> impl View {
-    let movie_details = movie_details.unwrap();
-    let poster_path = movie_details.poster_path;
-    let vote_average = movie_details.vote_average;
+    let (movie_details, _) = create_signal(movie_details.unwrap());
+    // let poster_path = movie_details.poster_path;
+    // let overview = movie_details
+    //     .overview
+    //     .expect("Overview should not be empty");
+    // TODO: create effect
+    let (cast, _) = create_signal(movie_details.get().credits.unwrap().cast);
+
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let win_size = state.main_tab_size;
+
+    v_stack((
+        overview_main(movie_details.get()),
+        v_stack((
+            label(move || "Cast").style(|s| s.font_size(20.).margin_top(5.).padding(5.)),
+            cast_carousel(cast),
+        ))
+        .style(move |s| s.padding(20.0).width(win_size.get().width)),
+    ))
+}
+
+fn cast_carousel(cast: ReadSignal<Vec<CastMember>>) -> impl View {
+    let state: Arc<GlobalState> = use_context().unwrap();
+    container(
+        scroll(
+            list(
+                move || cast.get(),
+                move |item| item.id,
+                move |item| cast_actor_card(item),
+            )
+            .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
+        )
+        .style(move |s| s.width(state.main_tab_size.get().width)),
+    )
+    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
+}
+
+fn cast_actor_card(cast: CastMember) -> impl View {
+    let name = cast.name;
+    let character = cast.character;
+
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let active_tab = state.active_tab;
+    let poster_path = cast.profile_path.unwrap();
+    v_stack((
+        dyn_poster_img(poster_path, PosterImgSize::Width200).on_click_stop(move |_| {
+            active_tab.update(move |tab| {
+                *tab = ActiveTabKind::Sub(SubTab::PersonProfile(crate::PersonProfileState {
+                    person_id: cast.id,
+                }));
+            });
+        }),
+        v_stack((
+            label(move || name.clone()),
+            label(move || format!("as {}", character.clone()))
+                .style(|s| s.color(SECONDARY_FG_COLOR)),
+        ))
+        .style(|s| {
+            s.font_size(14.)
+                .width(200.)
+                .padding_bottom(10.)
+                .padding_top(5.)
+                .padding_horiz(1.)
+            // .background(BG_COLOR_2)
+        }),
+    ))
+}
+
+fn overview_main(movie_details: MovieDetails) -> impl View {
+    let field_name = |text| static_label(text).class(OverviewFieldName);
     let overview = movie_details
         .overview
         .expect("Overview should not be empty");
-
-    let field_name = |text| static_label(text).class(OverviewFieldName);
-    // fn overview_field_val() -> impl View {
-    //     label(view_cb).class(OverviewFieldVal);
-    // }
-    fn overview_field_container(name: Label, val: Label) -> impl View {
-        h_stack((name, val))
-            .style(|s| s.width(50.pct()))
-            .class(OverviewFieldVal)
-    }
-
-    fn overview_row(left: impl View + 'static, right: impl View + 'static) -> impl View {
-        h_stack((left, right))
-            .style(|s| {
-                s.width_full()
-                    .color(Color::rgb8(176, 176, 176))
-                    .justify_between()
-                    .margin_top(15.)
-                    .gap(20, 0)
-            })
-            .class(OverviewFieldVal)
-    }
+    let poster_path = movie_details.poster_path;
 
     h_stack((
         dyn_poster_img(poster_path.unwrap(), PosterImgSize::Width300),
@@ -193,7 +256,9 @@ fn movie_det_overview(movie_details: Result<MovieDetails, String>) -> impl View 
                 overview_field_container(field_name("Director"), label(move || "Sample Director")),
                 overview_field_container(
                     field_name("Budget"),
-                    label(move || pretty_format_budget(movie_details.budget.clone())),
+                    label(move || {
+                        format!("${}", movie_details.budget.to_formatted_string(&Locale::en))
+                    }),
                 ),
             ),
             overview_row(
@@ -242,10 +307,6 @@ fn movie_det_overview(movie_details: Result<MovieDetails, String>) -> impl View 
         }),
     ))
     .style(|s| s.width_full().justify_center())
-}
-
-fn pretty_format_budget(budget: u64) -> String {
-    format!("${}", budget.to_formatted_string(&Locale::en))
 }
 
 fn pretty_format_runtime(minutes: u32) -> String {

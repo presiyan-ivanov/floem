@@ -37,7 +37,37 @@ pub struct MovieDetails {
     pub budget: u64,
     pub adult: bool,
     // pub videos: Option<Results<Video>>,
-    // pub credits: Option<Credits>,
+    pub credits: Option<Credits>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Credits {
+    pub cast: Vec<CastMember>,
+    // pub crew: Vec<Crew>,
+}
+
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Crew {
+    pub credit_id: String,
+    pub department: String,
+    pub gender: Option<u8>,
+    pub id: u64,
+    pub job: String,
+    pub name: String,
+    pub profile_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct CastMember {
+    pub id: u64,
+    pub cast_id: u64,
+    // pub credit_id: String,
+    pub character: String,
+    pub gender: Option<u8>,
+    pub name: String,
+    pub profile_path: Option<String>,
+    pub order: u8,
 }
 
 impl From<MovieDetails> for Movie {

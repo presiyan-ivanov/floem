@@ -11,8 +11,8 @@ use floem::{
     unit::UnitExt,
     view::View,
     views::{
-        clip, container, dyn_container, empty, h_stack, img, label, list, scroll, svg, v_stack,
-        Decorators,
+        clip, container, dyn_container, empty, h_stack, img, label, list, scroll, svg, text,
+        v_stack, Decorators,
     },
 };
 
@@ -62,13 +62,13 @@ pub fn home_view() -> impl View {
             v_stack((
                 label(move || "Popular Movies")
                     .style(|s| s.font_size(20.).margin_top(5.).padding(5.)),
-                carousel(popular_movies),
+                movie_poster_carousel(popular_movies),
             ))
             .style(move |s| s.padding(20.0).width(win_size.get().width)),
             v_stack((
                 label(move || "Popular TV shows")
                     .style(|s| s.font_size(20.).margin_top(5.).padding(5.)),
-                carousel(popular_tv_shows),
+                movie_poster_carousel(popular_tv_shows),
             ))
             .style(move |s| s.padding(20.0).width(win_size.get().width)),
         ))
@@ -113,9 +113,9 @@ impl PosterCarouselItem {
     }
 }
 
-pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View {
+pub fn movie_poster_carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View {
     let state: Arc<GlobalState> = use_context().unwrap();
-    let container = container(
+    container(
         scroll(
             list(
                 move || movies.get(),
@@ -126,9 +126,7 @@ pub fn carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View
         )
         .style(move |s| s.width(state.main_tab_size.get().width)),
     )
-    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col());
-
-    container
+    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
 }
 
 pub enum StarsKind {
@@ -167,10 +165,6 @@ pub fn stars_rating_bar(rating: f64) -> impl View {
     ))
     .style(move |s| s.width(width).height(height))
 }
-
-static CAROUSEL_CARD_IMG_WIDTH: f64 = 200.;
-static CAROUSEL_CARD_IMG_HEIGHT: f64 = 300.;
-static CAROUSEL_CARD_BORDER_WIDTH: f64 = 2.;
 
 ///The aspect ratio is 1:1.5, e.g. for width 200(px), height is 300(px)
 pub enum PosterImgSize {
@@ -365,19 +359,21 @@ fn dyn_movie_description(movie: ReadSignal<Option<Movie>>) -> impl View {
 
 fn movie_description(movie: Movie) -> impl View {
     let release_year = movie.release_date.split('-').next().unwrap().to_owned();
-    // dbg!(&movie);
     v_stack((
-        label(move || movie.title.clone()).style(|s| s.font_size(40.0).margin_vert(15.0)),
+        text(movie.title).style(|s| s.font_size(40.0).margin_vert(15.0)),
         h_stack((
             stars_rating_bar(movie.vote_average),
-            label(move || format!("{:.1}", movie.vote_average)).style(|s| s.margin_horiz(12.0)),
-            label(move || format!("{} Reviews", pretty_format_number(movie.vote_count)))
-                .style(|s| s.margin_right(12.0)),
-            label(move || release_year.clone()).style(|s| s.margin_right(12.0)),
-            label(move || "1h 20m"),
+            text(format!("{:.1}", movie.vote_average)).style(|s| s.margin_horiz(12.0)),
+            text(format!(
+                "{} Reviews",
+                pretty_format_number(movie.vote_count)
+            ))
+            .style(|s| s.margin_right(12.0)),
+            text(release_year.clone()).style(|s| s.margin_right(12.0)),
+            text("1h 20m"),
         ))
         .style(|s| s.color(Color::rgb8(153, 153, 153))),
-        label(move || movie.overview.clone().unwrap_or_default()).style(|s| {
+        text(movie.overview.unwrap_or_default()).style(|s| {
             s.color(PRIMARY_FG_COLOR)
                 .width_pct(70.)
                 .margin_top(20.0)
