@@ -8,6 +8,7 @@ use floem::{
         BorderBottom, BorderColor, BorderLeft, BorderRight, BorderTop, CursorStyle, Position,
         Transition,
     },
+    style_class,
     unit::UnitExt,
     view::View,
     views::{
@@ -61,21 +62,26 @@ pub fn home_view() -> impl View {
             movie_hero_container(most_popular_movie),
             v_stack((
                 label(move || "Popular Movies")
-                    .style(|s| s.font_size(20.).margin_top(5.).padding(5.)),
+                    .class(CarouselTitle),
                 movie_poster_carousel(popular_movies),
             ))
-            .style(move |s| s.padding(20.0).width(win_size.get().width)),
+            .class(MediaCarousel)
+            .style(move |s| s.width(win_size.get().width)),
             v_stack((
                 label(move || "Popular TV shows")
-                    .style(|s| s.font_size(20.).margin_top(5.).padding(5.)),
+                    .class(CarouselTitle),
                 movie_poster_carousel(popular_tv_shows),
             ))
-            .style(move |s| s.padding(20.0).width(win_size.get().width)),
+            .class(MediaCarousel)
+            .style(move |s| s.width(win_size.get().width)),
         ))
         .style(|s| s.width_full()),
     )
     .style(|s| s.width_full())
 }
+
+style_class!(pub MediaCarousel);
+style_class!(pub CarouselTitle);
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum PosterCarouselItem {
@@ -306,30 +312,34 @@ pub fn movie_img(movie: Movie) -> impl View {
 }
 
 pub fn movie_hero_container(movie: ReadSignal<Option<Movie>>) -> impl View {
-    let bg_container_width = 40.pct();
+    let solid_bg_container_width = 30.pct();
+    let backdrop_gradient_width = 45.pct();
     let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
     let state: Arc<GlobalState> = use_context().unwrap();
     let win_size = state.main_tab_size;
-    // let backdrop_width = window_width / 2.;
-    // dbg!(window_width);
 
-    // dbg!(movie.get_untracked());
     h_stack((
         empty().style(move |s| {
             s.position(Position::Absolute)
-                .width(bg_container_width)
+                .width(solid_bg_container_width)
                 .height_full()
                 .background(NEUTRAL_BG_COLOR)
         }),
-        dyn_movie_description(movie),
-        dyn_movie_img(movie),
-        img(move || backdrop_gradient.to_vec()).style(move |s| {
-            s.width_pct(60.)
+        dyn_movie_img(movie).style(move |s| {
+            s.width_full()
                 .height_full()
-                .margin_left(29.5.pct())
+                .margin_left(solid_bg_container_width)
+        }),
+        // The shadow that goes over the movie backdrop image, creating the linear gradient effect
+        img(move || backdrop_gradient.to_vec()).style(move |s| {
+            s.width(backdrop_gradient_width)
+                .height_full()
+                .margin_left(29.8.pct())
                 .position(Position::Absolute)
                 .border_color(Color::rgba(0., 0., 0., 0.1))
         }),
+        dyn_movie_description(movie)
+            .style(move |s| s.position(Position::Absolute).width(70.pct()).height_full()),
     ))
     .style(move |s| {
         s.width(win_size.get().width)
@@ -347,7 +357,6 @@ fn dyn_movie_img(movie: ReadSignal<Option<Movie>>) -> impl View {
             }
         },
     )
-    .style(move |s| s.width_full().height_full().margin_left(30.pct()))
 }
 
 fn dyn_movie_description(movie: ReadSignal<Option<Movie>>) -> impl View {
@@ -360,7 +369,6 @@ fn dyn_movie_description(movie: ReadSignal<Option<Movie>>) -> impl View {
             }
         },
     )
-    .style(move |s| s.position(Position::Absolute).width(30.pct()).height_full())
 }
 
 fn movie_description(movie: Movie) -> impl View {

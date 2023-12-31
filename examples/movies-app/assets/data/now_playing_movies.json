@@ -1,0 +1,411 @@
+{
+  "dates": {
+    "maximum": "2024-01-03",
+    "minimum": "2023-11-22"
+  },
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/sRLC052ieEzkQs9dEtPMfFxYkej.jpg",
+      "genre_ids": [
+        878
+      ],
+      "id": 848326,
+      "original_language": "en",
+      "original_title": "Rebel Moon - Part One: A Child of Fire",
+      "overview": "When a peaceful colony on the edge of the galaxy finds itself threatened by the armies of the tyrannical Regent Balisarius, they dispatch Kora, a young woman with a mysterious past, to seek out warriors from neighboring planets to help them take a stand.",
+      "popularity": 2136.3,
+      "poster_path": "/6epeijccmJlnfvFitfGyfT7njav.jpg",
+      "release_date": "2023-12-15",
+      "title": "Rebel Moon - Part One: A Child of Fire",
+      "video": false,
+      "vote_average": 6.443,
+      "vote_count": 768
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/jXJxMcVoEuXzym3vFnjqDW4ifo6.jpg",
+      "genre_ids": [
+        28,
+        12,
+        14
+      ],
+      "id": 572802,
+      "original_language": "en",
+      "original_title": "Aquaman and the Lost Kingdom",
+      "overview": "Black Manta, still driven by the need to avenge his father's death and wielding the power of the mythic Black Trident, will stop at nothing to take Aquaman down once and for all. To defeat him, Aquaman must turn to his imprisoned brother Orm, the former King of Atlantis, to forge an unlikely alliance in order to save the world from irreversible destruction.",
+      "popularity": 1605.303,
+      "poster_path": "/8xV47NDrjdZDpkVcCFqkdHa3T0C.jpg",
+      "release_date": "2023-12-20",
+      "title": "Aquaman and the Lost Kingdom",
+      "video": false,
+      "vote_average": 6.534,
+      "vote_count": 311
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/5a4JdoFwll5DRtKMe7JLuGQ9yJm.jpg",
+      "genre_ids": [
+        18,
+        878,
+        28
+      ],
+      "id": 695721,
+      "original_language": "en",
+      "original_title": "The Hunger Games: The Ballad of Songbirds & Snakes",
+      "overview": "64 years before he becomes the tyrannical president of Panem, Coriolanus Snow sees a chance for a change in fortunes when he mentors Lucy Gray Baird, the female tribute from District 12.",
+      "popularity": 1509.974,
+      "poster_path": "/mBaXZ95R2OxueZhvQbcEWy2DqyO.jpg",
+      "release_date": "2023-11-15",
+      "title": "The Hunger Games: The Ballad of Songbirds & Snakes",
+      "video": false,
+      "vote_average": 7.245,
+      "vote_count": 1191
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/r9bIkU9nXZUWSlDUgDMUcDrlK0A.jpg",
+      "genre_ids": [
+        28,
+        35
+      ],
+      "id": 1029575,
+      "original_language": "en",
+      "original_title": "The Family Plan",
+      "overview": "Dan Morgan is many things: a devoted husband, a loving father, a celebrated car salesman. He's also a former assassin. And when his past catches up to his present, he's forced to take his unsuspecting family on a road trip unlike any other.",
+      "popularity": 954.371,
+      "poster_path": "/jLLtx3nTRSLGPAKl4RoIv1FbEBr.jpg",
+      "release_date": "2023-12-14",
+      "title": "The Family Plan",
+      "video": false,
+      "vote_average": 7.366,
+      "vote_count": 464
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/yOm993lsJyPmBodlYjgpPwBjXP9.jpg",
+      "genre_ids": [
+        35,
+        10751,
+        14
+      ],
+      "id": 787699,
+      "original_language": "en",
+      "original_title": "Wonka",
+      "overview": "Willy Wonka – chock-full of ideas and determined to change the world one delectable bite at a time – is proof that the best things in life begin with a dream, and if you’re lucky enough to meet Willy Wonka, anything is possible.",
+      "popularity": 949.214,
+      "poster_path": "/qhb1qOilapbapxWQn9jtRCMwXJF.jpg",
+      "release_date": "2023-12-06",
+      "title": "Wonka",
+      "video": false,
+      "vote_average": 7.161,
+      "vote_count": 712
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/gg4zZoTggZmpAQ32qIrP5dtnkEZ.jpg",
+      "genre_ids": [
+        28,
+        80
+      ],
+      "id": 891699,
+      "original_language": "en",
+      "original_title": "Silent Night",
+      "overview": "A tormented father witnesses his young son die when caught in a gang's crossfire on Christmas Eve. While recovering from a wound that costs him his voice, he makes vengeance his life's mission and embarks on a punishing training regimen in order to avenge his son's death.",
+      "popularity": 945.22,
+      "poster_path": "/tlcuhdNMKNGEVpGqBZrAaOOf1A6.jpg",
+      "release_date": "2023-11-30",
+      "title": "Silent Night",
+      "video": false,
+      "vote_average": 5.856,
+      "vote_count": 188
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/1jITxVJhkiFJuQuj8NcPLmDNtJg.jpg",
+      "genre_ids": [
+        18,
+        35,
+        53
+      ],
+      "id": 930564,
+      "original_language": "en",
+      "original_title": "Saltburn",
+      "overview": "Struggling to find his place at Oxford University, student Oliver Quick finds himself drawn into the world of the charming and aristocratic Felix Catton, who invites him to Saltburn, his eccentric family's sprawling estate, for a summer never to be forgotten.",
+      "popularity": 658.86,
+      "poster_path": "/qjhahNLSZ705B5JP92YMEYPocPz.jpg",
+      "release_date": "2023-11-16",
+      "title": "Saltburn",
+      "video": false,
+      "vote_average": 7.167,
+      "vote_count": 492
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/1X7vow16X7CnCoexXh4H4F2yDJv.jpg",
+      "genre_ids": [
+        80,
+        18,
+        36
+      ],
+      "id": 466420,
+      "original_language": "en",
+      "original_title": "Killers of the Flower Moon",
+      "overview": "When oil is discovered in 1920s Oklahoma under Osage Nation land, the Osage people are murdered one by one—until the FBI steps in to unravel the mystery.",
+      "popularity": 612.671,
+      "poster_path": "/dB6Krk806zeqd0YNp2ngQ9zXteH.jpg",
+      "release_date": "2023-10-18",
+      "title": "Killers of the Flower Moon",
+      "video": false,
+      "vote_average": 7.54,
+      "vote_count": 1655
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/ktHEdqmMWC1wdfPRMRCTZe2OISL.jpg",
+      "genre_ids": [
+        27,
+        9648,
+        53
+      ],
+      "id": 1071215,
+      "original_language": "en",
+      "original_title": "Thanksgiving",
+      "overview": "After a Black Friday riot ends in tragedy, a mysterious Thanksgiving-inspired killer terrorizes Plymouth, Massachusetts - the birthplace of the holiday. Picking off residents one by one, what begins as random revenge killings are soon revealed to be part of a larger, sinister holiday plan.",
+      "popularity": 606.566,
+      "poster_path": "/f5f3TEVst1nHHyqgn7Z3tlwnBIH.jpg",
+      "release_date": "2023-11-16",
+      "title": "Thanksgiving",
+      "video": false,
+      "vote_average": 6.707,
+      "vote_count": 355
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/k1KrbaCMACQiq7EA0Yhw3bdzMv7.jpg",
+      "genre_ids": [
+        16,
+        10751,
+        10402,
+        14,
+        35
+      ],
+      "id": 901362,
+      "original_language": "en",
+      "original_title": "Trolls Band Together",
+      "overview": "When Branch's brother, Floyd, is kidnapped for his musical talents by a pair of nefarious pop-star villains, Branch and Poppy embark on a harrowing and emotional journey to reunite the other brothers and rescue Floyd from a fate even worse than pop-culture obscurity.",
+      "popularity": 563.374,
+      "poster_path": "/bkpPTZUdq31UGDovmszsg2CchiI.jpg",
+      "release_date": "2023-10-12",
+      "title": "Trolls Band Together",
+      "video": false,
+      "vote_average": 7.193,
+      "vote_count": 441
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/X8yF6STUk5Zr5nAuLBJiio8Sxh.jpg",
+      "genre_ids": [
+        18,
+        10749
+      ],
+      "id": 1143183,
+      "original_language": "tl",
+      "original_title": "Rewind",
+      "overview": "Mary (Marian Rivera) loves John (Dingdong Dantes) for as long as she can remember. But after years of marriage, John's priorities shift, leading to a strained relationship with Mary, which causes a tragic accident that takes away Mary's life. Until one day, John gets an extraordinary proposition - to rewind time and save the life of the woman he loves.",
+      "popularity": 506.227,
+      "poster_path": "/vW80VheMJhHsj0pDVYJL3qAMWMd.jpg",
+      "release_date": "2023-12-25",
+      "title": "Rewind",
+      "video": false,
+      "vote_average": 10,
+      "vote_count": 1
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/zIYROrkHJPYB3VTiW1L9QVgaQO.jpg",
+      "genre_ids": [
+        28,
+        35
+      ],
+      "id": 897087,
+      "original_language": "en",
+      "original_title": "Freelance",
+      "overview": "An ex-special forces operative takes a job to provide security for a journalist as she interviews a dictator, but a military coup breaks out in the middle of the interview, they are forced to escape into the jungle where they must survive.",
+      "popularity": 501.319,
+      "poster_path": "/7Bd4EUOqQDKZXA6Od5gkfzRNb0.jpg",
+      "release_date": "2023-10-05",
+      "title": "Freelance",
+      "video": false,
+      "vote_average": 6.503,
+      "vote_count": 394
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/9jPoyxjiEYPylUIMI3Ntixf8z3M.jpg",
+      "genre_ids": [
+        16,
+        12,
+        35,
+        10751
+      ],
+      "id": 520758,
+      "original_language": "en",
+      "original_title": "Chicken Run: Dawn of the Nugget",
+      "overview": "A band of fearless chickens flock together to save poultry-kind from an unsettling new threat: a nearby farm that's cooking up something suspicious.",
+      "popularity": 494.214,
+      "poster_path": "/exNtEY8QUuQh9e23wSQjkPxKIU3.jpg",
+      "release_date": "2023-12-08",
+      "title": "Chicken Run: Dawn of the Nugget",
+      "video": false,
+      "vote_average": 7.361,
+      "vote_count": 334
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/bWIIWhnaoWx3FTVXv6GkYDv3djL.jpg",
+      "genre_ids": [
+        878,
+        27,
+        28
+      ],
+      "id": 940721,
+      "original_language": "ja",
+      "original_title": "ゴジラ-1.0",
+      "overview": "In postwar Japan, a new terror rises. Will the devastated people be able to survive... let alone fight back?",
+      "popularity": 432.112,
+      "poster_path": "/hkxxMIGaiCTmrEArK7J56JTKUlB.jpg",
+      "release_date": "2023-11-03",
+      "title": "Godzilla Minus One",
+      "video": false,
+      "vote_average": 8.1,
+      "vote_count": 210
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/tLsc8SCFO0rMVgVyNm9XtfnyX84.jpg",
+      "genre_ids": [
+        18,
+        9648,
+        53,
+        878
+      ],
+      "id": 726209,
+      "original_language": "en",
+      "original_title": "Leave the World Behind",
+      "overview": "A family's getaway to a luxurious rental home takes an ominous turn when a cyberattack knocks out their devices—and two strangers appear at their door.",
+      "popularity": 426.365,
+      "poster_path": "/5o0zzKBRHE9to6g9tYweP54WJa2.jpg",
+      "release_date": "2023-11-22",
+      "title": "Leave the World Behind",
+      "video": false,
+      "vote_average": 6.522,
+      "vote_count": 1299
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/ptz5ETMxDoRRiE69BVuIxJzyTEO.jpg",
+      "genre_ids": [
+        16,
+        35,
+        12,
+        10751,
+        28
+      ],
+      "id": 940551,
+      "original_language": "en",
+      "original_title": "Migration",
+      "overview": "After a migrating duck family alights on their pond with thrilling tales of far-flung places, the Mallard family embarks on a family road trip, from New England, to New York City, to tropical Jamaica.",
+      "popularity": 426.034,
+      "poster_path": "/ldfCF9RhR40mppkzmftxapaHeTo.jpg",
+      "release_date": "2023-12-06",
+      "title": "Migration",
+      "video": false,
+      "vote_average": 7.242,
+      "vote_count": 66
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/jBOyi3ibJbVa1imTCcddPUxTVAV.jpg",
+      "genre_ids": [
+        35,
+        27,
+        14
+      ],
+      "id": 956920,
+      "original_language": "no",
+      "original_title": "There's Something in the Barn",
+      "overview": "An American family fulfills their dream of moving back to their roots after inheriting a remote cabin in the mountains of Norway. But there's a surprise waiting for them.",
+      "popularity": 403.926,
+      "poster_path": "/axrzMJR5VPWYNiW9ArENiMEPTjr.jpg",
+      "release_date": "2023-11-02",
+      "title": "There's Something in the Barn",
+      "video": false,
+      "vote_average": 6.836,
+      "vote_count": 70
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/4fLZUr1e65hKPPVw0R3PmKFKxj1.jpg",
+      "genre_ids": [
+        16,
+        35,
+        10751,
+        14,
+        10749
+      ],
+      "id": 976573,
+      "original_language": "en",
+      "original_title": "Elemental",
+      "overview": "In a city where fire, water, land and air residents live together, a fiery young woman and a go-with-the-flow guy will discover something elemental: how much they have in common.",
+      "popularity": 380.172,
+      "poster_path": "/4Y1WNkd88JXmGfhtWR7dmDAo1T2.jpg",
+      "release_date": "2023-06-14",
+      "title": "Elemental",
+      "video": false,
+      "vote_average": 7.711,
+      "vote_count": 3325
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/vQpvNDc0AFao8BbWyXDFVVrqiZj.jpg",
+      "genre_ids": [
+        27
+      ],
+      "id": 853387,
+      "original_language": "en",
+      "original_title": "Lord of Misrule",
+      "overview": "When the daughter of the town's new priest goes missing during the harvest festival, a desperate search begins, uncovering the town's dark history and resurfacing tales of a mysterious, malevolent spirit that demands sacrifice.",
+      "popularity": 361.273,
+      "poster_path": "/eCNJuGsCNdf2yf4F3UcDg1WZTbo.jpg",
+      "release_date": "2023-10-26",
+      "title": "Lord of Misrule",
+      "video": false,
+      "vote_average": 6,
+      "vote_count": 4
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/8FWC4tDWB1p006vwiubhai4a8iS.jpg",
+      "genre_ids": [
+        10751,
+        12,
+        14
+      ],
+      "id": 1020969,
+      "original_language": "no",
+      "original_title": "Teddybjørnens Jul",
+      "overview": "Christmas peace falls over the small town, but at the Christmas market there's hectic activity. Mariann discovers a teddy bear at the top shelf. Is he alive? Mariann must get the teddy whatsoever. But Teddy wants to get to a rich family.",
+      "popularity": 338.884,
+      "poster_path": "/jEf96axaZhZQEu9ORVtEujBTG9p.jpg",
+      "release_date": "2022-11-05",
+      "title": "Teddy's Christmas",
+      "video": false,
+      "vote_average": 7.152,
+      "vote_count": 23
+    }
+  ],
+  "total_pages": 193,
+  "total_results": 3845
+}

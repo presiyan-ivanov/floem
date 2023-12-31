@@ -26,8 +26,9 @@ use floem::{
 };
 use models::MovieDetails;
 use screens::{
-    home::home_view,
+    home::{home_view, CarouselTitle, MediaCarousel},
     movie_details::{self, movie_details_screen},
+    movies::movies_view,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -430,6 +431,10 @@ fn app_view() -> impl View {
                 .class(scroll::Track, |s| {
                     s.hover(|s| s.background(Color::rgba8(166, 166, 166, 30)))
                 })
+                .class(MediaCarousel, |s| s.padding(20.))
+                .class(CarouselTitle, |s| {
+                    s.font_size(20.).margin_top(5.).padding(5.)
+                })
         })
         .on_event_stop(EventListener::WindowResized, move |event| {
             if let Event::WindowResized(size) = event {
@@ -462,8 +467,8 @@ fn footer() -> impl View {
                     .color(PRIMARY_FG_COLOR)
             }),
         ))
-        .style(|s| s.padding_vert(12.)),
-        text("A port of the Nuxt Movies app."),
+        .style(|s| s.padding_vert(10.)),
+        text("A port of the Nuxt Movies app"),
         h_stack((
             text("Data provided by"),
             svg(move || tmbd_logo.to_string())
@@ -477,10 +482,6 @@ fn footer() -> impl View {
             .gap(0, 15.)
             .padding_bottom(15.)
     })
-}
-
-fn movies_view() -> impl View {
-    static_label("Movies").style(|s| s.font_size(24.0))
 }
 
 fn tv_shows_view() -> impl View {
