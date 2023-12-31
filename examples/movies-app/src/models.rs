@@ -38,6 +38,13 @@ pub struct MovieDetails {
     pub adult: bool,
     // pub videos: Option<Results<Video>>,
     pub credits: Option<Credits>,
+    pub production_companies: Vec<ProdCompany>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ProdCompany {
+    pub id: u64,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -45,7 +52,6 @@ pub struct Credits {
     pub cast: Vec<CastMember>,
     // pub crew: Vec<Crew>,
 }
-
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Crew {

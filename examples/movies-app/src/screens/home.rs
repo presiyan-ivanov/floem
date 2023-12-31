@@ -153,17 +153,22 @@ pub fn five_stars(kind: StarsKind) -> impl View {
     )
 }
 
-pub fn stars_rating_bar(rating: f64) -> impl View {
-    debug_assert!(rating >= 0. && rating <= 10.);
+pub fn stars_rating_progress_bar(rating: f64) -> impl View {
     let width = STAR_WIDTH * 5.;
     let height = STAR_HEIGHT;
-    let clip_width = width * (rating / 10.);
+    let max_rating = 10.;
+    let clip_width = width * (rating / max_rating);
+    let padding_top = 3.0;
 
     h_stack((
         five_stars(StarsKind::Unfilled).style(move |s| s.position(Position::Absolute)),
         clip(five_stars(StarsKind::Filled).style(move |s| s)).style(move |s| s.width(clip_width)),
     ))
-    .style(move |s| s.width(width).height(height))
+    .style(move |s| {
+        s.width(width)
+            .height(height + padding_top)
+            .padding_top(padding_top)
+    })
 }
 
 ///The aspect ratio is 1:1.5, e.g. for width 200(px), height is 300(px)
@@ -219,6 +224,7 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
     .style(move |s| {
         s.width(width)
             .height(height)
+            .border(3.)
             .border_color(Color::rgb8(37, 37, 38))
             .hover(|s| s.cursor(CursorStyle::Pointer))
     })
@@ -240,7 +246,7 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
         v_stack((
             label(move || item.display_name().clone()),
             h_stack((
-                stars_rating_bar(vote_average),
+                stars_rating_progress_bar(vote_average),
                 label(move || format!("{:.1}", vote_average))
                     .style(|s| s.margin_left(5.).padding_bottom(5.)),
             ))
@@ -362,7 +368,7 @@ fn movie_description(movie: Movie) -> impl View {
     v_stack((
         text(movie.title).style(|s| s.font_size(40.0).margin_vert(15.0)),
         h_stack((
-            stars_rating_bar(movie.vote_average),
+            stars_rating_progress_bar(movie.vote_average),
             text(format!("{:.1}", movie.vote_average)).style(|s| s.margin_horiz(12.0)),
             text(format!(
                 "{} Reviews",

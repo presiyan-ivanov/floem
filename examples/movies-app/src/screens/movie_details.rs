@@ -14,7 +14,8 @@ use floem::{
     view::View,
     views::{
         clip, container, container_box, dyn_container, empty, h_stack, img, label, list, scroll,
-        static_label, svg, tab, v_stack, Decorators, Label,
+        static_label, svg, tab, text, v_stack, virtual_list, Decorators, Label,
+        VirtualListDirection, VirtualListItemSize,
     },
 };
 use num_format::{Locale, ToFormattedString};
@@ -28,7 +29,9 @@ use crate::{
     SECONDARY_FG_COLOR,
 };
 
-use super::home::{dyn_poster_img, movie_hero_container, movie_poster_carousel, stars_rating_bar};
+use super::home::{
+    dyn_poster_img, movie_hero_container, movie_poster_carousel, stars_rating_progress_bar,
+};
 
 pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
     let movie_id = tab_state.movie_id;
@@ -168,7 +171,9 @@ fn movie_det_overview(movie_details: Result<MovieDetails, String>) -> impl View 
     //     .overview
     //     .expect("Overview should not be empty");
     // TODO: create effect
-    let (cast, _) = create_signal(movie_details.get().credits.unwrap().cast);
+    let (cast, _) = create_signal(im::Vector::from(
+        movie_details.get_untracked().credits.unwrap().cast,
+    ));
 
     let state: Arc<GlobalState> = use_context().unwrap();
     let win_size = state.main_tab_size;
@@ -183,11 +188,14 @@ fn movie_det_overview(movie_details: Result<MovieDetails, String>) -> impl View 
     ))
 }
 
-fn cast_carousel(cast: ReadSignal<Vec<CastMember>>) -> impl View {
+static CAST_MEMBER_CARD_WIDTH: f64 = 200.0;
+fn cast_carousel(cast: ReadSignal<im::Vector<CastMember>>) -> impl View {
     let state: Arc<GlobalState> = use_context().unwrap();
     container(
         scroll(
-            list(
+            virtual_list(
+                VirtualListDirection::Horizontal,
+                VirtualListItemSize::Fixed(Box::new(|| CAST_MEMBER_CARD_WIDTH)),
                 move || cast.get(),
                 move |item| item.id,
                 move |item| cast_actor_card(item),
@@ -205,15 +213,30 @@ fn cast_actor_card(cast: CastMember) -> impl View {
 
     let state: Arc<GlobalState> = use_context().unwrap();
     let active_tab = state.active_tab;
-    let poster_path = cast.profile_path.unwrap();
+    let poster_path = cast.profile_path;
     v_stack((
-        dyn_poster_img(poster_path, PosterImgSize::Width200).on_click_stop(move |_| {
-            active_tab.update(move |tab| {
-                *tab = ActiveTabKind::Sub(SubTab::PersonProfile(crate::PersonProfileState {
-                    person_id: cast.id,
-                }));
-            });
-        }),
+        dyn_container(
+            move || poster_path.clone(),
+            move |poster_path| match poster_path {
+                Some(poster_path) => Box::new(
+                    dyn_poster_img(poster_path, PosterImgSize::Width200).on_click_stop(move |_| {
+                        active_tab.update(move |tab| {
+                            *tab = ActiveTabKind::Sub(SubTab::PersonProfile(
+                                crate::PersonProfileState { person_id: cast.id },
+                            ));
+                        });
+                    }),
+                ),
+                None => Box::new(text("No image")),
+            },
+        ),
+        // dyn_poster_img(poster_path, PosterImgSize::Width200).on_click_stop(move |_| {
+        //     active_tab.update(move |tab| {
+        //         *tab = ActiveTabKind::Sub(SubTab::PersonProfile(crate::PersonProfileState {
+        //             person_id: cast.id,
+        //         }));
+        //     });
+        // }),
         v_stack((
             label(move || name.clone()),
             label(move || format!("as {}", character.clone()))
@@ -221,7 +244,8 @@ fn cast_actor_card(cast: CastMember) -> impl View {
         ))
         .style(|s| {
             s.font_size(14.)
-                .width(200.)
+                .width(CAST_MEMBER_CARD_WIDTH)
+                .height(75.0)
                 .padding_bottom(10.)
                 .padding_top(5.)
                 .padding_horiz(1.)
@@ -289,7 +313,14 @@ fn overview_main(movie_details: MovieDetails) -> impl View {
                 ),
                 overview_field_container(
                     field_name("Production"),
-                    label(move || "Sample Production"),
+                    label(move || {
+                        movie_details
+                            .production_companies
+                            .iter()
+                            .map(|c| c.name.clone())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    }),
                 ),
             ),
         ))
@@ -301,7 +332,7 @@ fn overview_main(movie_details: MovieDetails) -> impl View {
                 .padding_bottom(10.)
                 .padding_top(50.)
                 .padding_horiz(1.)
-                .class(OverviewFieldName, |s| s.width(80))
+                .class(OverviewFieldName, |s| s.width(75))
             // .class(OverviewFieldVal, |s| s.width(50.pct()))
             // .class(OverviewFieldVal, |s| s.width(500))
         }),

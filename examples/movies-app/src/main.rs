@@ -448,26 +448,35 @@ fn app_view() -> impl View {
     })
 }
 
-struct State {
-    active_tab: MainTab,
-}
-
-struct MovieDb {}
-
-impl MovieDb {}
-
 fn footer() -> impl View {
     let lapce_logo = include_str!("../assets/lapce_logo.svg");
-    v_stack(
-        (
-            h_stack(
-            (
-            svg(move || lapce_logo.to_string()) .style(|s| s.size(30.px(), 30.px()).color(ACCENT_COLOR)),
-            text("Floem Movies").style(|s| s.font_size(20.).height(30.px()).margin_left(5.))
-        )).style(|s| s.height(70.px()).padding_vert(20.)),
-            text("Designed by the Nuxt Movies authors, and ported by the Floem devs, with the original data provided by TMDb.")
-        )
-    ).style(|s| s.margin_left(40.))
+    let tmbd_logo = include_str!("../assets/tmdb_logo.svg");
+    v_stack((
+        h_stack((
+            svg(move || lapce_logo.to_string())
+                .style(|s| s.size(30.px(), 30.px()).color(ACCENT_COLOR)),
+            text("Floem Movies").style(|s| {
+                s.font_size(20.)
+                    .height(30.px())
+                    .margin_left(10.)
+                    .color(PRIMARY_FG_COLOR)
+            }),
+        ))
+        .style(|s| s.padding_vert(12.)),
+        text("A port of the Nuxt Movies app."),
+        h_stack((
+            text("Data provided by"),
+            svg(move || tmbd_logo.to_string())
+                .style(|s| s.size(123.156.px(), 16.px()).margin_left(5.)),
+        )),
+        text("This product uses the TMDB API but is not endorsed or certified by TMDB."),
+    ))
+    .style(|s| {
+        s.margin_left(40.)
+            .color(SECONDARY_FG_COLOR)
+            .gap(0, 15.)
+            .padding_bottom(15.)
+    })
 }
 
 fn movies_view() -> impl View {
