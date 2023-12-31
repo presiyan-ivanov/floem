@@ -35,7 +35,7 @@ pub fn home_view() -> impl View {
 
     let popular_movies = popular_movies.results;
     let most_popular_movie = popular_movies.get(0).unwrap();
-    let (most_popular_movie, _) = create_signal(Some(most_popular_movie.to_owned()));
+    let (most_popular_movie, _) = create_signal(Some(most_popular_movie.to_owned().into()));
     let (popular_movies, _) = create_signal(
         popular_movies
             .into_iter()
@@ -59,7 +59,7 @@ pub fn home_view() -> impl View {
 
     scroll(
         v_stack((
-            movie_hero_container(most_popular_movie),
+            media_hero_container(most_popular_movie),
             v_stack((
                 label(move || "Popular Movies").class(CarouselTitle),
                 movie_poster_carousel(popular_movies),
@@ -267,8 +267,8 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     ))
 }
 
-pub fn movie_img(movie: Movie) -> impl View {
-    println!("movie: {:?}", movie.id);
+pub fn movie_img(media: MediaProduction) -> impl View {
+    println!("movie: {:?}", media.id);
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
@@ -278,7 +278,7 @@ pub fn movie_img(movie: Movie) -> impl View {
         img_bytes.set(chan_bytes.get());
     });
 
-    let backdrop_path = movie.backdrop_path.unwrap();
+    let backdrop_path = media.backdrop_path.unwrap();
 
     let state: Arc<GlobalState> = use_context().unwrap();
     std::thread::spawn(move || {
@@ -309,7 +309,59 @@ pub fn movie_img(movie: Movie) -> impl View {
     .style(|s| s.width_full().height_full())
 }
 
-pub fn movie_hero_container(movie: ReadSignal<Option<Movie>>) -> impl View {
+#[derive(Clone)]
+pub enum MediaKind {
+    Movie,
+    TvShow,
+}
+
+#[derive(Clone)]
+pub struct MediaProduction {
+    id: u64,
+    kind: MediaKind,
+    title: String,
+    overview: Option<String>,
+    poster_path: Option<String>,
+    backdrop_path: Option<String>,
+    vote_average: f64,
+    vote_count: u64,
+    // Some for movies, None for tv shows
+    release_date: Option<String>,
+}
+
+impl From<Movie> for MediaProduction {
+    fn from(movie: Movie) -> Self {
+        Self {
+            id: movie.id,
+            kind: MediaKind::Movie,
+            title: movie.title,
+            overview: movie.overview,
+            poster_path: movie.poster_path,
+            backdrop_path: movie.backdrop_path,
+            vote_average: movie.vote_average,
+            vote_count: movie.vote_count,
+            release_date: Some(movie.release_date),
+        }
+    }
+}
+
+impl From<TvShow> for MediaProduction {
+    fn from(tv_show: TvShow) -> Self {
+        Self {
+            id: tv_show.id,
+            kind: MediaKind::TvShow,
+            title: tv_show.name,
+            overview: tv_show.overview,
+            poster_path: tv_show.poster_path,
+            backdrop_path: tv_show.backdrop_path,
+            vote_average: tv_show.vote_average,
+            vote_count: tv_show.vote_count,
+            release_date: None,
+        }
+    }
+}
+
+pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     let solid_bg_container_width = 30.pct();
     let backdrop_gradient_width = 45.pct();
     let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
@@ -345,7 +397,7 @@ pub fn movie_hero_container(movie: ReadSignal<Option<Movie>>) -> impl View {
     })
 }
 
-fn dyn_movie_img(movie: ReadSignal<Option<Movie>>) -> impl View {
+fn dyn_movie_img(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     dyn_container(
         move || movie.get(),
         move |movie| -> Box<dyn View> {
@@ -357,7 +409,7 @@ fn dyn_movie_img(movie: ReadSignal<Option<Movie>>) -> impl View {
     )
 }
 
-fn dyn_movie_description(movie: ReadSignal<Option<Movie>>) -> impl View {
+fn dyn_movie_description(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     dyn_container(
         move || movie.get(),
         move |movie| -> Box<dyn View> {
@@ -369,8 +421,11 @@ fn dyn_movie_description(movie: ReadSignal<Option<Movie>>) -> impl View {
     )
 }
 
-fn movie_description(movie: Movie) -> impl View {
-    let release_year = movie.release_date.split('-').next().unwrap().to_owned();
+fn movie_description(movie: MediaProduction) -> impl View {
+    let release_year = movie
+        .release_date
+        .map(|rd| rd.split('-').next().unwrap().to_owned())
+        .unwrap_or("-".to_owned());
     v_stack((
         text(movie.title).style(|s| s.font_size(40.0).margin_vert(15.0)),
         h_stack((

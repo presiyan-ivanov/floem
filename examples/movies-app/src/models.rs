@@ -144,7 +144,6 @@ pub struct TvShow {
     // pub original_title: String,
     pub original_language: String,
     pub overview: Option<String>,
-    //TODO: chrono-rs
     // pub release_date: String,
     // pub runtime: u32,
     pub homepage: Option<String>,
@@ -152,7 +151,7 @@ pub struct TvShow {
     pub poster_path: Option<String>,
     pub backdrop_path: Option<String>,
     pub popularity: f64,
-    pub vote_count: usize,
+    pub vote_count: u64,
     pub vote_average: f64,
     // pub budget: u64,
     pub adult: bool,

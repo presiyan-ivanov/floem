@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::home::{
-    movie_hero_container, movie_poster_carousel, CarouselTitle, MediaCarousel, PosterCarouselItem,
+    media_hero_container, movie_poster_carousel, CarouselTitle, MediaCarousel, PosterCarouselItem,
 };
 
 pub fn tv_shows() -> impl View {
@@ -31,7 +31,7 @@ pub fn tv_shows() -> impl View {
 
     let popular_movies = popular_movies.results;
     let most_popular_movie = popular_movies.get(0).unwrap();
-    let (most_popular_movie, _) = create_signal(Some(most_popular_movie.to_owned()));
+    let (most_popular_movie, _) = create_signal(Some(most_popular_movie.to_owned().into()));
     let (popular_movies, _) = create_signal(
         popular_movies
             .into_iter()
@@ -62,7 +62,7 @@ pub fn tv_shows() -> impl View {
     let win_size = state.main_tab_size;
     scroll(
         v_stack((
-            // movie_hero_container(most_popular_movie),
+            media_hero_container(most_popular_movie),
             v_stack((
                 label(move || "Popular Shows").class(CarouselTitle),
                 movie_poster_carousel(popular_movies),

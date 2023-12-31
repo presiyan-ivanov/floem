@@ -28,7 +28,7 @@ use models::MovieDetails;
 use screens::{
     home::{home_view, CarouselTitle, MediaCarousel},
     movie_details::{self, movie_details_screen},
-    movies::movies_view,
+    movies::movies_view, tv_shows::tv_shows,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -384,7 +384,7 @@ fn app_view() -> impl View {
                         move |it| match MainTab::from_str(it).unwrap() {
                             MainTab::Home => container_box(home_view()).style(|s| s.width_full()),
                             MainTab::Movies => container_box(movies_view()),
-                            MainTab::TvShows => container_box(tv_shows_view()),
+                            MainTab::TvShows => container_box(tv_shows()),
                             MainTab::Search => {
                                 container_box(label(|| "Not implemented".to_owned()))
                             }
@@ -482,10 +482,6 @@ fn footer() -> impl View {
             .gap(0, 15.)
             .padding_bottom(15.)
     })
-}
-
-fn tv_shows_view() -> impl View {
-    static_label("TvShows").style(|s| s.font_size(24.0))
 }
 
 fn main() {

@@ -30,7 +30,7 @@ use crate::{
 };
 
 use super::home::{
-    dyn_poster_img, movie_hero_container, movie_poster_carousel, stars_rating_progress_bar,
+    dyn_poster_img, media_hero_container, movie_poster_carousel, stars_rating_progress_bar,
 };
 
 pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
@@ -47,7 +47,7 @@ pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
 
         if let Some(Ok(movie_details)) = res.get() {
             dbg!(movie_details.id);
-            set_movie.update(|m| *m = Some(Movie::from(movie_details.clone())));
+            set_movie.update(|m| *m = Some(Movie::from(movie_details.clone()).into()));
         } else {
             println!("Error");
         }
@@ -64,7 +64,7 @@ pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
 
     scroll(
         v_stack((
-            movie_hero_container(movie),
+            media_hero_container(movie),
             details_main_content(movie_details),
         ))
         .style(|s| s.width_full()),
