@@ -26,7 +26,7 @@ use crate::{
 
 pub fn home_view() -> impl View {
     let movies_json = include_str!("../../assets/data/popular_movies.json");
-    let tv_shows_json = include_str!("../../assets/data/popular_tv_shows.json");
+    let tv_shows_json = include_str!("../../assets/data/tv_shows/popular.json");
     let popular_movies: Page<Movie> =
         serde_json::from_str(movies_json).expect("JSON was not well-formatted");
 
@@ -61,15 +61,13 @@ pub fn home_view() -> impl View {
         v_stack((
             movie_hero_container(most_popular_movie),
             v_stack((
-                label(move || "Popular Movies")
-                    .class(CarouselTitle),
+                label(move || "Popular Movies").class(CarouselTitle),
                 movie_poster_carousel(popular_movies),
             ))
             .class(MediaCarousel)
             .style(move |s| s.width(win_size.get().width)),
             v_stack((
-                label(move || "Popular TV shows")
-                    .class(CarouselTitle),
+                label(move || "Popular TV shows").class(CarouselTitle),
                 movie_poster_carousel(popular_tv_shows),
             ))
             .class(MediaCarousel)

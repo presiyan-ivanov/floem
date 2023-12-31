@@ -1,0 +1,427 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/6mE69fVYpgNVXFI0ezNaiQ3GS8.jpg",
+      "genre_ids": [
+        16,
+        35
+      ],
+      "id": 32726,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "Bob's Burgers",
+      "overview": "Bob's Burgers follows a third-generation restaurateur, Bob, as he runs Bob's Burgers with the help of his wife and their three kids. Bob and his quirky family have big ideas about burgers, but fall short on service and sophistication. Despite the greasy counters, lousy location and a dearth of customers, Bob and his family are determined to make Bob's Burgers \"grand re-re-re-opening\" a success.",
+      "popularity": 3082.091,
+      "poster_path": "/couFnWryh9JRmmfDyPU6hUyTKIa.jpg",
+      "first_air_date": "2011-01-09",
+      "name": "Bob's Burgers",
+      "vote_average": 7.8,
+      "vote_count": 832
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/kitfuCa2TqX6oY5HvdFRjMMaLwc.jpg",
+      "genre_ids": [
+        10764
+      ],
+      "id": 2370,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "Hell's Kitchen",
+      "overview": "Aspiring restaurateurs brave Ramsay and his fiery command of the kitchen as he puts the competitors through an intense culinary academy to prove they possess the right combination of ingredients to win a life-changing grand prize.",
+      "popularity": 2358.782,
+      "poster_path": "/shOVFku8daIGRpgjTdMZBxUAvsV.jpg",
+      "first_air_date": "2005-05-30",
+      "name": "Hell's Kitchen",
+      "vote_average": 6.897,
+      "vote_count": 243
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/y91KHH10e4Cgw799BGEgPG78JE1.jpg",
+      "genre_ids": [
+        10764
+      ],
+      "id": 8514,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "RuPaul's Drag Race",
+      "overview": "Join RuPaul, the world's most famous drag queen, as the host, mentor and judge for the ultimate in drag queen competitions. The top drag queens in the U.S. will vie for drag stardom as RuPaul, in full glamazon drag, will reign supreme in all judging and eliminations while helping guide the contestants as they prepare for each challenge.",
+      "popularity": 2255.204,
+      "poster_path": "/3VwqMwEQQPMqXNx2JzOBjO0g2bU.jpg",
+      "first_air_date": "2009-02-02",
+      "name": "RuPaul's Drag Race",
+      "vote_average": 7.674,
+      "vote_count": 204
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/jWXrQstj7p3Wl5MfYWY6IHqRpDb.jpg",
+      "genre_ids": [
+        10763
+      ],
+      "id": 94722,
+      "origin_country": [
+        "DE"
+      ],
+      "original_language": "de",
+      "original_name": "Tagesschau",
+      "overview": "German daily news program, the oldest still existing program on German television.",
+      "popularity": 2000.991,
+      "poster_path": "/7dFZJ2ZJJdcmkp05B9NWlqTJ5tq.jpg",
+      "first_air_date": "1952-12-26",
+      "name": "Tagesschau",
+      "vote_average": 6.899,
+      "vote_count": 193
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/ddDlAwc0UrnYQ94IMHg5CQULebO.jpg",
+      "genre_ids": [
+        9648,
+        18
+      ],
+      "id": 12786,
+      "origin_country": [
+        "CA"
+      ],
+      "original_language": "en",
+      "original_name": "Murdoch Mysteries",
+      "overview": "A Victorian-era Toronto detective uses then-cutting edge forensic techniques to solve crimes, with the assistance of a female coroner who is also struggling for recognition in the face of tradition, based on the books by Maureen Jennings.",
+      "popularity": 1911.629,
+      "poster_path": "/bGh2JSvl2Yb7wcK8UVVjW8Tjb5U.jpg",
+      "first_air_date": "2008-01-24",
+      "name": "Murdoch Mysteries",
+      "vote_average": 7.7,
+      "vote_count": 224
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/aorT4f7VQz4va47LTBhW2rtZ04O.jpg",
+      "genre_ids": [
+        35
+      ],
+      "id": 4775,
+      "origin_country": [
+        "GB"
+      ],
+      "original_language": "en",
+      "original_name": "Would I Lie to You?",
+      "overview": "A comedic panel show featuring team captains Lee Mack and David Mitchell plus two guests per side, hosted by Rob Brydon (formerly Angus Deayton). Each person must reveal embarrassing facts and outrageous lies during a series of different rounds including \"Home Truths\", \"This Is My...\" and \"Quickfire Lies\". It is up to the opposing team to tell tall tales from fantastic facts.",
+      "popularity": 1846.568,
+      "poster_path": "/gpOHybs5mDoEEbskTtfZ1mKsPyD.jpg",
+      "first_air_date": "2007-06-16",
+      "name": "Would I Lie to You?",
+      "vote_average": 7.6,
+      "vote_count": 89
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/rNT2WFd19lG64gFAQjAlgV84OV2.jpg",
+      "genre_ids": [
+        18,
+        35
+      ],
+      "id": 240880,
+      "origin_country": [
+        "CN"
+      ],
+      "original_language": "zh",
+      "original_name": "鸣龙少年",
+      "overview": "Lei Ming, a former lecturer, and Sang Xia, a psychology teacher, runs a special class to help under-performing students. They guide students like Li Ran, who plans to drop out due to his grandmother’s illness, to overcome challenges and aim for university. Their combined efforts help students realize their potential and prepare for the next phase of their lives.",
+      "popularity": 1687.583,
+      "poster_path": "/5txim5se15yxM7mQNRjiRTKjZ4Q.jpg",
+      "first_air_date": "2023-12-10",
+      "name": "The Hope",
+      "vote_average": 9,
+      "vote_count": 2
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/5CGM0vQpq0QBcslUXqoo0unlGPZ.jpg",
+      "genre_ids": [
+        10759,
+        16,
+        18
+      ],
+      "id": 46437,
+      "origin_country": [
+        "JP"
+      ],
+      "original_language": "ja",
+      "original_name": "キングダム",
+      "overview": "In the Warring States Period of ancient China (475–221 BCE), Shin and Hyou are war-orphans in the kingdom of Qin. They dream of one day proving themselves on the battlefield. One day, however, Hyou is taken to the palace by a minister. Winding up on the losing side of a power-struggle, Hyou manages to return to the village, barely alive. Shin then meets a boy who closely resembles Hyou, Ei Sei. For now he is the king of Qin; later he will become the emperor Shi Huangdi.",
+      "popularity": 1672.752,
+      "poster_path": "/sQ6nRFLRLFrpJu3fDs9D5EzlKh2.jpg",
+      "first_air_date": "2012-06-04",
+      "name": "Kingdom",
+      "vote_average": 7.6,
+      "vote_count": 31
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/7PiKr8w0piua2lz27X92WkDUQRz.jpg",
+      "genre_ids": [
+        18
+      ],
+      "id": 241013,
+      "origin_country": [
+        "CN"
+      ],
+      "original_language": "zh",
+      "original_name": "青雀成凰",
+      "overview": "The orphaned princess, Qing Que, falls in love with the wrong person and is reborn into a courtesan. During a fateful encounter, her enemies gather at the Mu Mansion, leading her to orchestrate a scheme to marry her father's killer, Lord Mu. The valiant and cunning General Yun Huan, who once killed his first love, suppresses his feelings to become a son-in-law in the Mu Mansion, only to discover that his new mother-in-law is his former lover. Living under the same roof, the mother-in-law and son-in-law conceal their past love, each harboring secrets and navigating treacherous waters. As the truth of grievances is unveiled, the deep affection is shown. Amidst misunderstandings and a complex web of fate, can the lovers resume their love and fulfill the promises of the past?",
+      "popularity": 1640.351,
+      "poster_path": "/yIdmlgPov5YrudoGrWrl2jtnh0y.jpg",
+      "first_air_date": "2023-12-06",
+      "name": "Rising Feather",
+      "vote_average": 0,
+      "vote_count": 0
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/nDOIsgCYZqEMvomSR6t9QUIPZJS.jpg",
+      "genre_ids": [
+        80,
+        18
+      ],
+      "id": 60622,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "Fargo",
+      "overview": "A close-knit anthology series dealing with stories involving malice, violence and murder based in and around Minnesota.",
+      "popularity": 1552.454,
+      "poster_path": "/6U9CPeD8obHzweikFhiLhpc7YBT.jpg",
+      "first_air_date": "2014-04-15",
+      "name": "Fargo",
+      "vote_average": 8.306,
+      "vote_count": 2375
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/usLRh1bcbL0Q9X8zf6rL4OV1qrA.jpg",
+      "genre_ids": [
+        10759,
+        10765,
+        18
+      ],
+      "id": 2661,
+      "origin_country": [
+        "JP"
+      ],
+      "original_language": "ja",
+      "original_name": "仮面ライダー",
+      "overview": "Hongo Takeshi is a promising young man with a passion for motorcycle racing. However, his dreams are suddenly ruined when he gets kidnapped by Shocker, the evil secret organisation planning to dominate the world. After being remodeled into a cyborg, Takeshi escapes and swears to protect the world from the inhuman monsters.",
+      "popularity": 1457.232,
+      "poster_path": "/fIJNVBa6MJStPiOvhLV69nAdu0e.jpg",
+      "first_air_date": "1971-04-03",
+      "name": "Kamen Rider",
+      "vote_average": 6.1,
+      "vote_count": 76
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/hf7FNWi3L6lG7dAFi10xAsNBUPA.jpg",
+      "genre_ids": [
+        16,
+        35
+      ],
+      "id": 240946,
+      "origin_country": [
+        "JP"
+      ],
+      "original_language": "ja",
+      "original_name": "カッラフルなエッッブリデイ",
+      "overview": "The story depicts Mumei's childhood memories and daily life, such as \"if a stupid grade school student got a manicure at school…,\" \"the story of when my first armpit hair sprouted,\" and \"a Filipino mom whacking a melonpan bun like a baseball.\"",
+      "popularity": 1425.137,
+      "poster_path": "/w3pbWQMhRelkGpBpNC18CkQZ2Tf.jpg",
+      "first_air_date": "2023-12-19",
+      "name": "Colorful na Everyday",
+      "vote_average": 0,
+      "vote_count": 0
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/wrhLyiY7ksW0fQCqNpa52qiOAH8.jpg",
+      "genre_ids": [
+        10759,
+        80,
+        18
+      ],
+      "id": 108978,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "Reacher",
+      "overview": "Jack Reacher, a veteran military police investigator, has just recently entered civilian life. Reacher is a drifter, carrying no phone and the barest of essentials as he travels the country and explores the nation he once served.",
+      "popularity": 1369.848,
+      "poster_path": "/jFuH0md41x5mB4qj5344mSmtHrO.jpg",
+      "first_air_date": "2022-02-03",
+      "name": "Reacher",
+      "vote_average": 8.086,
+      "vote_count": 1034
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/3oZgE4220UrqaaiZXxz5MtNCVxJ.jpg",
+      "genre_ids": [
+        10764
+      ],
+      "id": 12513,
+      "origin_country": [
+        "ES"
+      ],
+      "original_language": "es",
+      "original_name": "Operación Triunfo",
+      "overview": "Reality-show talent contest aimed to find the country's next solo singing sensation, putting a selection of hopefuls through their paces by getting them to sing a variety of cover versions of popular songs, with tutoring from various professionals.",
+      "popularity": 1316.346,
+      "poster_path": "/8Qfq22zP5PeUKJfN5bFPFJtJz5i.jpg",
+      "first_air_date": "2001-10-22",
+      "name": "Operación Triunfo",
+      "vote_average": 5.7,
+      "vote_count": 12
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/vi0TpQbbZ8FWTRBmawbvegMRbtc.jpg",
+      "genre_ids": [
+        18,
+        10765,
+        10768
+      ],
+      "id": 87917,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "For All Mankind",
+      "overview": "Explore an aspirational world where NASA and the space program remained a priority and a focal point of our hopes and dreams as told through the lives of NASA astronauts, engineers, and their families.",
+      "popularity": 1313.391,
+      "poster_path": "/mNXT1QjRCEasXGH3rHCTQm0A0Su.jpg",
+      "first_air_date": "2019-11-01",
+      "name": "For All Mankind",
+      "vote_average": 7.737,
+      "vote_count": 556
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/f7V6aL0lssFw2JhZ4ITctARvILJ.jpg",
+      "genre_ids": [
+        10764
+      ],
+      "id": 4656,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "WWE Raw",
+      "overview": "A regularly scheduled, live, year-round program featuring some of the biggest WWE Superstars.",
+      "popularity": 1273.735,
+      "poster_path": "/jt23ifRdyWtzuZi9EMK6MteaGz.jpg",
+      "first_air_date": "1993-01-11",
+      "name": "WWE Raw",
+      "vote_average": 6.6,
+      "vote_count": 290
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/pg5YXJzHfA2wWru1EayHk3Ztd2d.jpg",
+      "genre_ids": [
+        18,
+        80,
+        10766
+      ],
+      "id": 209265,
+      "origin_country": [
+        "BR"
+      ],
+      "original_language": "pt",
+      "original_name": "Terra e Paixão",
+      "overview": "When her husband is killed in a land grabbing attempt, Aline takes charge of cultivating his land and protecting his family. Facing the powerful Antonio La Selva, responsible for the death of her husband and the largest landowner in the region, Aline is determined to keep possession of her land and invest in its production. However, she didn't expect that she would fall in love with Daniel, son of her rival, who is at odds with his rebellious half-brother, Caio, who, in turn, also falls in love with the girl. In the interior of Brazil, Aline will have to fight two battles: the dispute for her lands and for her heart.",
+      "popularity": 1273.483,
+      "poster_path": "/uepOV5gGm58evBKHpAtHePYtNYc.jpg",
+      "first_air_date": "2023-05-08",
+      "name": "Land of Desire",
+      "vote_average": 6.474,
+      "vote_count": 135
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/pEJL28C17jVPCwUipGO0JdTUobO.jpg",
+      "genre_ids": [
+        35,
+        10766
+      ],
+      "id": 213026,
+      "origin_country": [
+        "BR"
+      ],
+      "original_language": "pt",
+      "original_name": "Fuzuê",
+      "overview": "The department store Fuzue, specialized in popular items, is a success led by Nero Braga e Silva. Little does he know that the store's grounds have hidden relics for over 300 years.",
+      "popularity": 1124.204,
+      "poster_path": "/zNNFg8z3z7uT817n6M0kHRcYwq1.jpg",
+      "first_air_date": "2023-08-14",
+      "name": "Fuzue",
+      "vote_average": 5.739,
+      "vote_count": 23
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/3dGIUAlrWUvPDMP7mk6GFvkQcSb.jpg",
+      "genre_ids": [
+        9648,
+        10759,
+        10764,
+        99
+      ],
+      "id": 60603,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "The Curse of Oak Island",
+      "overview": "Follow brothers Marty and Rick Lagina through their effort to find the speculated - and as of yet undiscovered - buried treasure believed to have been concealed through extraordinary means on Oak Island.",
+      "popularity": 1122.908,
+      "poster_path": "/gtkxUUmHDF31iDUOlxQqUXmiU71.jpg",
+      "first_air_date": "2014-01-05",
+      "name": "The Curse of Oak Island",
+      "vote_average": 7.5,
+      "vote_count": 129
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/9TXcHOeCsM8W3ZKKIKjdYUsRSeq.jpg",
+      "genre_ids": [
+        80,
+        18
+      ],
+      "id": 72879,
+      "origin_country": [
+        "FR"
+      ],
+      "original_language": "fr",
+      "original_name": "Demain nous appartient",
+      "overview": "The story revolves around the people of Sète, France. Their lives are punctuated by family rivalries, romance and scenes from daily life, but also by plots involving police investigations, secrets and betrayals.",
+      "popularity": 1085.929,
+      "poster_path": "/3uU5uJzOX7xe7mn7YKpBM9oiEZO.jpg",
+      "first_air_date": "2017-07-17",
+      "name": "Tomorrow Is Ours",
+      "vote_average": 6.085,
+      "vote_count": 47
+    }
+  ],
+  "total_pages": 40,
+  "total_results": 793
+}
