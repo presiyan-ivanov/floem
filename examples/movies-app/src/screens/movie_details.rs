@@ -198,7 +198,7 @@ fn cast_carousel(cast: ReadSignal<im::Vector<CastMember>>) -> impl View {
                 VirtualListItemSize::Fixed(Box::new(|| CAST_MEMBER_CARD_WIDTH)),
                 move || cast.get(),
                 move |item| item.id,
-                move |item| cast_actor_card(item),
+                move |item| cast_member_card(item),
             )
             .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
         )
@@ -207,7 +207,7 @@ fn cast_carousel(cast: ReadSignal<im::Vector<CastMember>>) -> impl View {
     .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
 }
 
-fn cast_actor_card(cast: CastMember) -> impl View {
+fn cast_member_card(cast: CastMember) -> impl View {
     let name = cast.name;
     let character = cast.character;
 
@@ -254,7 +254,6 @@ fn cast_actor_card(cast: CastMember) -> impl View {
                 .padding_bottom(10.)
                 .padding_top(5.)
                 .padding_horiz(1.)
-            // .background(BG_COLOR_2)
         }),
     ))
 }

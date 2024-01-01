@@ -5,8 +5,8 @@ use floem::{
     peniko::Color,
     reactive::{create_effect, create_rw_signal, create_signal, use_context, ReadSignal, RwSignal},
     style::{
-        BorderBottom, BorderColor, BorderLeft, BorderRight, BorderTop, CursorStyle, Position,
-        Transition, AlignItems,
+        AlignItems, BorderBottom, BorderColor, BorderLeft, BorderRadius, BorderRight, BorderTop,
+        CursorStyle, Position, Transition,
     },
     style_class,
     unit::UnitExt,
@@ -21,7 +21,7 @@ use crate::{
     models::{Movie, Page, TvShow},
     spinner::spinner,
     ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, ACCENT_BG_COLOR, ACCENT_COLOR,
-    DIMMED_ACCENT_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
+    DIMMED_ACCENT_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR, SECONDARY_FG_COLOR,
 };
 
 pub fn home_view() -> impl View {
@@ -226,7 +226,11 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
                         }))
                     }
                 },
-                None => Box::new(spinner()),
+                None => Box::new(empty().style(|s| {
+                    s.width_full()
+                        .height_full()
+                        .background(Color::rgb8(37, 37, 38))
+                })),
             }
         },
     )
@@ -234,8 +238,12 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
         s.width(width)
             .height(height)
             .border(3.)
-            .hover(|s| s.cursor(CursorStyle::Pointer))
             .border_color(Color::rgb8(37, 37, 38))
+            .hover(|s| {
+                s.cursor(CursorStyle::Pointer)
+                    .border_color(SECONDARY_FG_COLOR.with_alpha_factor(0.7))
+            })
+            .transition(BorderColor, Transition::linear(0.3))
     })
 }
 
