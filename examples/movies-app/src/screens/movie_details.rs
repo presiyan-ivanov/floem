@@ -57,7 +57,7 @@ pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
     std::thread::spawn(move || {
         let result = state
             .data_provider
-            .get_movie_details(movie_id)
+            .get_media_prod_details(movie_id)
             .map_err(|e| e.to_string());
         success_tx.send(result).unwrap();
     });

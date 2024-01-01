@@ -247,7 +247,13 @@ impl DataProvider {
     fn get_movie_details(&self, movie_id: u64) -> Result<MovieDetails> {
         let path = &format!("./assets/data/movie_details/848326.json");
         let path = Path::new(path);
-        println!("{:?}", fs::canonicalize(&path));
+        let data = fs::read_to_string(path).context("Failed to read movie details file")?;
+        serde_json::from_str::<MovieDetails>(&data).context("Failed to parse movie details json")
+    }
+
+    fn get_tv_show_details(&self, tv_show_id: u64) -> Result<MovieDetails> {
+        let path = &format!("./assets/data/movie_details/848326.json");
+        let path = Path::new(path);
         let data = fs::read_to_string(path).context("Failed to read movie details file")?;
         serde_json::from_str::<MovieDetails>(&data).context("Failed to parse movie details json")
     }
