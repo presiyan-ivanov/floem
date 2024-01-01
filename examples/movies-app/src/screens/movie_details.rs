@@ -24,8 +24,8 @@ use crate::{
     models::{CastMember, Movie, MovieDetails, Page, TvShow},
     screens::home::PosterImgSize,
     spinner::spinner,
-    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, BG_COLOR_2,
-    DIMMED_ACCENT_COLOR, NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
+    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, ACCENT_BG_COLOR,
+    DIMMED_ACCENT_COLOR, PRIMARY_BG_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
     SECONDARY_FG_COLOR,
 };
 
@@ -218,25 +218,30 @@ fn cast_actor_card(cast: CastMember) -> impl View {
         dyn_container(
             move || poster_path.clone(),
             move |poster_path| match poster_path {
-                Some(poster_path) => Box::new(
-                    dyn_poster_img(poster_path, PosterImgSize::Width200).on_click_stop(move |_| {
-                        active_tab.update(move |tab| {
-                            *tab = ActiveTabKind::Sub(SubTab::PersonProfile(
-                                crate::PersonProfileState { person_id: cast.id },
-                            ));
-                        });
-                    }),
-                ),
-                None => Box::new(text("No image")),
+                Some(poster_path) => Box::new(dyn_poster_img(poster_path, PosterImgSize::Width200)),
+                None => {
+                    let profile_icon = include_str!("../../assets/profile_icon.svg");
+                    Box::new(svg(move || profile_icon.to_owned()).style(|s| {
+                        s.size(100., 100.)
+                            .color(SECONDARY_BG_COLOR)
+                            .margin_top(25.pct())
+                    }))
+                }
             },
-        ),
-        // dyn_poster_img(poster_path, PosterImgSize::Width200).on_click_stop(move |_| {
-        //     active_tab.update(move |tab| {
-        //         *tab = ActiveTabKind::Sub(SubTab::PersonProfile(crate::PersonProfileState {
-        //             person_id: cast.id,
-        //         }));
-        //     });
-        // }),
+        )
+        .on_click_stop(move |_| {
+            active_tab.update(move |tab| {
+                *tab = ActiveTabKind::Sub(SubTab::PersonProfile(crate::PersonProfileState {
+                    person_id: cast.id,
+                }));
+            });
+        })
+        .style(|s| {
+            s.width_full()
+                .height_full()
+                .hover(|s| s.cursor(CursorStyle::Pointer))
+                .justify_center()
+        }),
         v_stack((
             label(move || name.clone()),
             label(move || format!("as {}", character.clone()))

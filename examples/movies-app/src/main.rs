@@ -28,7 +28,8 @@ use models::MovieDetails;
 use screens::{
     home::{home_view, CarouselTitle, MediaCarousel},
     movie_details::{self, movie_details_screen},
-    movies::movies_view, tv_shows::tv_shows,
+    movies::movies_view,
+    tv_shows::tv_shows,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -206,9 +207,9 @@ static PRIMARY_FG_COLOR: Color = Color::WHITE;
 static SECONDARY_FG_COLOR: Color = Color::rgb8(176, 176, 176);
 static ACCENT_COLOR: Color = Color::rgb8(64, 193, 173);
 static DIMMED_ACCENT_COLOR: Color = Color::rgb8(0, 173, 153);
-static NEUTRAL_BG_COLOR: Color = Color::BLACK;
-static SECONDARY_BG_COLOR: Color = Color::rgb8(20, 20, 20);
-static BG_COLOR_2: Color = Color::rgb8(32, 33, 36);
+static PRIMARY_BG_COLOR: Color = Color::rgb8(20, 20, 20);
+static ACCENT_BG_COLOR: Color = Color::BLACK;
+static SECONDARY_BG_COLOR: Color = Color::rgb8(32, 33, 36);
 
 struct GlobalState {
     active_tab: RwSignal<ActiveTabKind>,
@@ -244,7 +245,7 @@ impl DataProvider {
         self.get_bytes(url)
     }
 
-    fn get_movie_details(&self, movie_id: u64) -> Result<MovieDetails> {
+    fn get_media_prod_details(&self, media_id: u64) -> Result<MovieDetails> {
         let path = &format!("./assets/data/movie_details/848326.json");
         let path = Path::new(path);
         let data = fs::read_to_string(path).context("Failed to read movie details file")?;
@@ -352,7 +353,10 @@ fn app_view() -> impl View {
                             .border_color(ACCENT_COLOR.with_alpha_factor(0.8))
                             .border_radius(5.)
                     })
-                    .hover(|s| s.background(BG_COLOR_2).cursor(CursorStyle::Pointer))
+                    .hover(|s| {
+                        s.background(SECONDARY_BG_COLOR)
+                            .cursor(CursorStyle::Pointer)
+                    })
             })
         },
     )
@@ -362,8 +366,8 @@ fn app_view() -> impl View {
             .justify_content(Some(JustifyContent::SpaceAround))
             .padding_vert(60.)
             .width(MAIN_TAB_WIDTH)
-            .background(NEUTRAL_BG_COLOR)
-            .border_color(BG_COLOR_2)
+            .background(ACCENT_BG_COLOR)
+            .border_color(SECONDARY_BG_COLOR)
             .border_right(1.0)
     });
 
@@ -425,7 +429,7 @@ fn app_view() -> impl View {
         .style(|s| {
             s.width_full()
                 .height_full()
-                .background(SECONDARY_BG_COLOR)
+                .background(PRIMARY_BG_COLOR)
                 .class(scroll::Handle, |s| {
                     s.border_radius(4.0)
                         .background(Color::rgba8(166, 166, 166, 140))

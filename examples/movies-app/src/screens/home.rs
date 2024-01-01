@@ -6,7 +6,7 @@ use floem::{
     reactive::{create_effect, create_rw_signal, create_signal, use_context, ReadSignal, RwSignal},
     style::{
         BorderBottom, BorderColor, BorderLeft, BorderRight, BorderTop, CursorStyle, Position,
-        Transition,
+        Transition, AlignItems,
     },
     style_class,
     unit::UnitExt,
@@ -20,8 +20,8 @@ use floem::{
 use crate::{
     models::{Movie, Page, TvShow},
     spinner::spinner,
-    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, DIMMED_ACCENT_COLOR,
-    NEUTRAL_BG_COLOR, PRIMARY_FG_COLOR,
+    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, ACCENT_BG_COLOR, ACCENT_COLOR,
+    DIMMED_ACCENT_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
 };
 
 pub fn home_view() -> impl View {
@@ -216,9 +216,14 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
                         img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
                     ),
                     Err(err_msg) => {
-                        eprintln!("error: {}", err_msg);
-                        let image_error = include_str!("../../assets/image-error.svg");
-                        Box::new(svg(move || image_error.to_owned()))
+                        eprintln!("error: {err_msg}");
+                        let card_img_err = include_str!("../../assets/alt_img.svg");
+                        Box::new(svg(move || card_img_err.to_owned()).style(|s| {
+                            s.size(180., 180.)
+                                .margin_top(20.pct())
+                                .color(SECONDARY_BG_COLOR)
+                                .justify_self(Some(AlignItems::Center))
+                        }))
                     }
                 },
                 None => Box::new(spinner()),
@@ -229,8 +234,8 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
         s.width(width)
             .height(height)
             .border(3.)
-            .border_color(Color::rgb8(37, 37, 38))
             .hover(|s| s.cursor(CursorStyle::Pointer))
+            .border_color(Color::rgb8(37, 37, 38))
     })
 }
 
@@ -267,8 +272,7 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     ))
 }
 
-pub fn movie_img(media: MediaProduction) -> impl View {
-    println!("movie: {:?}", media.id);
+pub fn hero_movie_img(media: MediaProduction) -> impl View {
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
@@ -297,9 +301,12 @@ pub fn movie_img(media: MediaProduction) -> impl View {
                     Ok(bytes) => Box::new(
                         img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
                     ),
-                    Err(err_msg) => {
-                        let image_error = include_str!("../../assets/image-error.svg");
-                        Box::new(svg(move || image_error.to_owned()))
+                    Err(_) => {
+                        let image_error = include_str!("../../assets/alt_img.svg");
+                        Box::new(
+                            svg(move || image_error.to_owned())
+                                .style(|s| s.size(80., 80.).color(ACCENT_COLOR)),
+                        )
                     }
                 },
                 None => Box::new(spinner()),
@@ -363,8 +370,10 @@ impl From<TvShow> for MediaProduction {
 
 pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     let solid_bg_container_width = 30.pct();
-    let backdrop_gradient_width = 45.pct();
-    let backdrop_gradient = include_bytes!("../../assets/old_black_gradient3.png");
+    let bdrop_shadow_gradient_width = 45.pct();
+    // the movie description goes over the solid gradient
+    let movie_description_width = 70.pct();
+    let backdrop_gradient_img = include_bytes!("../../assets/old_black_gradient3.png");
     let state: Arc<GlobalState> = use_context().unwrap();
     let win_size = state.main_tab_size;
 
@@ -373,23 +382,26 @@ pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl 
             s.position(Position::Absolute)
                 .width(solid_bg_container_width)
                 .height_full()
-                .background(NEUTRAL_BG_COLOR)
+                .background(ACCENT_BG_COLOR)
         }),
-        dyn_movie_img(movie).style(move |s| {
+        dyn_hero_media_img(movie).style(move |s| {
             s.width_full()
                 .height_full()
                 .margin_left(solid_bg_container_width)
         }),
         // The shadow that goes over the movie backdrop image, creating the linear gradient effect
-        img(move || backdrop_gradient.to_vec()).style(move |s| {
-            s.width(backdrop_gradient_width)
+        img(move || backdrop_gradient_img.to_vec()).style(move |s| {
+            s.width(bdrop_shadow_gradient_width)
                 .height_full()
-                .margin_left(29.8.pct())
+                .margin_left(29.6.pct())
                 .position(Position::Absolute)
                 .border_color(Color::rgba(0., 0., 0., 0.1))
         }),
-        dyn_movie_description(movie)
-            .style(move |s| s.position(Position::Absolute).width(70.pct()).height_full()),
+        dyn_movie_description(movie).style(move |s| {
+            s.position(Position::Absolute)
+                .width(movie_description_width)
+                .height_full()
+        }),
     ))
     .style(move |s| {
         s.width(win_size.get().width)
@@ -397,12 +409,12 @@ pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl 
     })
 }
 
-fn dyn_movie_img(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
+fn dyn_hero_media_img(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     dyn_container(
         move || movie.get(),
         move |movie| -> Box<dyn View> {
             match movie {
-                Some(movie) => Box::new(movie_img(movie)),
+                Some(movie) => Box::new(hero_movie_img(movie)),
                 None => Box::new(spinner()),
             }
         },
