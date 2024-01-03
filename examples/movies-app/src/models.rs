@@ -221,11 +221,3 @@ pub struct TvShowDetails {
     // // pub videos: Option<Results<Video>>,
     // pub credits: Option<TVCredits>,
 }
-//
-// #[derive(Debug, PartialEq, Deserialize, Serialize)]
-// pub struct ProductionCompany {
-//     pub id: u64,
-//     pub logo_path: Option<String>,
-//     pub name: String,
-//     pub origin_country: String,
-// }

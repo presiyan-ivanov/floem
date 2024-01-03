@@ -207,7 +207,24 @@ fn cast_carousel(cast: ReadSignal<im::Vector<CastMember>>) -> impl View {
     .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
 }
 
-fn cast_member_card(cast: CastMember) -> impl View {
+pub fn dyn_actor_img(poster_path: Option<String>) -> impl View {
+    dyn_container(
+        move || poster_path.clone(),
+        move |poster_path| match poster_path {
+            Some(poster_path) => Box::new(dyn_poster_img(poster_path, PosterImgSize::Width200)),
+            None => {
+                let missing_img_icon = include_str!("../../assets/profile_icon.svg");
+                Box::new(svg(move || missing_img_icon.to_owned()).style(|s| {
+                    s.size(100., 100.)
+                        .color(SECONDARY_BG_COLOR)
+                        .margin_top(25.pct())
+                }))
+            }
+        },
+    )
+}
+
+pub fn cast_member_card(cast: CastMember) -> impl View {
     let name = cast.name;
     let character = cast.character;
 
@@ -215,33 +232,20 @@ fn cast_member_card(cast: CastMember) -> impl View {
     let active_tab = state.active_tab;
     let poster_path = cast.profile_path;
     v_stack((
-        dyn_container(
-            move || poster_path.clone(),
-            move |poster_path| match poster_path {
-                Some(poster_path) => Box::new(dyn_poster_img(poster_path, PosterImgSize::Width200)),
-                None => {
-                    let profile_icon = include_str!("../../assets/profile_icon.svg");
-                    Box::new(svg(move || profile_icon.to_owned()).style(|s| {
-                        s.size(100., 100.)
-                            .color(SECONDARY_BG_COLOR)
-                            .margin_top(25.pct())
-                    }))
-                }
-            },
-        )
-        .on_click_stop(move |_| {
-            active_tab.update(move |tab| {
-                *tab = ActiveTabKind::Sub(SubTab::PersonProfile(crate::PersonProfileState {
-                    person_id: cast.id,
-                }));
-            });
-        })
-        .style(|s| {
-            s.width_full()
-                .height_full()
-                .hover(|s| s.cursor(CursorStyle::Pointer))
-                .justify_center()
-        }),
+        dyn_actor_img(poster_path.clone())
+            .on_click_stop(move |_| {
+                active_tab.update(move |tab| {
+                    *tab = ActiveTabKind::Sub(SubTab::PersonProfile(crate::PersonDetailsState {
+                        person_id: cast.id,
+                    }));
+                });
+            })
+            .style(|s| {
+                s.width_full()
+                    .height_full()
+                    .hover(|s| s.cursor(CursorStyle::Pointer))
+                    .justify_center()
+            }),
         v_stack((
             label(move || name.clone()),
             label(move || format!("as {}", character.clone()))

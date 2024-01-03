@@ -98,6 +98,6 @@ impl View for Spinner {
             Box::new(move |_| {
                 id.request_paint();
             }),
-        );
+       );
     }
 }

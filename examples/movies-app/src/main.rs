@@ -29,6 +29,7 @@ use screens::{
     home::{home_view, CarouselTitle, MediaCarousel},
     movie_details::{self, movie_details_screen},
     movies::movies_view,
+    person_details::{self, person_details},
     tv_shows::tv_shows,
 };
 
@@ -47,11 +48,11 @@ enum MainTab {
 enum SubTab {
     MovieDetails(MovieDetailsState),
     // TvShowDetails,
-    PersonProfile(PersonProfileState),
+    PersonProfile(PersonDetailsState),
 }
 
 #[derive(Clone, Debug)]
-struct PersonProfileState {
+pub struct PersonDetailsState {
     person_id: u64,
 }
 
@@ -380,7 +381,7 @@ fn app_view() -> impl View {
         })
         .style(|s| s);
 
-    let nav_left = v_stack((list, inspector)).style(|s| s.height_full().gap(0.0, 5.0));
+    let navbar_left = v_stack((list, inspector)).style(|s| s.height_full().gap(0.0, 5.0));
 
     let tab_contents = scroll(v_stack((
         dyn_container(
@@ -402,30 +403,30 @@ fn app_view() -> impl View {
                     )
                     .style(|s| s.flex_row().items_start().width_full().flex_grow(1.)),
                 ),
-
                 ActiveTabKind::Sub(sub_tab) => Box::new(match sub_tab {
                     SubTab::MovieDetails(mov_det) => {
                         container_box(movie_details_screen(mov_det)).style(|s| s.width_full())
                     }
                     // SubTab::TvShowDetails => container_box(label(|| "Not implemented".to_owned())),
-                    SubTab::PersonProfile(_) => {
-                        container_box(label(|| "Not implemented".to_owned()))
+                    SubTab::PersonProfile(p) => {
+                        container_box(person_details(p)).style(|s| s.width_full())
                     }
                 }),
             },
         ),
         footer(),
     )))
-    .style(|s| {
+    .style(move |s| {
         s.flex_basis(0)
             .padding(0.0)
             .margin(0.)
+            .width_full()
             .height_full()
-            .flex_grow(1.0)
+            // .flex_grow(1.0)
             .color(PRIMARY_FG_COLOR)
     });
 
-    let app_view = h_stack((nav_left, tab_contents))
+    let app_view = h_stack((navbar_left, tab_contents))
         .style(|s| {
             s.width_full()
                 .height_full()
