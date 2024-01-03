@@ -23,8 +23,8 @@ use crate::views::{container_box, stack, Decorators};
 use crate::{
     animate::{AnimPropKind, AnimUpdateMsg, AnimValue, AnimatedProp, SizeUnit},
     context::{
-        AppState, ChangeFlags, ComputeLayoutCx, EventCx, FrameUpdate, LayoutCx, MoveListener,
-        PaintCx, PaintState, ResizeListener, StyleCx, UpdateCx,
+        AppState, ComputeLayoutCx, EventCx, FrameUpdate, LayoutCx, MoveListener, PaintCx,
+        PaintState, ResizeListener, StyleCx, UpdateCx,
     },
     event::{Event, EventListener},
     id::{Id, IdPath, ID_PATHS},
@@ -40,7 +40,8 @@ use crate::{
         CENTRAL_UPDATE_MESSAGES, CURRENT_RUNNING_VIEW_HANDLE, DEFERRED_UPDATE_MESSAGES,
         UPDATE_MESSAGES,
     },
-    view::{update_data, view_children_set_parent_id, view_tab_navigation, View, ViewData},
+    view::{view_children_set_parent_id, view_tab_navigation, View, ViewData},
+    view_data::{update_data, ChangeFlags},
     widgets::{default_theme, Theme},
 };
 
@@ -747,6 +748,10 @@ impl WindowHandle {
                             cx.app_state.focus_changed(old, cx.app_state.focus);
                         }
                     }
+                    UpdateMessage::ClearFocus(id) => {
+                        cx.app_state.clear_focus();
+                        cx.app_state.focus_changed(Some(id), None);
+                    }
                     UpdateMessage::Active(id) => {
                         let old = cx.app_state.active;
                         cx.app_state.active = Some(id);
@@ -765,6 +770,9 @@ impl WindowHandle {
                             cx.app_state.request_style_recursive(id);
                         }
                     }
+                    UpdateMessage::ScrollTo { id } => {
+                        self.view.scroll_to(cx.app_state, id);
+                    }
                     UpdateMessage::Disabled { id, is_disabled } => {
                         if is_disabled {
                             cx.app_state.disabled.insert(id);
@@ -772,7 +780,7 @@ impl WindowHandle {
                         } else {
                             cx.app_state.disabled.remove(&id);
                         }
-                        cx.app_state.request_style(id);
+                        cx.app_state.request_style_recursive(id);
                     }
                     UpdateMessage::State { id, state } => {
                         let id_path = ID_PATHS.with(|paths| paths.borrow().get(&id).cloned());
@@ -780,30 +788,17 @@ impl WindowHandle {
                             cx.update_view(&mut self.view, id_path.dispatch(), state);
                         }
                     }
-                    UpdateMessage::BaseStyle { id, style } => {
-                        let state = cx.app_state.view_state(id);
-                        let old_any_inherited = state
-                            .base_style
-                            .as_ref()
-                            .map(|style| style.any_inherited())
-                            .unwrap_or(false);
-                        let new_any_inherited = style.any_inherited();
-                        state.base_style = Some(style);
-                        if new_any_inherited || old_any_inherited {
-                            cx.app_state.request_style_recursive(id);
-                        } else {
-                            cx.request_style(id);
-                        }
+                    UpdateMessage::Style { id, style, offset } => {
+                        update_data(id, &mut self.view, |data| {
+                            let old_any_inherited = data.style().any_inherited();
+                            data.style.set(offset, style);
+                            if data.style().any_inherited() || old_any_inherited {
+                                cx.app_state.request_style_recursive(id);
+                            } else {
+                                cx.request_style(id);
+                            }
+                        })
                     }
-                    UpdateMessage::Style { id, style } => update_data(id, &mut self.view, |data| {
-                        let old_any_inherited = data.style.any_inherited();
-                        data.style = style;
-                        if data.style.any_inherited() || old_any_inherited {
-                            cx.app_state.request_style_recursive(id);
-                        } else {
-                            cx.request_style(id);
-                        }
-                    }),
                     UpdateMessage::Class { id, class } => {
                         let state = cx.app_state.view_state(id);
                         state.class = Some(class);
@@ -1246,7 +1241,7 @@ fn context_menu_view(
 
     use crate::{
         app::{add_app_update_event, AppUpdateEvent},
-        views::{empty, list, svg, text},
+        views::{dyn_stack, empty, svg, text},
     };
 
     #[derive(Clone, PartialEq, Eq, Hash)]
@@ -1360,7 +1355,7 @@ fn context_menu_view(
                             .active(|s| s.border_radius(10.0).background(Color::rgb8(92, 92, 92)))
                             .disabled(|s| s.color(Color::rgb8(92, 92, 92)))
                     }),
-                    list(
+                    dyn_stack(
                         move || menu.children.clone().unwrap_or_default(),
                         move |s| s.clone(),
                         move |menu| {
@@ -1437,7 +1432,7 @@ fn context_menu_view(
     }
 
     let on_child_submenu = create_rw_signal(false);
-    let view = list(
+    let view = dyn_stack(
         move || context_menu_items.get().unwrap_or_default(),
         move |s| s.clone(),
         move |menu| view_fn(window_id, menu, context_menu, focus_count, on_child_submenu),

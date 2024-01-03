@@ -9,11 +9,8 @@ pub use label::*;
 mod rich_text;
 pub use rich_text::*;
 
-mod list;
-pub use list::*;
-
-mod static_list;
-pub use static_list::*;
+mod dyn_stack;
+pub use dyn_stack::*;
 
 mod svg;
 pub use svg::*;
@@ -33,8 +30,11 @@ pub use dyn_container::*;
 mod decorator;
 pub use decorator::*;
 
-mod virtual_list;
-pub use virtual_list::*;
+mod list;
+pub use list::*;
+
+mod virtual_stack;
+pub use virtual_stack::*;
 
 pub mod scroll;
 pub use scroll::{scroll, Scroll};

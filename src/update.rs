@@ -5,12 +5,13 @@ use winit::window::ResizeDirection;
 
 use crate::{
     animate::{AnimUpdateMsg, Animation},
-    context::{ChangeFlags, EventCallback, ResizeCallback},
+    context::{EventCallback, ResizeCallback},
     event::EventListener,
     id::Id,
     menu::Menu,
     style::{Style, StyleClassRef, StyleSelector},
     view::View,
+    view_data::{ChangeFlags, StackOffset},
 };
 
 thread_local! {
@@ -31,6 +32,7 @@ type DeferredUpdateMessages = HashMap<Id, Vec<(Id, Box<dyn Any>)>>;
 
 pub(crate) enum UpdateMessage {
     Focus(Id),
+    ClearFocus(Id),
     Active(Id),
     WindowScale(f64),
     Disabled {
@@ -46,13 +48,10 @@ pub(crate) enum UpdateMessage {
         id: Id,
         state: Box<dyn Any>,
     },
-    BaseStyle {
-        id: Id,
-        style: Style,
-    },
     Style {
         id: Id,
         style: Style,
+        offset: StackOffset<Style>,
     },
     Class {
         id: Id,
@@ -123,6 +122,9 @@ pub(crate) enum UpdateMessage {
         id: Id,
     },
     Inspect,
+    ScrollTo {
+        id: Id,
+    },
     FocusWindow,
     SetImeAllowed {
         allowed: bool,

@@ -1,5 +1,7 @@
 use crate::action::exec_after;
+use crate::event::EventListener;
 use crate::keyboard::{self, KeyEvent};
+use crate::pointer::{PointerButton, PointerInputEvent};
 use crate::reactive::{create_effect, RwSignal};
 use crate::style::{CursorColor, FontProps, PaddingLeft};
 use crate::style::{FontStyle, FontWeight, TextColor};
@@ -7,6 +9,7 @@ use crate::unit::{PxPct, PxPctAuto};
 use crate::view::ViewData;
 use crate::widgets::PlaceholderTextClass;
 use crate::{prop, prop_extracter, Clipboard, EventPropagation};
+use floem_reactive::create_rw_signal;
 use taffy::prelude::{Layout, Node};
 
 use floem_renderer::{cosmic_text::Cursor, Renderer};
@@ -109,11 +112,12 @@ pub enum Direction {
 /// Text Input View
 pub fn text_input(buffer: RwSignal<String>) -> TextInput {
     let id = Id::next();
+    let is_focused = create_rw_signal(false);
 
     {
         create_effect(move |_| {
             let text = buffer.get();
-            id.update_state(text, false);
+            id.update_state((text, is_focused.get()), false);
         });
     }
 
@@ -144,6 +148,12 @@ pub fn text_input(buffer: RwSignal<String>) -> TextInput {
         last_cursor_action_on: Instant::now(),
     }
     .keyboard_navigatable()
+    .on_event_stop(EventListener::FocusGained, move |_| {
+        is_focused.set(true);
+    })
+    .on_event_stop(EventListener::FocusLost, move |_| {
+        is_focused.set(false);
+    })
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -183,6 +193,24 @@ impl From<(&KeyEvent, &SmolStr)> for TextCommand {
     }
 }
 
+fn get_word_based_motion(event: &KeyEvent) -> Option<Movement> {
+    #[cfg(not(target_os = "macos"))]
+    return event
+        .modifiers
+        .contains(ModifiersState::CONTROL)
+        .then_some(Movement::Word);
+
+    #[cfg(target_os = "macos")]
+    return event
+        .modifiers
+        .contains(ModifiersState::ALT)
+        .then_some(Movement::Word)
+        .or(event
+            .modifiers
+            .contains(ModifiersState::SUPER)
+            .then_some(Movement::Line));
+}
+
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 const CURSOR_BLINK_INTERVAL_MS: u64 = 500;
 /// Specifies approximately how many characters wide the input field should be
@@ -196,18 +224,26 @@ impl TextInput {
     fn move_cursor(&mut self, move_kind: Movement, direction: Direction) -> bool {
         match (move_kind, direction) {
             (Movement::Glyph, Direction::Left) => {
-                if self.cursor_glyph_idx >= 1 {
-                    self.cursor_glyph_idx -= 1;
-                    return true;
+                let untracked_buffer = self.buffer.get_untracked();
+                let mut grapheme_iter = untracked_buffer[..self.cursor_glyph_idx].graphemes(true);
+                match grapheme_iter.next_back() {
+                    None => false,
+                    Some(prev_character) => {
+                        self.cursor_glyph_idx -= prev_character.len();
+                        true
+                    }
                 }
-                false
             }
             (Movement::Glyph, Direction::Right) => {
-                if self.cursor_glyph_idx < self.buffer.with_untracked(|buff| buff.len()) {
-                    self.cursor_glyph_idx += 1;
-                    return true;
+                let untracked_buffer = self.buffer.get_untracked();
+                let mut grapheme_iter = untracked_buffer[self.cursor_glyph_idx..].graphemes(true);
+                match grapheme_iter.next() {
+                    None => false,
+                    Some(next_character) => {
+                        self.cursor_glyph_idx += next_character.len();
+                        true
+                    }
                 }
-                false
             }
             (Movement::Line, Direction::Right) => {
                 if self.cursor_glyph_idx < self.buffer.with_untracked(|buff| buff.len()) {
@@ -622,11 +658,11 @@ impl TextInput {
                 } else {
                     let prev_cursor_idx = self.cursor_glyph_idx;
 
-                    if event.modifiers.contains(ModifiersState::CONTROL) {
-                        self.move_cursor(Movement::Word, Direction::Left);
-                    } else {
-                        self.move_cursor(Movement::Glyph, Direction::Left);
-                    }
+                    self.move_cursor(
+                        get_word_based_motion(event).unwrap_or(Movement::Glyph),
+                        Direction::Left,
+                    );
+
                     if self.cursor_glyph_idx == prev_cursor_idx {
                         return false;
                     }
@@ -649,11 +685,10 @@ impl TextInput {
 
                 let prev_cursor_idx = self.cursor_glyph_idx;
 
-                if event.modifiers.contains(ModifiersState::CONTROL) {
-                    self.move_cursor(Movement::Word, Direction::Right);
-                } else {
-                    self.move_cursor(Movement::Glyph, Direction::Right);
-                }
+                self.move_cursor(
+                    get_word_based_motion(event).unwrap_or(Movement::Glyph),
+                    Direction::Right,
+                );
 
                 if self.cursor_glyph_idx == prev_cursor_idx {
                     return false;
@@ -670,16 +705,41 @@ impl TextInput {
                 cx.app_state.clear_focus();
                 true
             }
-            Key::Named(NamedKey::End) => self.move_cursor(Movement::Line, Direction::Right),
-            Key::Named(NamedKey::Home) => self.move_cursor(Movement::Line, Direction::Left),
+            Key::Named(NamedKey::End) => {
+                if event.modifiers.contains(ModifiersState::SHIFT) {
+                    match &self.selection {
+                        Some(selection_value) => self.update_selection(
+                            selection_value.start,
+                            self.buffer.get_untracked().len(),
+                        ),
+                        None => self.update_selection(
+                            self.cursor_glyph_idx,
+                            self.buffer.get_untracked().len(),
+                        ),
+                    }
+                } else {
+                    self.selection = None;
+                }
+                self.move_cursor(Movement::Line, Direction::Right)
+            }
+            Key::Named(NamedKey::Home) => {
+                if event.modifiers.contains(ModifiersState::SHIFT) {
+                    match &self.selection {
+                        Some(selection_value) => self.update_selection(0, selection_value.end),
+                        None => self.update_selection(0, self.cursor_glyph_idx),
+                    }
+                } else {
+                    self.selection = None;
+                }
+                self.move_cursor(Movement::Line, Direction::Left)
+            }
             Key::Named(NamedKey::ArrowLeft) => {
                 let old_glyph_idx = self.cursor_glyph_idx;
 
-                let cursor_moved = if event.modifiers.contains(ModifiersState::CONTROL) {
-                    self.move_cursor(Movement::Word, Direction::Left)
-                } else {
-                    self.move_cursor(Movement::Glyph, Direction::Left)
-                };
+                let cursor_moved = self.move_cursor(
+                    get_word_based_motion(event).unwrap_or(Movement::Glyph),
+                    Direction::Left,
+                );
 
                 if cursor_moved {
                     self.move_selection(
@@ -699,11 +759,10 @@ impl TextInput {
             Key::Named(NamedKey::ArrowRight) => {
                 let old_glyph_idx = self.cursor_glyph_idx;
 
-                let cursor_moved = if event.modifiers.contains(ModifiersState::CONTROL) {
-                    self.move_cursor(Movement::Word, Direction::Right)
-                } else {
-                    self.move_cursor(Movement::Glyph, Direction::Right)
-                };
+                let cursor_moved = self.move_cursor(
+                    get_word_based_motion(event).unwrap_or(Movement::Glyph),
+                    Direction::Right,
+                );
 
                 if cursor_moved {
                     self.move_selection(
@@ -883,7 +942,13 @@ impl View for TextInput {
     }
 
     fn update(&mut self, cx: &mut UpdateCx, state: Box<dyn Any>) {
-        if state.downcast::<String>().is_ok() {
+        if let Ok(state) = state.downcast::<(String, bool)>() {
+            let (_, is_focused) = *state;
+            if is_focused {
+                self.cursor_glyph_idx = self.buffer.with_untracked(|buff| buff.len());
+            }
+
+            self.is_focused = is_focused;
             cx.request_layout(self.id());
         } else {
             eprintln!("downcast failed");
@@ -903,23 +968,22 @@ impl View for TextInput {
             self.cursor_glyph_idx = buff_len;
         }
 
-        let was_focused = self.is_focused;
         let is_handled = match &event {
-            Event::PointerDown(event) => {
-                if !was_focused {
-                    // Just gained focus - move cursor to buff end
-                    self.cursor_glyph_idx = self.buffer.with_untracked(|buff| buff.len());
-                } else {
-                    // Already focused - move cursor to click pos
-                    cx.update_active(self.id());
-                    cx.app_state_mut().request_layout(self.id());
+            // match on pointer primary button press
+            Event::PointerDown(
+                event @ PointerInputEvent {
+                    button: PointerButton::Primary,
+                    ..
+                },
+            ) => {
+                cx.update_active(self.id());
+                cx.app_state_mut().request_layout(self.id());
 
-                    if event.count == 2 {
-                        self.handle_double_click(event.pos.x, event.pos.y, cx);
-                    } else {
-                        self.cursor_glyph_idx = self.get_box_position(event.pos.x, event.pos.y, cx);
-                        self.selection = None;
-                    }
+                if event.count == 2 {
+                    self.handle_double_click(event.pos.x, event.pos.y, cx);
+                } else {
+                    self.cursor_glyph_idx = self.get_box_position(event.pos.x, event.pos.y, cx);
+                    self.selection = None;
                 }
                 true
             }

@@ -14,10 +14,11 @@ use kurbo::Point;
 
 use crate::{
     animate::Animation,
-    context::{ChangeFlags, EventCallback, MenuCallback, ResizeCallback},
+    context::{EventCallback, MenuCallback, ResizeCallback},
     event::EventListener,
     style::{Style, StyleClassRef, StyleSelector},
     update::{UpdateMessage, CENTRAL_DEFERRED_UPDATE_MESSAGES, CENTRAL_UPDATE_MESSAGES},
+    view_data::{ChangeFlags, StackOffset},
 };
 
 thread_local! {
@@ -149,12 +150,12 @@ impl Id {
         }
     }
 
-    pub fn update_base_style(&self, style: Style) {
-        self.add_update_message(UpdateMessage::BaseStyle { id: *self, style });
-    }
-
-    pub fn update_style(&self, style: Style) {
-        self.add_update_message(UpdateMessage::Style { id: *self, style });
+    pub(crate) fn update_style(&self, style: Style, offset: StackOffset<Style>) {
+        self.add_update_message(UpdateMessage::Style {
+            id: *self,
+            style,
+            offset,
+        });
     }
 
     pub fn update_class(&self, class: StyleClassRef) {
@@ -204,12 +205,20 @@ impl Id {
         });
     }
 
+    pub fn clear_focus(&self) {
+        self.add_update_message(UpdateMessage::ClearFocus(*self));
+    }
+
     pub fn update_context_menu(&self, menu: Box<MenuCallback>) {
         self.add_update_message(UpdateMessage::ContextMenu { id: *self, menu });
     }
 
     pub fn update_popout_menu(&self, menu: Box<MenuCallback>) {
         self.add_update_message(UpdateMessage::PopoutMenu { id: *self, menu });
+    }
+
+    pub fn scroll_to(&self) {
+        self.add_update_message(UpdateMessage::ScrollTo { id: *self });
     }
 
     pub fn inspect(&self) {
