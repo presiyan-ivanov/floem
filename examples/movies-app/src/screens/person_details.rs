@@ -2,22 +2,19 @@ use std::sync::Arc;
 
 use floem::{
     peniko::Color,
-    reactive::{create_rw_signal, create_signal, use_context, ReadSignal},
+    reactive::{create_signal, use_context, ReadSignal},
     unit::UnitExt,
     view::View,
-    views::{container, h_stack, label, scroll, static_label, v_stack, Decorators, Label},
+    views::{container, h_stack, label, list, scroll, static_label, v_stack, Decorators, Label},
 };
+use im::Vector;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    models::{Movie, Page, TvShow},
-    GlobalState, PersonDetailsState, PRIMARY_FG_COLOR, SECONDARY_FG_COLOR,
-};
+use crate::{GlobalState, PersonDetailsState, PRIMARY_FG_COLOR, SECONDARY_FG_COLOR};
 
 use super::{
     home::{
-        media_hero_container, movie_poster_carousel, CarouselTitle, MediaCarousel,
-        PosterCarouselItem,
+        dyn_poster_img, poster_carousel_item, CarouselTitle, PosterCarouselItem, PosterImgSize,
     },
     movie_details::dyn_actor_img,
 };
@@ -31,36 +28,66 @@ struct PersonDetails {
     place_of_birth: Option<String>,
     birthday: Option<String>,
     known_for_department: Option<String>,
+    images: Option<PersonImages>,
 }
 
-struct PersonImg {
+#[derive(Clone, Deserialize, Serialize)]
+struct PersonImages {
+    profiles: Vec<ProfileImg>,
+}
 
+#[derive(Clone, Deserialize, Serialize)]
+struct ProfileImg {
+    aspect_ratio: f64,
+    height: u64,
+    file_path: String,
+    width: u64,
 }
 
 pub fn person_details(pd_state: PersonDetailsState) -> impl View {
     let pers_details_json = include_str!("../../assets/data/person_details/117642.json");
     let person: PersonDetails = serde_json::from_str(pers_details_json)
         .expect("Person details JSON was not well-formatted");
-    let (person, _)= create_signal(person);
+    let (person, _) = create_signal(person);
+    let (images, _) = create_signal(
+        person
+            .get_untracked()
+            .images
+            .map(|img| Vector::from(img.profiles))
+            .unwrap_or_default(),
+    );
 
-    scroll(
+    v_stack((
+        overview(person),
         v_stack((
-            overview(person),
-            v_stack((
-                label(move || "Photos").class(CarouselTitle),
-                static_label("xx")
-            )),
-        ))
-        .style(|s| {
-            s.width_full()
-                .justify_center()
-                .padding_top(30)
-                .min_height(300)
-                .gap(35, 0)
-                .color(Color::rgb8(229, 231, 235))
-        }),
+            label(move || "Photos").class(CarouselTitle),
+            person_images_carousel(images),
+        )),
+    ))
+    .style(|s| {
+        s.width_full()
+            .justify_center()
+            .padding_top(30)
+            .min_height(300)
+            .gap(35, 0)
+            .color(Color::rgb8(229, 231, 235))
+    })
+}
+
+pub fn person_images_carousel(profile_imgs: ReadSignal<im::Vector<ProfileImg>>) -> impl View {
+    let state: Arc<GlobalState> = use_context().unwrap();
+    container(
+        scroll(
+            list(
+                move || profile_imgs.get(),
+                move |item| item.file_path.clone(),
+                move |item| dyn_poster_img(item.file_path, PosterImgSize::Width200),
+            )
+            .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
+        )
+        .style(move |s| s.width(state.main_tab_size.get().width)),
     )
-    .style(|s| s.width(1700))
+    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
 }
 
 pub fn overview(person_details: ReadSignal<PersonDetails>) -> impl View {
@@ -97,6 +124,6 @@ pub fn overview(person_details: ReadSignal<PersonDetails>) -> impl View {
                 label(move || person_details.get().birthday.unwrap_or_default()),
             ),
         ))
-        .style(|s| s.max_width(700.px())),
+        .style(|s| s.max_width(700.px()).margin_left(40)),
     ))
 }
