@@ -3,9 +3,13 @@ use std::sync::Arc;
 use floem::{
     peniko::Color,
     reactive::{create_signal, use_context, ReadSignal},
+    style::FlexWrap,
     unit::UnitExt,
     view::View,
-    views::{container, h_stack, label, list, scroll, static_label, v_stack, Decorators, Label},
+    views::{
+        container, h_stack, h_stack_from_iter, label, list, scroll, static_label, v_stack,
+        Decorators, Label,
+    },
 };
 use im::Vector;
 use serde::{Deserialize, Serialize};
@@ -60,7 +64,15 @@ pub fn person_details(pd_state: PersonDetailsState) -> impl View {
     v_stack((
         overview(person),
         v_stack((
-            label(move || "Photos").class(CarouselTitle),
+            h_stack((
+                label(move || "Photos").class(CarouselTitle),
+                label(move || format!("{} Images", images.get().len())).style(|s| {
+                    s.color(SECONDARY_FG_COLOR)
+                        .font_size(11.)
+                        .margin_top(18)
+                        .margin_left(2)
+                }),
+            )),
             person_images_carousel(images),
         )),
     ))
@@ -76,18 +88,23 @@ pub fn person_details(pd_state: PersonDetailsState) -> impl View {
 
 pub fn person_images_carousel(profile_imgs: ReadSignal<im::Vector<ProfileImg>>) -> impl View {
     let state: Arc<GlobalState> = use_context().unwrap();
-    container(
-        scroll(
-            list(
-                move || profile_imgs.get(),
-                move |item| item.file_path.clone(),
-                move |item| dyn_poster_img(item.file_path, PosterImgSize::Width200),
-            )
-            .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
+    scroll(
+        h_stack_from_iter(
+            profile_imgs
+                .get()
+                .into_iter()
+                .map(|img| dyn_poster_img(img.file_path, PosterImgSize::Width200)),
         )
-        .style(move |s| s.width(state.main_tab_size.get().width)),
+        .style(move |s| {
+            s.gap(10, 0)
+                .flex_grow(1.)
+                .flex_wrap(FlexWrap::Wrap)
+                .padding_bottom(15.)
+                .max_width(state.main_tab_size.get().width - 100.)
+                .padding_vert(20.0)
+        }),
     )
-    .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
+    .style(|s| s.height_full())
 }
 
 pub fn overview(person_details: ReadSignal<PersonDetails>) -> impl View {
@@ -98,14 +115,23 @@ pub fn overview(person_details: ReadSignal<PersonDetails>) -> impl View {
         ))
         .style(|s| s.margin_bottom(10.))
     };
+
     h_stack((
         container(dyn_actor_img(person_details.get().profile_path))
             .style(|s| s.height_full().items_start()),
         v_stack((
             label(move || person_details.get().name)
                 .style(|s| s.font_size(26.0).color(PRIMARY_FG_COLOR).margin_bottom(20)),
-            label(move || person_details.get().biography.unwrap_or_default())
-                .style(|s| s.font_size(15.0).margin_bottom(5)),
+            list(
+                person_details
+                    .get_untracked()
+                    .biography
+                    .unwrap_or("<No bio>".to_string())
+                    // label currently does not handle newlines, so this is a workaround
+                    .split("\n")
+                    .map(|line| static_label(line).style(|s| s.margin_bottom(5.0))),
+            )
+            .style(|s| s.font_size(14.0)),
             name_val_row(
                 static_label("Known for"),
                 label(move || {

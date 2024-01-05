@@ -7,8 +7,8 @@ use floem::{
     unit::UnitExt,
     view::View,
     views::{
-        container, label, scroll, stack, text, virtual_list, Decorators, VirtualListDirection,
-        VirtualListItemSize,
+        container, label, scroll, stack, text, virtual_stack, Decorators, VirtualStackDirection,
+        VirtualStackItemSize,
     },
     window::{WindowConfig, WindowLevel},
 };
@@ -19,9 +19,9 @@ fn app_view() -> impl View {
     let start_menu = {
         container(
             scroll(
-                virtual_list(
-                    VirtualListDirection::Vertical,
-                    VirtualListItemSize::Fixed(Box::new(|| 20.0)),
+                virtual_stack(
+                    VirtualStackDirection::Vertical,
+                    VirtualStackItemSize::Fixed(Box::new(|| 20.0)),
                     move || long_list.get(),
                     move |item| *item,
                     move |item| {
@@ -49,9 +49,9 @@ fn app_view() -> impl View {
     //
     // container(
     //     scroll(
-    //         virtual_list(
-    //             VirtualListDirection::Vertical,
-    //             VirtualListItemSize::Fixed(Box::new(|| 20.0)),
+    //         virtual_stack(
+    //             VirtualStackDirection::Vertical,
+    //             VirtualStackItemSize::Fixed(Box::new(|| 20.0)),
     //             move || long_list.get(),
     //             move |item| *item,
     //             move |item| label(move || item.to_string()).style(|s| s.height(20.0)),

@@ -17,16 +17,16 @@ use floem::{
     unit::UnitExt,
     view::View,
     views::{
-        container, container_box, dyn_container, empty, h_stack, label, list, scroll, stack,
-        static_label, svg, tab, text, v_stack, virtual_list, Decorators, VirtualListDirection,
-        VirtualListItemSize,
+        container, container_box, dyn_container, empty, h_stack, h_stack_from_iter, label, list,
+        scroll, stack, static_label, svg, tab, text, v_stack, v_stack_from_iter, virtual_stack,
+        Decorators, VirtualStackDirection, VirtualStackItemSize,
     },
     widgets::button,
     EventPropagation,
 };
 use models::MovieDetails;
 use screens::{
-    home::{home_view, CarouselTitle, MediaCarousel},
+    home::{home_view, CarouselTitle, ClickablePoster, MediaCarousel},
     movie_details::{self, movie_details_screen},
     movies::movies_view,
     person_details::{self, person_details},
@@ -298,69 +298,62 @@ fn app_view() -> impl View {
         main_tab_size.set(size);
     });
 
-    let list = list(
-        move || tabs.get(),
-        move |item| *item,
-        move |item| {
-            let index = tabs
-                .get_untracked()
-                .iter()
-                .position(|it| *it == item)
-                .unwrap();
-            let tab = MainTab::from_str(item).unwrap();
-            let tab2 = tab.clone();
-            v_stack((svg(move || match tab {
-                MainTab::Home => home_icon.to_string(),
-                MainTab::Movies => movie_icon.to_string(),
-                MainTab::TvShows => tv_icon.to_string(),
-                MainTab::Search => search_icon.to_string(),
-                // MainTab::MovieDetails(_) => "".to_owned(),
-                // MainTab::TvShowDetails => "".to_owned(),
-                // MainTab::ActorDetails => "".to_owned(),
-            })
-            .style(move |s| {
-                s.size(22.px(), 22.px())
-                    .color(PRIMARY_FG_COLOR)
-                    .apply_if(!tab2.is_visible_in_nav(), move |s| s.hide())
-                    .apply_if(
-                        active_tab
-                            .get()
-                            .as_main()
-                            .map(|mt| mt.index() == index)
-                            .unwrap_or(false),
-                        |s| s.color(ACCENT_COLOR),
-                    )
-            }),))
-            .on_click_stop(move |_| {
-                active_tab.update(|v: &mut ActiveTabKind| {
-                    *v = ActiveTabKind::Main(MainTab::from_index(
-                        tabs.get_untracked()
-                            .iter()
-                            .position(|it| *it == item)
-                            .unwrap(),
-                    ));
-                });
-            })
-            .keyboard_navigatable()
-            .draggable()
-            .style(move |s| {
-                s.padding_vert(10.)
-                    .transition(TextColor, Transition::linear(0.4))
-                    .transition(Background, Transition::linear(0.4))
-                    .color(PRIMARY_FG_COLOR)
-                    .items_center()
-                    .focus_visible(|s| {
-                        s.border(3.)
-                            .border_color(ACCENT_COLOR.with_alpha_factor(0.8))
-                            .border_radius(5.)
-                    })
-                    .hover(|s| {
-                        s.background(SECONDARY_BG_COLOR)
-                            .cursor(CursorStyle::Pointer)
-                    })
-            })
-        },
-    )
+    let list = v_stack_from_iter(tabs.get().into_iter().map(|item| {
+        let index = tabs
+            .get_untracked()
+            .iter()
+            .position(|it| *it == item)
+            .unwrap();
+        let tab = MainTab::from_str(item).unwrap();
+        let tab2 = tab.clone();
+        v_stack((svg(move || match tab {
+            MainTab::Home => home_icon.to_string(),
+            MainTab::Movies => movie_icon.to_string(),
+            MainTab::TvShows => tv_icon.to_string(),
+            MainTab::Search => search_icon.to_string(),
+        })
+        .style(move |s| {
+            s.size(22.px(), 22.px())
+                .color(PRIMARY_FG_COLOR)
+                .apply_if(!tab2.is_visible_in_nav(), move |s| s.hide())
+                .apply_if(
+                    active_tab
+                        .get()
+                        .as_main()
+                        .map(|mt| mt.index() == index)
+                        .unwrap_or(false),
+                    |s| s.color(ACCENT_COLOR),
+                )
+        }),))
+        .on_click_stop(move |_| {
+            active_tab.update(|v: &mut ActiveTabKind| {
+                *v = ActiveTabKind::Main(MainTab::from_index(
+                    tabs.get_untracked()
+                        .iter()
+                        .position(|it| *it == item)
+                        .unwrap(),
+                ));
+            });
+        })
+        .keyboard_navigatable()
+        .draggable()
+        .style(move |s| {
+            s.padding_vert(10.)
+                .transition(TextColor, Transition::linear(0.4))
+                .transition(Background, Transition::linear(0.4))
+                .color(PRIMARY_FG_COLOR)
+                .items_center()
+                .focus_visible(|s| {
+                    s.border(3.)
+                        .border_color(ACCENT_COLOR.with_alpha_factor(0.8))
+                        .border_radius(5.)
+                })
+                .hover(|s| {
+                    s.background(SECONDARY_BG_COLOR)
+                        .cursor(CursorStyle::Pointer)
+                })
+        })
+    }))
     .style(|s| {
         s.flex_col()
             .height_full()
@@ -445,6 +438,10 @@ fn app_view() -> impl View {
                 .class(MediaCarousel, |s| s.padding(20.))
                 .class(CarouselTitle, |s| {
                     s.font_size(20.).margin_top(5.).padding(5.)
+                })
+                .class(ClickablePoster, |s| {
+                    s.cursor(CursorStyle::Pointer)
+                        .border_color(SECONDARY_FG_COLOR.with_alpha_factor(0.7))
                 })
         })
         .on_event_stop(EventListener::WindowResized, move |event| {

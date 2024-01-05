@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use floem::{
+
     ext_event::create_signal_from_channel,
     peniko::Color,
     reactive::{create_effect, create_rw_signal, create_signal, use_context, ReadSignal, RwSignal},
@@ -12,8 +13,8 @@ use floem::{
     unit::UnitExt,
     view::View,
     views::{
-        clip, container, dyn_container, empty, h_stack, img, label, list, scroll, svg, text,
-        v_stack, Decorators,
+        clip, container, dyn_container, empty, h_stack, h_stack_from_iter, img, label, list,
+        scroll, svg, text, v_stack, Decorators,
     },
 };
 
@@ -80,6 +81,7 @@ pub fn home_view() -> impl View {
 
 style_class!(pub MediaCarousel);
 style_class!(pub CarouselTitle);
+style_class!(pub ClickablePoster);
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum PosterCarouselItem {
@@ -121,12 +123,8 @@ pub fn movie_poster_carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>)
     let state: Arc<GlobalState> = use_context().unwrap();
     container(
         scroll(
-            list(
-                move || movies.get(),
-                move |item| item.id(),
-                move |item| poster_carousel_item(item),
-            )
-            .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
+            h_stack_from_iter(movies.get().into_iter().map(poster_carousel_item))
+                .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
         )
         .style(move |s| s.width(state.main_tab_size.get().width)),
     )
@@ -147,14 +145,18 @@ pub fn five_stars(kind: StarsKind) -> impl View {
         StarsKind::Unfilled => include_str!("../../assets/unfilled_star.svg"),
     };
 
-    list(
-        || (0..5).collect::<Vec<i32>>(),
-        move |n| *n,
-        move |_| {
-            svg(|| star_icon.to_string())
-                .style(|s| s.size(STAR_WIDTH, STAR_HEIGHT).color(DIMMED_ACCENT_COLOR))
-        },
-    )
+    h_stack_from_iter((0..5).map(|_| {
+        svg(|| star_icon.to_string())
+            .style(|s| s.size(STAR_WIDTH, STAR_HEIGHT).color(DIMMED_ACCENT_COLOR))
+    }))
+    // list(
+    //     || (0..5).collect::<Vec<i32>>(),
+    //     move |n| *n,
+    //     move |_| {
+    //         svg(|| star_icon.to_string())
+    //             .style(|s| s.size(STAR_WIDTH, STAR_HEIGHT).color(DIMMED_ACCENT_COLOR))
+    //     },
+    // )
 }
 
 pub fn stars_rating_progress_bar(rating: f64) -> impl View {
@@ -184,10 +186,10 @@ pub enum PosterImgSize {
 pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl View {
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
 
-    let (success_tx, success_rx) = crossbeam_channel::bounded(1);
+    let (tx, rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
-    // when we are doing work in another thread
-    let chan_bytes = create_signal_from_channel(success_rx);
+    // when we finish doing work in another thread
+    let chan_bytes = create_signal_from_channel(rx);
     create_effect(move |_| {
         img_bytes.set(chan_bytes.get());
     });
@@ -198,14 +200,15 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
             .data_provider
             .get_poster_img(&poster_path)
             .map_err(|e| e.to_string());
-        success_tx.send(result).unwrap();
+        tx.send(result).unwrap();
     });
 
-    let width = match poster_size {
+    let poster_width = match poster_size {
         PosterImgSize::Width200 => 200.,
         PosterImgSize::Width300 => 300.,
     };
-    let height = width * 1.5;
+    let poster_height = poster_width * 1.5;
+    let border_px = 3.;
 
     dyn_container(
         move || img_bytes.get(),
@@ -213,7 +216,8 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
             match img_bytes {
                 Some(resp) => match resp {
                     Ok(bytes) => Box::new(
-                        img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
+                        img(move || bytes.to_vec())
+                            .style(move |s| s.width(poster_width).height(poster_height)),
                     ),
                     Err(err_msg) => {
                         eprintln!("error: {err_msg}");
@@ -235,14 +239,10 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
         },
     )
     .style(move |s| {
-        s.width(width)
-            .height(height)
+        s.width(poster_width + 2. * border_px)
+            .height(poster_height + 2. * border_px)
             .border(3.)
             .border_color(Color::rgb8(37, 37, 38))
-            .hover(|s| {
-                s.cursor(CursorStyle::Pointer)
-                    .border_color(SECONDARY_FG_COLOR.with_alpha_factor(0.7))
-            })
             .transition(BorderColor, Transition::linear(0.3))
     })
 }
@@ -255,11 +255,15 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let poster = item.poster_path().unwrap();
     // let tab_state = state.tab_state;
     v_stack((
-        dyn_poster_img(poster, PosterImgSize::Width200).on_click_stop(move |_| {
-            active_tab.update(move |tab| {
-                *tab = ActiveTabKind::Sub(SubTab::MovieDetails(MovieDetailsState { movie_id: id }));
-            });
-        }),
+        dyn_poster_img(poster, PosterImgSize::Width200)
+            .on_click_stop(move |_| {
+                active_tab.update(move |tab| {
+                    *tab = ActiveTabKind::Sub(SubTab::MovieDetails(MovieDetailsState {
+                        movie_id: id,
+                    }));
+                });
+            })
+            .class(ClickablePoster),
         v_stack((
             label(move || item.display_name().clone()),
             h_stack((
@@ -284,7 +288,7 @@ pub fn hero_movie_img(media: MediaProduction) -> impl View {
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
     let (success_tx, success_rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
-    // when we are doing work in another thread
+    // when we finish doing work in another thread
     let chan_bytes = create_signal_from_channel(success_rx);
     create_effect(move |_| {
         img_bytes.set(chan_bytes.get());

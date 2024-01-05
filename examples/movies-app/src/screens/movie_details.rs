@@ -14,8 +14,8 @@ use floem::{
     view::View,
     views::{
         clip, container, container_box, dyn_container, empty, h_stack, img, label, list, scroll,
-        static_label, svg, tab, text, v_stack, virtual_list, Decorators, Label,
-        VirtualListDirection, VirtualListItemSize,
+        static_label, svg, tab, text, v_stack, virtual_stack, Decorators, Label,
+        VirtualStackDirection, VirtualStackItemSize,
     },
 };
 use num_format::{Locale, ToFormattedString};
@@ -31,6 +31,7 @@ use crate::{
 
 use super::home::{
     dyn_poster_img, media_hero_container, movie_poster_carousel, stars_rating_progress_bar,
+    ClickablePoster,
 };
 
 pub fn movie_details_screen(tab_state: MovieDetailsState) -> impl View {
@@ -193,9 +194,9 @@ fn cast_carousel(cast: ReadSignal<im::Vector<CastMember>>) -> impl View {
     let state: Arc<GlobalState> = use_context().unwrap();
     container(
         scroll(
-            virtual_list(
-                VirtualListDirection::Horizontal,
-                VirtualListItemSize::Fixed(Box::new(|| CAST_MEMBER_CARD_WIDTH)),
+            virtual_stack(
+                VirtualStackDirection::Horizontal,
+                VirtualStackItemSize::Fixed(Box::new(|| CAST_MEMBER_CARD_WIDTH)),
                 move || cast.get(),
                 move |item| item.id,
                 move |item| cast_member_card(item),
@@ -240,12 +241,8 @@ pub fn cast_member_card(cast: CastMember) -> impl View {
                     }));
                 });
             })
-            .style(|s| {
-                s.width_full()
-                    .height_full()
-                    .hover(|s| s.cursor(CursorStyle::Pointer))
-                    .justify_center()
-            }),
+            .class(ClickablePoster)
+            .style(|s| s.width_full().height_full().justify_center()),
         v_stack((
             label(move || name.clone()),
             label(move || format!("as {}", character.clone()))
