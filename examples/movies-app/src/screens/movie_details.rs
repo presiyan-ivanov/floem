@@ -24,7 +24,7 @@ use crate::{
     models::{CastMember, Movie, MovieDetails, Page, TvShow},
     screens::home::PosterImgSize,
     spinner::spinner,
-    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, ACCENT_BG_COLOR,
+    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, NAVBAR_COLOR,
     DIMMED_ACCENT_COLOR, PRIMARY_BG_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
     SECONDARY_FG_COLOR,
 };

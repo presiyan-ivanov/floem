@@ -42,7 +42,6 @@ struct PersonImages {
 
 #[derive(Clone, Deserialize, Serialize)]
 struct ProfileImg {
-    aspect_ratio: f64,
     height: u64,
     file_path: String,
     width: u64,

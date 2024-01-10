@@ -5,15 +5,31 @@ pub mod screens;
 pub mod spinner;
 
 use anyhow::{Context, Result};
-use std::{error::Error, fs, path::Path, sync::Arc};
+use floem::animate::animation;
+use floem::style::{AlignItems, AlignSelf};
+
+use std::hash::{Hash, Hasher};
+use std::time::Duration;
+use std::{
+    collections::{BTreeMap, HashSet},
+    error::Error,
+    fs,
+    path::Path,
+    sync::{
+        atomic::{AtomicU64, AtomicUsize},
+        Arc,
+    },
+};
 
 use floem::{
     event::{Event, EventListener},
     keyboard::{Key, NamedKey},
     kurbo::Size,
     peniko::Color,
-    reactive::{create_effect, create_rw_signal, create_signal, provide_context, RwSignal},
-    style::{Background, CursorStyle, JustifyContent, TextColor, Transition},
+    reactive::{
+        create_effect, create_rw_signal, create_signal, provide_context, use_context, RwSignal,
+    },
+    style::{Background, CursorStyle, FlexDirection, JustifyContent, TextColor, Transition},
     unit::UnitExt,
     view::View,
     views::{
@@ -39,9 +55,7 @@ enum MainTab {
     Movies,
     TvShows,
     Search,
-    // MovieDetails(Option<MovieDetailsState>),
-    // TvShowDetails,
-    // ActorDetails,
+    Watchlist,
 }
 
 #[derive(Clone, Debug)]
@@ -87,40 +101,6 @@ impl ActiveTabKind {
     }
 }
 
-impl MainTab {
-    fn is_visible_in_nav(&self) -> bool {
-        match self {
-            MainTab::Home => true,
-            MainTab::Movies => true,
-            MainTab::TvShows => true,
-            MainTab::Search => true,
-            // MainTab::MovieDetails(_) => false,
-            // MainTab::TvShowDetails => false,
-            // MainTab::ActorDetails => false,
-        }
-    }
-    // fn movie_id(&self) -> Option<u64> {
-    //     match self {
-    //         MainTab::MovieDetails(Some(MovieDetailsState { movie_id })) => Some(*movie_id),
-    //         x => None,
-    //     }
-    // }
-    //
-    // fn tv_show_id(&self) -> Option<u64> {
-    //     match self {
-    //         MainTab::TvShowDetails => Some(0),
-    //         _ => None,
-    //     }
-    // }
-    //
-    // fn actor_id(&self) -> Option<u64> {
-    //     match self {
-    //         MainTab::ActorDetails => Some(0),
-    //         _ => None,
-    //     }
-    // }
-}
-
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct MovieDetailsState {
     movie_id: u64,
@@ -136,36 +116,6 @@ struct ActorDetails {
     actor_id: u64,
 }
 
-// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-// enum TabState {
-//     MovieDetails { movie_id: u64 },
-//     TvShowDetails { tv_show_id: u64 },
-//     ActorDetails { actor_id: u64 },
-// }
-//
-// impl TabState {
-//     fn movie_id(&self) -> Option<u64> {
-//         match self {
-//             TabState::MovieDetails { movie_id } => Some(*movie_id),
-//             _ => None,
-//         }
-//     }
-
-// fn tv_show_id(&self) -> Option<u64> {
-//     match self {
-//         TabState::TvShowDetails { tv_show_id } => Some(*tv_show_id),
-//         _ => None,
-//     }
-// }
-//
-// fn actor_id(&self) -> Option<u64> {
-//     match self {
-//         TabState::ActorDetails { actor_id } => Some(*actor_id),
-//         _ => None,
-//     }
-// }
-// }
-
 impl MainTab {
     fn index(&self) -> usize {
         match self {
@@ -173,23 +123,18 @@ impl MainTab {
             MainTab::Movies => 1,
             MainTab::TvShows => 2,
             MainTab::Search => 3,
-            // MainTab::MovieDetails { .. } => 4,
-            // MainTab::TvShowDetails => 5,
-            // MainTab::ActorDetails => 6,
+            MainTab::Watchlist => 4,
         }
     }
 
-    fn from_str(s: &str) -> Option<MainTab> {
-        dbg!(s);
+    fn from_str(s: &str) -> MainTab {
         match s {
-            "Home" => Some(MainTab::Home),
-            "Movies" => Some(MainTab::Movies),
-            "TvShows" => Some(MainTab::TvShows),
-            "Search" => Some(MainTab::Search),
-            // "MovieDetails" => Some(MainTab::MovieDetails(None)),
-            // "TvShowDetails" => Some(MainTab::TvShowDetails),
-            // "ActorDetails" => Some(MainTab::ActorDetails),
-            _ => None,
+            "Home" => MainTab::Home,
+            "Movies" => MainTab::Movies,
+            "TvShows" => MainTab::TvShows,
+            "Search" => MainTab::Search,
+            "Watchlist" => MainTab::Watchlist,
+            _ => panic!("Unknown tab {}", s),
         }
     }
 
@@ -199,7 +144,8 @@ impl MainTab {
             1 => MainTab::Movies,
             2 => MainTab::TvShows,
             3 => MainTab::Search,
-            _ => panic!("Invalid tab : {}", idx),
+            4 => MainTab::Watchlist,
+            _ => panic!("Unknown tab index {}", idx),
         }
     }
 }
@@ -209,15 +155,65 @@ static SECONDARY_FG_COLOR: Color = Color::rgb8(176, 176, 176);
 static ACCENT_COLOR: Color = Color::rgb8(64, 193, 173);
 static DIMMED_ACCENT_COLOR: Color = Color::rgb8(0, 173, 153);
 static PRIMARY_BG_COLOR: Color = Color::rgb8(20, 20, 20);
-static ACCENT_BG_COLOR: Color = Color::BLACK;
+static NAVBAR_COLOR: Color = Color::BLACK;
 static SECONDARY_BG_COLOR: Color = Color::rgb8(32, 33, 36);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Alert {
+    id: AlertId,
+    message: String,
+    kind: AlertKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum AlertKind {
+    Success,
+    Warning,
+    Error,
+}
+
+impl Hash for Alert {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug, Copy)]
+pub struct AlertId(usize);
+
+impl AlertId {
+    pub fn next() -> AlertId {
+        static ALERT_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+        AlertId(ALERT_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+    }
+}
+
+#[derive(Clone)]
+struct AlertsState {
+    alerts: RwSignal<im::Vector<Alert>>,
+}
+impl AlertsState {
+    fn success_alert(&mut self, message: &str) -> Self {
+        let mut alerts = self.alerts;
+        let id = AlertId::next();
+        alerts.get().insert(
+            id.0,
+            Alert {
+                id,
+                message: message.to_owned(),
+                kind: AlertKind::Success,
+            },
+        );
+        Self { alerts }
+    }
+}
 
 struct GlobalState {
     active_tab: RwSignal<ActiveTabKind>,
     window_size: RwSignal<Size>,
     main_tab_size: RwSignal<Size>,
     data_provider: DataProvider,
-    // tab_state: RwSignal<Option<TabState>>,
+    alerts_state: RwSignal<AlertsState>, // tab_state: RwSignal<Option<TabState>>,
 }
 
 struct DataProvider {
@@ -270,6 +266,16 @@ struct Db {
 static MAIN_TAB_WIDTH: f64 = 60.0;
 
 fn app_view() -> impl View {
+    let mut alerts = im::Vector::new();
+    let id = AlertId::next();
+    alerts.insert(
+        id.0,
+        Alert {
+            id,
+            message: "Hello".to_owned(),
+            kind: AlertKind::Success,
+        },
+    );
     let state = Arc::new(GlobalState {
         active_tab: create_rw_signal(ActiveTabKind::Main(MainTab::Home)),
         window_size: create_rw_signal(Size::ZERO),
@@ -277,13 +283,16 @@ fn app_view() -> impl View {
         data_provider: DataProvider {
             client: reqwest::blocking::Client::new(),
         },
+        alerts_state: create_rw_signal(AlertsState {
+            alerts: create_rw_signal(alerts),
+        }),
     });
 
     let active_tab = state.active_tab;
     let window_size = state.window_size;
     let main_tab_size = state.main_tab_size;
     provide_context(state.clone());
-    let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows", "Search"]
+    let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows", "Search", "Watchlist"]
         .into_iter()
         .collect();
     let (tabs, _set_tabs) = create_signal(tabs);
@@ -291,6 +300,7 @@ fn app_view() -> impl View {
     let movie_icon = include_str!("../assets/movie_icon.svg");
     let tv_icon = include_str!("../assets/tv_icon.svg");
     let search_icon = include_str!("../assets/search_icon.svg");
+    let collections_icon = include_str!("../assets/collections_icon.svg");
 
     create_effect(move |_| {
         let window_size = window_size.get();
@@ -304,26 +314,23 @@ fn app_view() -> impl View {
             .iter()
             .position(|it| *it == item)
             .unwrap();
-        let tab = MainTab::from_str(item).unwrap();
-        let tab2 = tab.clone();
+        let tab = MainTab::from_str(item);
         v_stack((svg(move || match tab {
             MainTab::Home => home_icon.to_string(),
             MainTab::Movies => movie_icon.to_string(),
             MainTab::TvShows => tv_icon.to_string(),
             MainTab::Search => search_icon.to_string(),
+            MainTab::Watchlist => collections_icon.to_string(),
         })
         .style(move |s| {
-            s.size(22.px(), 22.px())
-                .color(PRIMARY_FG_COLOR)
-                .apply_if(!tab2.is_visible_in_nav(), move |s| s.hide())
-                .apply_if(
-                    active_tab
-                        .get()
-                        .as_main()
-                        .map(|mt| mt.index() == index)
-                        .unwrap_or(false),
-                    |s| s.color(ACCENT_COLOR),
-                )
+            s.size(25.px(), 25.px()).color(PRIMARY_FG_COLOR).apply_if(
+                active_tab
+                    .get()
+                    .as_main()
+                    .map(|mt| mt.index() == index)
+                    .unwrap_or(false),
+                |s| s.color(ACCENT_COLOR),
+            )
         }),))
         .on_click_stop(move |_| {
             active_tab.update(|v: &mut ActiveTabKind| {
@@ -357,10 +364,10 @@ fn app_view() -> impl View {
     .style(|s| {
         s.flex_col()
             .height_full()
-            .justify_content(Some(JustifyContent::SpaceAround))
-            .padding_vert(60.)
+            .gap(0, 30.)
+            .padding_vert(20.)
             .width(MAIN_TAB_WIDTH)
-            .background(ACCENT_BG_COLOR)
+            .background(NAVBAR_COLOR)
             .border_color(SECONDARY_BG_COLOR)
             .border_right(1.0)
     });
@@ -368,13 +375,17 @@ fn app_view() -> impl View {
     let list = container(list).style(|s| s.flex_grow(1.0).min_height(0));
 
     let id = list.id();
-    let inspector = button(|| "Inspect")
-        .on_click_stop(move |_| {
-            id.inspect();
-        })
-        .style(|s| s);
+    let inspect_icon = include_str!("../assets/inspect_icon.svg");
+    let inspector = container(
+        svg(|| inspect_icon.to_string())
+            .on_click_stop(move |_| {
+                id.inspect();
+            })
+            .style(|s| s.size(40, 40).color(PRIMARY_FG_COLOR)),
+    )
+    .style(|s| s.flex_row().background(NAVBAR_COLOR).justify_center());
 
-    let navbar_left = v_stack((list, inspector)).style(|s| s.height_full().gap(0.0, 5.0));
+    let navbar_left = v_stack((list, inspector)).style(|s| s.height_full());
 
     let tab_contents = scroll(v_stack((
         dyn_container(
@@ -385,13 +396,12 @@ fn app_view() -> impl View {
                         move || m.index(),
                         move || tabs.get(),
                         |it| *it,
-                        move |it| match MainTab::from_str(it).unwrap() {
+                        move |it| match MainTab::from_str(it) {
                             MainTab::Home => container_box(home_view()).style(|s| s.width_full()),
                             MainTab::Movies => container_box(movies_view()),
                             MainTab::TvShows => container_box(tv_shows()),
-                            MainTab::Search => {
-                                container_box(label(|| "Not implemented".to_owned()))
-                            }
+                            MainTab::Search => container_box(label(|| "Search".to_owned())),
+                            MainTab::Watchlist => container_box(label(|| "Watchlist".to_owned())),
                         },
                     )
                     .style(|s| s.flex_row().items_start().width_full().flex_grow(1.)),
@@ -419,7 +429,7 @@ fn app_view() -> impl View {
             .color(PRIMARY_FG_COLOR)
     });
 
-    let app_view = h_stack((navbar_left, tab_contents))
+    let app_view = h_stack((navbar_left, tab_contents, alerts_container()))
         .style(|s| {
             s.width_full()
                 .height_full()
@@ -458,6 +468,79 @@ fn app_view() -> impl View {
                 id.inspect();
             }
         }
+    })
+}
+
+fn alerts_container() -> impl View {
+    let state: Arc<GlobalState> = use_context().unwrap();
+    let alerts_state = state.alerts_state.get().alerts;
+    let close_icon = include_str!("../assets/close_icon.svg");
+    let progress_bar_height = 5.;
+
+    virtual_stack(
+        VirtualStackDirection::Vertical,
+        VirtualStackItemSize::Fixed(Box::new(|| 45.0)),
+        move || state.alerts_state.get().alerts.get(),
+        move |alert| alert.id,
+        move |alert| {
+            let id = alert.id;
+            v_stack((
+                h_stack((
+                    label(move || alert.clone().message.clone()).style(|s| s.font_size(16.)),
+                    svg(|| close_icon.to_string())
+                        .on_click_stop(move |_evt| {
+                            alerts_state.update(|s| s.retain(|a| a.id != id));
+                        })
+                        .style(|s| {
+                            s.size(15., 15.)
+                                .color(PRIMARY_FG_COLOR)
+                                .cursor(CursorStyle::Pointer)
+                                .align_self(AlignItems::Start)
+                                .margin_right(3)
+                        }),
+                ))
+                .style(move |s| {
+                    s.padding_left(30)
+                        .justify_between()
+                        .items_center()
+                        .padding_top(progress_bar_height / 2.)
+                        .width_full()
+                        .height_full()
+                }),
+                empty()
+                    .style(move |s| {
+                        s.width_full()
+                            .height(progress_bar_height)
+                            .background(Color::LIGHT_GREEN)
+                            .justify_self(AlignItems::End)
+                            .border_radius(3.)
+                    })
+                    .animation(animation().width(|| 0.).duration(Duration::from_secs(5))),
+            ))
+            .style(|s| {
+                s.border(1.)
+                    .justify_center()
+                    .background(SECONDARY_BG_COLOR)
+                    .border_radius(8.)
+                    .box_shadow_blur(8.0)
+                    .box_shadow_h_offset(3.0)
+                    .box_shadow_v_offset(3.0)
+                    .box_shadow_color(Color::BLACK.with_alpha_factor(0.9))
+                    .margin_vert(10.)
+                    .border_color(SECONDARY_BG_COLOR)
+                    .width(350.)
+                    .padding(2.)
+                    .height(45.)
+                    .color(PRIMARY_FG_COLOR)
+            })
+        },
+    )
+    .style(|s| {
+        s.absolute()
+            .margin_left(40.pct())
+            .height(500)
+            .width(100)
+            .flex_col()
     })
 }
 

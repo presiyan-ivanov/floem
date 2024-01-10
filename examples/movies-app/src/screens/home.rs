@@ -1,13 +1,15 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use floem::{
-
+    action::exec_after,
+    event::EventListener,
     ext_event::create_signal_from_channel,
+    menu::{Menu, MenuItem},
     peniko::Color,
     reactive::{create_effect, create_rw_signal, create_signal, use_context, ReadSignal, RwSignal},
     style::{
         AlignItems, BorderBottom, BorderColor, BorderLeft, BorderRadius, BorderRight, BorderTop,
-        CursorStyle, Position, Transition,
+        CursorStyle, Display, Position, Transition,
     },
     style_class,
     unit::UnitExt,
@@ -21,8 +23,9 @@ use floem::{
 use crate::{
     models::{Movie, Page, TvShow},
     spinner::spinner,
-    ActiveTabKind, GlobalState, MainTab, MovieDetailsState, SubTab, ACCENT_BG_COLOR, ACCENT_COLOR,
-    DIMMED_ACCENT_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR, SECONDARY_FG_COLOR,
+    ActiveTabKind, Alert, AlertId, AlertKind, GlobalState, MainTab, MovieDetailsState, SubTab,
+    ACCENT_COLOR, DIMMED_ACCENT_COLOR, NAVBAR_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
+    SECONDARY_FG_COLOR,
 };
 
 pub fn home_view() -> impl View {
@@ -253,7 +256,9 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
     let state: Arc<GlobalState> = use_context().unwrap();
     let active_tab = state.active_tab;
     let poster = item.poster_path().unwrap();
-    // let tab_state = state.tab_state;
+    let menu_dots = include_str!("../../assets/menu_dots.svg");
+    let (is_hovered, set_is_hovered) = create_signal(false);
+    let alerts_state = state.alerts_state;
     v_stack((
         dyn_poster_img(poster, PosterImgSize::Width200)
             .on_click_stop(move |_| {
@@ -267,11 +272,43 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
         v_stack((
             label(move || item.display_name().clone()),
             h_stack((
-                stars_rating_progress_bar(vote_average),
-                label(move || format!("{:.1}", vote_average))
-                    .style(|s| s.margin_left(5.).padding_bottom(5.)),
+                h_stack((
+                    stars_rating_progress_bar(vote_average),
+                    label(move || format!("{:.1}", vote_average))
+                        .style(|s| s.margin_left(5.).padding_bottom(5.)),
+                )),
+                svg(|| menu_dots.to_owned())
+                    .style(move |s| {
+                        s.size(20, 20)
+                            .color(Color::WHITE)
+                            .hide()
+                            .apply_if(is_hovered.get(), move |s| s.display(Display::Flex))
+                    })
+                    .popout_menu(move || -> Menu {
+                        Menu::new("")
+                            .entry(MenuItem::new("Add to playlist").action(move || {
+                                let id = AlertId::next();
+                                alerts_state.update(move |als| {
+                                    als.success_alert("Added to wishlist");
+                                    // a.push_back(Alert {
+                                    //     id,
+                                    //     message: "Added to playlist".to_owned(),
+                                    //     kind: AlertKind::Success,
+                                    // });
+                                });
+
+                                let _ = exec_after(Duration::from_millis(2000), move |_| {
+                                    alerts_state.get_untracked().alerts.update(|a| {
+                                        a.retain(|a| a.id != id);
+                                    });
+                                });
+                            }))
+                            .separator()
+                            .entry(MenuItem::new("I am another menu item"))
+                    })
+                    .style(|s| s.margin_left(50.)),
             ))
-            .style(|s| s.margin_top(5.).width_full()),
+            .style(|s| s.margin_top(5.).width_full().justify_between()),
         ))
         .style(|s| {
             s.font_size(14.)
@@ -282,6 +319,12 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
             // .background(BG_COLOR_2)
         }),
     ))
+    .on_event_stop(EventListener::PointerEnter, move |_| {
+        set_is_hovered.update(|is_hov| *is_hov = true);
+    })
+    .on_event_stop(EventListener::PointerLeave, move |_| {
+        set_is_hovered.update(|is_hov| *is_hov = false);
+    })
 }
 
 pub fn hero_movie_img(media: MediaProduction) -> impl View {
@@ -394,7 +437,7 @@ pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl 
             s.position(Position::Absolute)
                 .width(solid_bg_container_width)
                 .height_full()
-                .background(ACCENT_BG_COLOR)
+                .background(NAVBAR_COLOR)
         }),
         dyn_hero_media_img(movie).style(move |s| {
             s.width_full()
