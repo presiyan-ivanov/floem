@@ -80,7 +80,7 @@ impl WindowHandle {
         window: winit::window::Window,
         view_fn: impl FnOnce(winit::window::WindowId) -> Box<dyn View> + 'static,
         transparent: bool,
-        themed: bool,
+        apply_default_theme: bool,
     ) -> Self {
         let scope = Scope::new();
         let window_id = window.id();
@@ -134,7 +134,7 @@ impl WindowHandle {
             app_state: AppState::new(),
             paint_state,
             size,
-            theme: themed.then(default_theme),
+            theme: apply_default_theme.then(default_theme),
             os_theme: theme,
             is_maximized,
             transparent,
@@ -198,6 +198,13 @@ impl WindowHandle {
                 }
 
                 if !processed {
+                    for handler in &self.view.main.view_data().event_handlers {
+                        if (handler)(&event).is_processed() {
+                            processed = true;
+                            break;
+                        }
+                    }
+
                     if let Some(listener) = event.listener() {
                         if let Some(action) = cx.get_event_listener(self.view.main.id(), &listener)
                         {
@@ -770,8 +777,8 @@ impl WindowHandle {
                             cx.app_state.request_style_recursive(id);
                         }
                     }
-                    UpdateMessage::ScrollTo { id } => {
-                        self.view.scroll_to(cx.app_state, id);
+                    UpdateMessage::ScrollTo { id, rect } => {
+                        self.view.scroll_to(cx.app_state, id, rect);
                     }
                     UpdateMessage::Disabled { id, is_disabled } => {
                         if is_disabled {

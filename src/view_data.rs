@@ -19,9 +19,16 @@ use std::{collections::HashMap, marker::PhantomData, time::Duration};
 use taffy::node::Node;
 
 /// A stack of view attributes. Each entry is associated with a view decorator call.
-#[derive(Default)]
 pub(crate) struct Stack<T> {
-    stack: SmallVec<[T; 1]>,
+    pub(crate) stack: SmallVec<[T; 1]>,
+}
+
+impl<T> Default for Stack<T> {
+    fn default() -> Self {
+        Stack {
+            stack: SmallVec::new(),
+        }
+    }
 }
 
 pub(crate) struct StackOffset<T> {
@@ -57,6 +64,7 @@ impl<T> Stack<T> {
 pub struct ViewData {
     pub(crate) id: Id,
     pub(crate) style: Stack<Style>,
+    pub(crate) event_handlers: Vec<Box<EventCallback>>,
 }
 
 impl ViewData {
@@ -64,6 +72,7 @@ impl ViewData {
         Self {
             id,
             style: Default::default(),
+            event_handlers: Default::default(),
         }
     }
     pub fn id(&self) -> Id {
@@ -125,7 +134,6 @@ bitflags! {
 /// View state stores internal state associated with a view which is owned and managed by Floem.
 pub struct ViewState {
     pub(crate) node: Node,
-    pub(crate) children_nodes: Vec<Node>,
     pub(crate) requested_changes: ChangeFlags,
     /// Layout is requested on all direct and indirect children.
     pub(crate) request_style_recursive: bool,
@@ -164,7 +172,6 @@ impl ViewState {
             combined_style: Style::new(),
             taffy_style: taffy::style::Style::DEFAULT,
             dragging_style: None,
-            children_nodes: Vec::new(),
             event_listeners: HashMap::new(),
             context_menu: None,
             popout_menu: None,

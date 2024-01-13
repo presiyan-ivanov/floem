@@ -16,7 +16,7 @@ use floem::{
     view::View,
     views::{
         clip, container, dyn_container, empty, h_stack, h_stack_from_iter, img, label, list,
-        scroll, svg, text, v_stack, Decorators,
+        scroll, static_label, svg, text, v_stack, Decorators,
     },
 };
 
@@ -24,7 +24,7 @@ use crate::{
     models::{Movie, Page, TvShow},
     spinner::spinner,
     ActiveTabKind, Alert, AlertId, AlertKind, GlobalState, MainTab, MovieDetailsState, SubTab,
-    ACCENT_COLOR, DIMMED_ACCENT_COLOR, NAVBAR_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
+    ACCENT_COLOR, DIMMED_ACCENT_COLOR, NAVBAR_BG_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR,
     SECONDARY_FG_COLOR,
 };
 
@@ -58,6 +58,7 @@ pub fn home_view() -> impl View {
             .take(12)
             .collect(),
     );
+    //README-bookmark.global-state
     let state: Arc<GlobalState> = use_context().unwrap();
     let win_size = state.main_tab_size;
 
@@ -82,6 +83,7 @@ pub fn home_view() -> impl View {
     .style(|s| s.width_full())
 }
 
+//README-bookmark.defining-style-classes
 style_class!(pub MediaCarousel);
 style_class!(pub CarouselTitle);
 style_class!(pub ClickablePoster);
@@ -123,13 +125,14 @@ impl PosterCarouselItem {
 }
 
 pub fn movie_poster_carousel(movies: ReadSignal<im::Vector<PosterCarouselItem>>) -> impl View {
-    let state: Arc<GlobalState> = use_context().unwrap();
+    // let state: Arc<GlobalState> = use_context().unwrap();
     container(
         scroll(
             h_stack_from_iter(movies.get().into_iter().map(poster_carousel_item))
                 .style(|s| s.gap(10.0, 0.).padding_bottom(15.)),
         )
-        .style(move |s| s.width(state.main_tab_size.get().width)),
+        // .style(move |s| s.width(state.main_tab_size.get().width)),
+        .style(move |s| s.width_full()),
     )
     .style(|s| s.size(100.pct(), 100.pct()).padding_vert(20.0).flex_col())
 }
@@ -152,14 +155,6 @@ pub fn five_stars(kind: StarsKind) -> impl View {
         svg(|| star_icon.to_string())
             .style(|s| s.size(STAR_WIDTH, STAR_HEIGHT).color(DIMMED_ACCENT_COLOR))
     }))
-    // list(
-    //     || (0..5).collect::<Vec<i32>>(),
-    //     move |n| *n,
-    //     move |_| {
-    //         svg(|| star_icon.to_string())
-    //             .style(|s| s.size(STAR_WIDTH, STAR_HEIGHT).color(DIMMED_ACCENT_COLOR))
-    //     },
-    // )
 }
 
 pub fn stars_rating_progress_bar(rating: f64) -> impl View {
@@ -213,6 +208,7 @@ pub fn dyn_poster_img(poster_path: String, poster_size: PosterImgSize) -> impl V
     let poster_height = poster_width * 1.5;
     let border_px = 3.;
 
+    //README-bookmark.conditional-rendering
     dyn_container(
         move || img_bytes.get(),
         move |img_bytes| -> Box<dyn View> {
@@ -287,20 +283,9 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
                     .popout_menu(move || -> Menu {
                         Menu::new("")
                             .entry(MenuItem::new("Add to playlist").action(move || {
-                                let id = AlertId::next();
-                                alerts_state.update(move |als| {
-                                    als.success_alert("Added to wishlist");
-                                    // a.push_back(Alert {
-                                    //     id,
-                                    //     message: "Added to playlist".to_owned(),
-                                    //     kind: AlertKind::Success,
-                                    // });
-                                });
-
-                                let _ = exec_after(Duration::from_millis(2000), move |_| {
-                                    alerts_state.get_untracked().alerts.update(|a| {
-                                        a.retain(|a| a.id != id);
-                                    });
+                                //README-bookmark.alerts
+                                alerts_state.with(move |als| {
+                                    als.add(Alert::success("Added to wishlist"));
                                 });
                             }))
                             .separator()
@@ -329,25 +314,28 @@ pub fn poster_carousel_item(item: PosterCarouselItem) -> impl View {
 
 pub fn hero_movie_img(media: MediaProduction) -> impl View {
     let img_bytes: RwSignal<Option<Result<Vec<u8>, String>>> = create_rw_signal(None);
-    let (success_tx, success_rx) = crossbeam_channel::bounded(1);
+    let (tx, rx) = crossbeam_channel::bounded(1);
     // The reactive runtime is thread-local, so we need to notify the runtime
     // when we finish doing work in another thread
-    let chan_bytes = create_signal_from_channel(success_rx);
+    let chan_bytes = create_signal_from_channel(rx);
     create_effect(move |_| {
         img_bytes.set(chan_bytes.get());
     });
 
     let backdrop_path = media.backdrop_path.unwrap();
 
+    //README-bookmark.io
+    //README-bookmark.async
     let state: Arc<GlobalState> = use_context().unwrap();
     std::thread::spawn(move || {
         let result = state
             .data_provider
             .get_backdrop_img(&backdrop_path)
             .map_err(|e| e.to_string());
-        success_tx.send(result).unwrap();
+        tx.send(result).unwrap();
     });
 
+    //README-bookmark.conditional-rendering
     dyn_container(
         move || img_bytes.get(),
         move |img_bytes| -> Box<dyn View> {
@@ -357,6 +345,7 @@ pub fn hero_movie_img(media: MediaProduction) -> impl View {
                         img(move || bytes.to_vec()).style(|s| s.width_full().height_full()),
                     ),
                     Err(_) => {
+                        //README-bookmark.err-handling
                         let image_error = include_str!("../../assets/alt_img.svg");
                         Box::new(
                             svg(move || image_error.to_owned())
@@ -429,6 +418,7 @@ pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl 
     // the movie description goes over the solid gradient
     let movie_description_width = 70.pct();
     let backdrop_gradient_img = include_bytes!("../../assets/old_black_gradient3.png");
+    //README-bookmark.global-state
     let state: Arc<GlobalState> = use_context().unwrap();
     let win_size = state.main_tab_size;
 
@@ -437,7 +427,7 @@ pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl 
             s.position(Position::Absolute)
                 .width(solid_bg_container_width)
                 .height_full()
-                .background(NAVBAR_COLOR)
+                .background(NAVBAR_BG_COLOR)
         }),
         dyn_hero_media_img(movie).style(move |s| {
             s.width_full()
@@ -464,6 +454,7 @@ pub fn media_hero_container(movie: ReadSignal<Option<MediaProduction>>) -> impl 
     })
 }
 
+//README-bookmark.conditional-rendering
 fn dyn_hero_media_img(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     dyn_container(
         move || movie.get(),
@@ -476,6 +467,7 @@ fn dyn_hero_media_img(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     )
 }
 
+//README-bookmark.conditional-rendering
 fn dyn_movie_description(movie: ReadSignal<Option<MediaProduction>>) -> impl View {
     dyn_container(
         move || movie.get(),
@@ -513,8 +505,33 @@ fn movie_description(movie: MediaProduction) -> impl View {
                 .margin_top(20.0)
                 .font_size(18.)
         }),
+        h_stack((static_label("Add to Watchlist")
+            .on_click_stop(move |_| {
+                //README-bookmark.alerts
+                let alerts_state = use_context::<Arc<GlobalState>>().unwrap().alerts_state;
+                alerts_state.with(move |als| {
+                    als.add(Alert::success("Added to Watchlist"));
+                });
+            })
+            .style(|s| s.font_size(14.)),))
+        .style(|s| {
+            s.background(SECONDARY_BG_COLOR)
+                .margin_top(20)
+                .max_width(180)
+                .height(45)
+                .padding(5)
+                .cursor(CursorStyle::Pointer)
+                .items_center()
+                .justify_center()
+        }),
     ))
-    .style(|s| s.width_full().padding(20.).justify_center().height_full())
+    .style(|s| {
+        s.width_full()
+            .padding(20)
+            .padding_left(100)
+            .justify_center()
+            .height_full()
+    })
 }
 
 fn pretty_format_number(num: u64) -> String {

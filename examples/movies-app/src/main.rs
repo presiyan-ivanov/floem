@@ -5,8 +5,10 @@ pub mod screens;
 pub mod spinner;
 
 use anyhow::{Context, Result};
+use floem::action::exec_after;
 use floem::animate::animation;
 use floem::style::{AlignItems, AlignSelf};
+use screens::watchlist::{self, watchlist_view};
 
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
@@ -155,7 +157,8 @@ static SECONDARY_FG_COLOR: Color = Color::rgb8(176, 176, 176);
 static ACCENT_COLOR: Color = Color::rgb8(64, 193, 173);
 static DIMMED_ACCENT_COLOR: Color = Color::rgb8(0, 173, 153);
 static PRIMARY_BG_COLOR: Color = Color::rgb8(20, 20, 20);
-static NAVBAR_COLOR: Color = Color::BLACK;
+static NAVBAR_BG_COLOR: Color = Color::BLACK;
+static NAVBAR_ICONS_COLOR: Color = Color::rgb8(176, 176, 176);
 static SECONDARY_BG_COLOR: Color = Color::rgb8(32, 33, 36);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -163,6 +166,22 @@ struct Alert {
     id: AlertId,
     message: String,
     kind: AlertKind,
+    duration: Option<Duration>,
+}
+
+impl Alert {
+    fn new(message: &str, kind: AlertKind) -> Self {
+        Self {
+            id: AlertId::next(),
+            message: message.to_owned(),
+            kind,
+            duration: Some(Duration::from_secs(5)),
+        }
+    }
+
+    fn success(message: &str) -> Self {
+        Self::new(message, AlertKind::Success)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -193,18 +212,20 @@ struct AlertsState {
     alerts: RwSignal<im::Vector<Alert>>,
 }
 impl AlertsState {
-    fn success_alert(&mut self, message: &str) -> Self {
-        let mut alerts = self.alerts;
-        let id = AlertId::next();
-        alerts.get().insert(
-            id.0,
-            Alert {
-                id,
-                message: message.to_owned(),
-                kind: AlertKind::Success,
-            },
-        );
-        Self { alerts }
+    //README-bookmark.alerts
+    fn add(&self, alert: Alert) {
+        let alert_id = alert.id;
+        let duration = alert.duration;
+        self.alerts.update(|a| a.push_back(alert));
+
+        let alerts = self.alerts;
+        if let Some(duration) = duration {
+            let _ = exec_after(duration, move |_| {
+                alerts.update(|a| {
+                    a.retain(|a| a.id != alert_id);
+                });
+            });
+        }
     }
 }
 
@@ -267,15 +288,6 @@ static MAIN_TAB_WIDTH: f64 = 60.0;
 
 fn app_view() -> impl View {
     let mut alerts = im::Vector::new();
-    let id = AlertId::next();
-    alerts.insert(
-        id.0,
-        Alert {
-            id,
-            message: "Hello".to_owned(),
-            kind: AlertKind::Success,
-        },
-    );
     let state = Arc::new(GlobalState {
         active_tab: create_rw_signal(ActiveTabKind::Main(MainTab::Home)),
         window_size: create_rw_signal(Size::ZERO),
@@ -287,6 +299,9 @@ fn app_view() -> impl View {
             alerts: create_rw_signal(alerts),
         }),
     });
+    state
+        .alerts_state
+        .update(|al_s| al_s.add(Alert::success("Hello world")));
 
     let active_tab = state.active_tab;
     let window_size = state.window_size;
@@ -323,7 +338,7 @@ fn app_view() -> impl View {
             MainTab::Watchlist => collections_icon.to_string(),
         })
         .style(move |s| {
-            s.size(25.px(), 25.px()).color(PRIMARY_FG_COLOR).apply_if(
+            s.size(25.px(), 25.px()).color(NAVBAR_ICONS_COLOR).apply_if(
                 active_tab
                     .get()
                     .as_main()
@@ -367,7 +382,7 @@ fn app_view() -> impl View {
             .gap(0, 30.)
             .padding_vert(20.)
             .width(MAIN_TAB_WIDTH)
-            .background(NAVBAR_COLOR)
+            .background(NAVBAR_BG_COLOR)
             .border_color(SECONDARY_BG_COLOR)
             .border_right(1.0)
     });
@@ -383,7 +398,7 @@ fn app_view() -> impl View {
             })
             .style(|s| s.size(40, 40).color(PRIMARY_FG_COLOR)),
     )
-    .style(|s| s.flex_row().background(NAVBAR_COLOR).justify_center());
+    .style(|s| s.flex_row().background(NAVBAR_BG_COLOR).justify_center());
 
     let navbar_left = v_stack((list, inspector)).style(|s| s.height_full());
 
@@ -401,7 +416,7 @@ fn app_view() -> impl View {
                             MainTab::Movies => container_box(movies_view()),
                             MainTab::TvShows => container_box(tv_shows()),
                             MainTab::Search => container_box(label(|| "Search".to_owned())),
-                            MainTab::Watchlist => container_box(label(|| "Watchlist".to_owned())),
+                            MainTab::Watchlist => container_box(watchlist_view()),
                         },
                     )
                     .style(|s| s.flex_row().items_start().width_full().flex_grow(1.)),

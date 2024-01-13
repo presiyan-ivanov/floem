@@ -21,6 +21,8 @@ pub struct Spinner {
     last_paint_on: Option<Instant>,
 }
 
+
+//README-bookmark.creating-widgets
 pub fn spinner() -> Spinner {
     Spinner {
         data: ViewData::new(Id::next()),
@@ -61,6 +63,7 @@ impl View for Spinner {
         })
     }
 
+    //README-bookmark.creating-widgets
     fn paint(&mut self, cx: &mut context::PaintCx) {
         let id = self.id();
         let spin_duration_sec = 1.;

@@ -2,6 +2,7 @@ use floem::{
     event::{Event, EventListener},
     keyboard::{Key, NamedKey},
     kurbo::{Point, Size},
+    keyboard::{Key, ModifiersState, NamedKey},
     peniko::Color,
     reactive::create_signal,
     unit::UnitExt,
@@ -44,6 +45,7 @@ fn app_view() -> impl View {
     };
     start_menu
 
+<<<<<<< HEAD
     // let long_list: im::Vector<i32> = (0..1000000).collect();
     // let (long_list, _set_long_list) = create_signal(long_list);
     //
@@ -66,6 +68,14 @@ fn app_view() -> impl View {
     //         .flex_col()
     //         .items_center()
     // })
+=======
+    let id = view.id();
+    view.on_key_up(
+        Key::Named(NamedKey::F11),
+        ModifiersState::empty(),
+        move |_| id.inspect(),
+    )
+>>>>>>> upstream/main
 }
 
 fn main() {

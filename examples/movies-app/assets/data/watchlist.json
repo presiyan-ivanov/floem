@@ -1,8 +1,25 @@
-[
-  {
-    "list_order": 1,
-    "media_id": 123,
-    "media_kind": "Movie",
-    "note": "This is a note"
-  }
-]
+{
+  "items": [
+    {
+      "list_order": 1,
+      "media_id": 123,
+      "media_kind": "Movie",
+      "note": "This is a note",
+      "added_on": "2019-01-01T00:00:00Z"
+    },
+    {
+      "list_order": 1,
+      "media_id": 124,
+      "media_kind": "Movie",
+      "note": "This is a note 3",
+      "added_on": "2019-01-01T00:00:00Z"
+    },
+    {
+      "list_order": 1,
+      "media_id": 125,
+      "media_kind": "Show",
+      "note": "This is a note 5",
+      "added_on": "2019-01-01T00:00:00Z"
+    }
+  ]
+}

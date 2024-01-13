@@ -901,6 +901,12 @@ impl<'a> EventCx<'a> {
             _ => (),
         }
 
+        for handler in &view.view_data().event_handlers {
+            if (handler)(&event).is_processed() {
+                return EventPropagation::Stop;
+            }
+        }
+
         if let Some(listener) = event.listener() {
             if let Some(action) = self.get_event_listener(id, &listener) {
                 let should_run = if let Some(pos) = event.point() {
@@ -1238,6 +1244,7 @@ impl<'a> ComputeLayoutCx<'a> {
             .get_mut(&id)
             .and_then(|s| s.move_listener.as_mut())
     }
+
     /// Internal method used by Floem. This method derives its calculations based on the [Taffy Node](taffy::prelude::Node) returned by the `View::layout` method.
     ///
     /// It's responsible for:
@@ -1366,8 +1373,6 @@ impl<'a> LayoutCx<'a> {
         if has_children {
             let nodes = children(self);
             let _ = self.app_state.taffy.set_children(node, &nodes);
-            let view = self.app_state.view_state(id);
-            view.children_nodes = nodes;
         }
 
         node
