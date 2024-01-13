@@ -1,81 +1,83 @@
 use floem::{
-    event::{Event, EventListener},
-    keyboard::{Key, NamedKey},
-    kurbo::{Point, Size},
     keyboard::{Key, ModifiersState, NamedKey},
     peniko::Color,
     reactive::create_signal,
     unit::UnitExt,
     view::View,
-    views::{
-        container, label, scroll, stack, text, virtual_stack, Decorators, VirtualStackDirection,
-        VirtualStackItemSize,
-    },
-    window::{WindowConfig, WindowLevel},
+    views::{label, stack, text, Decorators},
 };
 
 fn app_view() -> impl View {
-    let program_list: im::Vector<_> = (0..1000000).collect();
-    let (long_list, _) = create_signal(program_list);
-    let start_menu = {
-        container(
-            scroll(
-                virtual_stack(
-                    VirtualStackDirection::Vertical,
-                    VirtualStackItemSize::Fixed(Box::new(|| 20.0)),
-                    move || long_list.get(),
-                    move |item| *item,
-                    move |item| {
-                        label(move || item.to_string())
-                            .style(|s| s.height(20.0).color(Color::YELLOW))
-                    },
-                ), // .style(|s| s.flex_col()),
-            )
-            .style(|s| s.width(100.0).height(100.pct()).border(1.0)),
-        )
-        .style(|s| {
-            s.color(Color::WHITE)
-                .background(Color::GHOST_WHITE)
-                .padding(10.0)
-                .height(550.)
-                .width(400.)
-                // .flex_col()
-                .items_center()
-        })
-    };
-    start_menu
+    let (counter, set_counter) = create_signal(0);
+    let view = stack((
+        label(move || format!("Value: {}", counter.get())).style(|s| s.padding(10.0)),
+        stack((
+            text("Increment")
+                .style(|s| {
+                    s.border_radius(10.0)
+                        .padding(10.0)
+                        .background(Color::WHITE)
+                        .box_shadow_blur(5.0)
+                        .focus_visible(|s| s.outline(2.).outline_color(Color::BLUE))
+                        .hover(|s| s.background(Color::LIGHT_GREEN))
+                        .active(|s| s.color(Color::WHITE).background(Color::DARK_GREEN))
+                })
+                .on_click_stop({
+                    move |_| {
+                        set_counter.update(|value| *value += 1);
+                    }
+                })
+                .keyboard_navigatable(),
+            text("Decrement")
+                .on_click_stop({
+                    move |_| {
+                        set_counter.update(|value| *value -= 1);
+                    }
+                })
+                .style(|s| {
+                    s.box_shadow_blur(5.0)
+                        .background(Color::WHITE)
+                        .border_radius(10.0)
+                        .padding(10.0)
+                        .margin_left(10.0)
+                        .focus_visible(|s| s.outline(2.).outline_color(Color::BLUE))
+                        .hover(|s| s.background(Color::rgb8(244, 67, 54)))
+                        .active(|s| s.color(Color::WHITE).background(Color::RED))
+                })
+                .keyboard_navigatable(),
+            text("Reset to 0")
+                .on_click_stop(move |_| {
+                    println!("Reset counter pressed"); // will not fire if button is disabled
+                    set_counter.update(|value| *value = 0);
+                })
+                .disabled(move || counter.get() == 0)
+                .style(|s| {
+                    s.box_shadow_blur(5.0)
+                        .border_radius(10.0)
+                        .padding(10.0)
+                        .margin_left(10.0)
+                        .background(Color::LIGHT_BLUE)
+                        .focus_visible(|s| s.outline(2.).outline_color(Color::BLUE))
+                        .disabled(|s| s.background(Color::LIGHT_GRAY))
+                        .hover(|s| s.background(Color::LIGHT_YELLOW))
+                        .active(|s| s.color(Color::WHITE).background(Color::YELLOW_GREEN))
+                })
+                .keyboard_navigatable(),
+        )),
+    ))
+    .style(|s| {
+        s.size(100.pct(), 100.pct())
+            .flex_col()
+            .items_center()
+            .justify_center()
+    });
 
-<<<<<<< HEAD
-    // let long_list: im::Vector<i32> = (0..1000000).collect();
-    // let (long_list, _set_long_list) = create_signal(long_list);
-    //
-    // container(
-    //     scroll(
-    //         virtual_stack(
-    //             VirtualStackDirection::Vertical,
-    //             VirtualStackItemSize::Fixed(Box::new(|| 20.0)),
-    //             move || long_list.get(),
-    //             move |item| *item,
-    //             move |item| label(move || item.to_string()).style(|s| s.height(20.0)),
-    //         )
-    //         .style(|s| s.flex_col()),
-    //     )
-    //     .style(|s| s.width(100.0).height(100.pct()).border(1.0)),
-    // )
-    // .style(|s| {
-    //     s.size(100.pct(), 100.pct())
-    //         .padding_vert(20.0)
-    //         .flex_col()
-    //         .items_center()
-    // })
-=======
     let id = view.id();
     view.on_key_up(
         Key::Named(NamedKey::F11),
         ModifiersState::empty(),
         move |_| id.inspect(),
     )
->>>>>>> upstream/main
 }
 
 fn main() {

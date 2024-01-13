@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use floem::action::exec_after;
 use floem::animate::animation;
 use floem::style::{AlignItems, AlignSelf};
+use floem::views::{VirtualDirection, VirtualItemSize};
 use screens::watchlist::{self, watchlist_view};
 
 use std::hash::{Hash, Hasher};
@@ -37,7 +38,7 @@ use floem::{
     views::{
         container, container_box, dyn_container, empty, h_stack, h_stack_from_iter, label, list,
         scroll, stack, static_label, svg, tab, text, v_stack, v_stack_from_iter, virtual_stack,
-        Decorators, VirtualStackDirection, VirtualStackItemSize,
+        Decorators,
     },
     widgets::button,
     EventPropagation,
@@ -287,9 +288,9 @@ struct Db {
 static MAIN_TAB_WIDTH: f64 = 60.0;
 
 fn app_view() -> impl View {
-    let mut alerts = im::Vector::new();
+    let alerts = im::Vector::new();
     let state = Arc::new(GlobalState {
-        active_tab: create_rw_signal(ActiveTabKind::Main(MainTab::Home)),
+        active_tab: create_rw_signal(ActiveTabKind::Main(MainTab::Watchlist)),
         window_size: create_rw_signal(Size::ZERO),
         main_tab_size: create_rw_signal(Size::ZERO),
         data_provider: DataProvider {
@@ -493,8 +494,8 @@ fn alerts_container() -> impl View {
     let progress_bar_height = 5.;
 
     virtual_stack(
-        VirtualStackDirection::Vertical,
-        VirtualStackItemSize::Fixed(Box::new(|| 45.0)),
+        VirtualDirection::Vertical,
+        VirtualItemSize::Fixed(Box::new(|| 45.0)),
         move || state.alerts_state.get().alerts.get(),
         move |alert| alert.id,
         move |alert| {
