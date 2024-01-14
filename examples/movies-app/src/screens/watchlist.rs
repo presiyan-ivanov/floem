@@ -68,24 +68,34 @@ pub fn watchlist_view() -> impl View {
             max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(100.)),
         }),
         TrackSizingFunction::Single(MinMax {
-            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(100.)),
+            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(200.)),
             max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(300.)),
         }),
         TrackSizingFunction::Single(MinMax {
-            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(100.)),
+            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(200.)),
             max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(400.)),
+        }),
+        TrackSizingFunction::Single(MinMax {
+            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(80.)),
+            max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(100.)),
+        }),
+        TrackSizingFunction::Single(MinMax {
+            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(50.)),
+            max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(100.)),
         }),
     ]);
 
     let margin_horiz = 20.;
-    container(v_stack((thead(), tbody(items))).style(move |s| {
+    container(scroll(v_stack((thead(), tbody(items)))).style(move |s| {
         s.width(app_state.window_size.get().width - margin_horiz - 100.)
             .margin_horiz(margin_horiz)
+            .padding_bottom(10)
             .margin_top(30)
             .class(TableRow, move |s| {
                 s.display(Display::Grid)
                     .height(50.)
                     .padding_left(10.)
+                    .padding_bottom(20.)
                     .grid_template_columns(table_cols_size.get())
             })
     }))
@@ -108,6 +118,8 @@ fn tbody(items: RwSignal<im::Vector<WatchlistItem>>) -> impl View {
                         format!("Long note here: {} ", item.note.clone().unwrap_or_default())
                     }),
                     label(move || item.added_on.clone()),
+                    label(move || "Rating: 9.5".to_string()),
+                    label(move || "2023".to_string()),
                 ))
                 .class(TableRow)
                 .style(move |s| {
@@ -123,7 +135,7 @@ fn tbody(items: RwSignal<im::Vector<WatchlistItem>>) -> impl View {
         )
         .style(move |s| s.flex_col().width_full()),
     )
-    .style(move |s| s.height(900).width_full())
+    .style(move |s| s.height(900))
 }
 
 fn thead() -> impl View {
@@ -134,6 +146,8 @@ fn thead() -> impl View {
         static_label("Type"),
         static_label("Note"),
         static_label("Added on"),
+        static_label("Rating"),
+        static_label("Year"),
     ))
     .class(TableRow)
     .style(move |s| {
