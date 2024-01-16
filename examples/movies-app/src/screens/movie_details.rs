@@ -14,7 +14,7 @@ use floem::{
     view::View,
     views::{
         clip, container, container_box, dyn_container, empty, h_stack, img, label, list, scroll,
-        static_label, svg, tab, text, v_stack, virtual_stack, Decorators, Label, VirtualDirection, VirtualItemSize,
+        static_label, svg, tab, text, v_stack, virtual_stack, Decorators, Label, VirtualDirection, VirtualItemSize, virtual_list,
     },
 };
 use num_format::{Locale, ToFormattedString};
@@ -193,7 +193,7 @@ fn cast_carousel(cast: ReadSignal<im::Vector<CastMember>>) -> impl View {
     let state: Arc<GlobalState> = use_context().unwrap();
     container(
         scroll(
-            virtual_stack(
+            virtual_list(
                 VirtualDirection::Horizontal,
                 VirtualItemSize::Fixed(Box::new(|| CAST_MEMBER_CARD_WIDTH)),
                 move || cast.get(),

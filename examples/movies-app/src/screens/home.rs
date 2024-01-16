@@ -80,6 +80,9 @@ pub fn home_view() -> impl View {
         ))
         .style(|s| s.width_full()),
     )
+    .on_scroll(move |rect| {
+        dbg!(rect);
+    })
     .style(|s| s.width_full())
 }
 

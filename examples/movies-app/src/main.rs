@@ -406,7 +406,7 @@ fn app_view() -> impl View {
     let tab_contents = scroll(v_stack((
         dyn_container(
             move || active_tab.get(),
-            move |at| match at {
+            move |active_tab| match active_tab {
                 ActiveTabKind::Main(m) => Box::new(
                     tab(
                         move || m.index(),
@@ -435,6 +435,9 @@ fn app_view() -> impl View {
         ),
         footer(),
     )))
+    .on_scroll(move |rect| {
+        dbg!(rect);
+    })
     .style(move |s| {
         s.flex_basis(0)
             .padding(0.0)
