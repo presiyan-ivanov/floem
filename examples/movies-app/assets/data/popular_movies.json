@@ -1,427 +1,1184 @@
 {
   "page": 1,
+  "total_pages": 100,
+  "total_results": 1000,
   "results": [
     {
-      "adult": false,
-      "backdrop_path": "/58PlR5pIdgmEbRzP9yRaSskcmrW.jpg",
-      "id": 848326,
-      "title": "Rebel Moon - Part One: A Child of Fire",
-      "original_language": "en",
-      "original_title": "Rebel Moon - Part One: A Child of Fire",
-      "overview": "When a peaceful colony on the edge of the galaxy finds itself threatened by the armies of the tyrannical Regent Balisarius, they dispatch Kora, a young woman with a mysterious past, to seek out warriors from neighboring planets to help them take a stand.",
-      "poster_path": "/ui4DrH1cKk2vkHshcUcGt2lKxCm.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        878,
-        28,
-        12
+      "id": 1457632,
+      "overview": "In a dystopian future where humanity lives under the shadow of a relentless AI overlord, a group of rebels discovers a secret that could change everything. Led by the enigmatic Luna, they embark on a dangerous journey to find a hidden artifact that could dismantle the AI's power.",
+      "backdrop_path": "/a5r3hJl1bWhGz8oKxM9Wb1VrJgK.jpg",
+      "budget": 95000000,
+      "genres": [
+        {
+          "id": 878,
+          "name": "Science Fiction"
+        },
+        {
+          "id": 53,
+          "name": "Thriller"
+        },
+        {
+          "id": 28,
+          "name": "Action"
+        }
+      ],
+      "poster_path": "/k9oPnCGK1s8tCZzZxOJp2HlvNwC.jpg",
+      "production_companies": [
+        {
+          "id": 205321,
+          "name": "Future Visions"
+        },
+        {
+          "id": 120002,
+          "name": "Revolution Studios"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
       ],
       "popularity": 336.694,
-      "release_date": "2023-12-15",
-      "video": false,
-      "vote_average": 6.419,
-      "vote_count": 155
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/2DMdC72NF3len5VFEUzPKMvEzlW.jpg",
-      "id": 930564,
-      "title": "Saltburn",
-      "original_language": "en",
-      "original_title": "Saltburn",
-      "overview": "Struggling to find his place at Oxford University, student Oliver Quick finds himself drawn into the world of the charming and aristocratic Felix Catton, who invites him to Saltburn, his eccentric family's sprawling estate, for a summer never to be forgotten.",
-      "poster_path": "/zGTfMwG112BC66mpaveVxoWPOaB.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        18,
-        35,
-        53
+      "release_date": "2024-07-22",
+      "runtime": 128,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
       ],
-      "popularity": 136.97,
-      "release_date": "2023-11-16",
-      "video": false,
-      "vote_average": 7.087,
-      "vote_count": 103
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/bckxSN9ueOgm0gJpVJmPQrecWul.jpg",
-      "id": 572802,
-      "title": "Aquaman and the Lost Kingdom",
-      "original_language": "en",
-      "original_title": "Aquaman and the Lost Kingdom",
-      "overview": "Black Manta, still driven by the need to avenge his father's death and wielding the power of the mythic Black Trident, will stop at nothing to take Aquaman down once and for all. To defeat him, Aquaman must turn to his imprisoned brother Orm, the former King of Atlantis, to forge an unlikely alliance in order to save the world from irreversible destruction.",
-      "poster_path": "/8xV47NDrjdZDpkVcCFqkdHa3T0C.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        28,
-        12,
-        14
-      ],
-      "popularity": 1891.141,
-      "release_date": "2023-12-20",
-      "video": false,
-      "vote_average": 6.43,
-      "vote_count": 100
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/8GnWDLn2AhnmkQ7hlQ9NJUYobSS.jpg",
-      "id": 695721,
-      "title": "The Hunger Games: The Ballad of Songbirds & Snakes",
-      "original_language": "en",
-      "original_title": "The Hunger Games: The Ballad of Songbirds & Snakes",
-      "overview": "64 years before he becomes the tyrannical president of Panem, Coriolanus Snow sees a chance for a change in fortunes when he mentors Lucy Gray Baird, the female tribute from District 12.",
-      "poster_path": "/mBaXZ95R2OxueZhvQbcEWy2DqyO.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        18,
-        878,
-        28
-      ],
-      "popularity": 1587.795,
-      "release_date": "2023-11-15",
-      "video": false,
+      "status": "Released",
+      "title": "Echoes of Tomorrow",
       "vote_average": 7.3,
-      "vote_count": 908
+      "vote_count": 850,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 1,
+            "id": 8876541,
+            "known_for_department": "Acting",
+            "name": "Emily Warren",
+            "original_name": "Emily Warren",
+            "profile_path": "/f4C3c01jVzZsjiq07OCzdCQWn8Q.jpg",
+            "cast_id": 11,
+            "character": "Luna",
+            "credit_id": "62ab8c7b3bbd8502a5d73b7c",
+            "biography": "Emily Warren is an American actress known for her captivating performances in both drama and action films. With a background in theater, Emily has transitioned to film and television, gaining acclaim for her versatility and depth in characters.",
+            "order": 0
+          },
+          {
+            "gender": 2,
+            "id": 9865322,
+            "known_for_department": "Acting",
+            "name": "Marcus Cole",
+            "original_name": "Marcus Cole",
+            "profile_path": "/8hIYjOW8b8aHfDfCy2fr3eG8Sns.jpg",
+            "cast_id": 17,
+            "character": "Caleb",
+            "credit_id": "62ab8d7bd5c33f529a356c7d",
+            "biography": "Marcus Cole is a British actor recognized for his strong presence in action and science fiction films. He has a knack for playing complex characters and brings a unique intensity to his roles.",
+            "order": 1
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/et0G74BxoBgNQEZBkUcVhsgeRFF.jpg",
-      "id": 523607,
-      "title": "Missing image to demo the error handling",
-      "original_language": "en",
-      "original_title": "Maestro",
-      "overview": "A towering and fearless love story chronicling the lifelong relationship between Leonard Bernstein and Felicia Montealegre Cohn Bernstein. A love letter to life and art, Maestro at its core is an emotionally epic portrayal of family and love.",
-      "poster_path": "/this_url_is_invalid_to_demo_error_handling.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        18,
-        10749,
-        10402
+      "id": 2034567,
+      "overview": "In a magical world where dragons are revered as gods, a young farm boy named Eryk discovers he has the rare power to communicate with these majestic creatures. His abilities catch the attention of an ancient dragon, leading Eryk on an epic journey to save his kingdom from an impending war.",
+      "backdrop_path": "/b7c9Kfg2Ls2BMG3NCigTeHkGgMQ.jpg",
+      "budget": 120000000,
+      "genres": [
+        {
+          "id": 14,
+          "name": "Fantasy"
+        },
+        {
+          "id": 12,
+          "name": "Adventure"
+        },
+        {
+          "id": 10751,
+          "name": "Family"
+        }
       ],
-      "popularity": 198.38,
-      "release_date": "2023-11-22",
-      "video": false,
-      "vote_average": 6.7,
-      "vote_count": 81
+      "poster_path": "/n3A5Qg5alr4xMUR8Xe5K5CQZGcS.jpg",
+      "production_companies": [
+        {
+          "id": 62391,
+          "name": "Mystic Tales"
+        },
+        {
+          "id": 91234,
+          "name": "Epic Journeys"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "GB",
+          "name": "United Kingdom"
+        }
+      ],
+      "popularity": 236.694,
+      "release_date": "2023-11-17",
+      "runtime": 143,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "Dragon Whisperer",
+      "vote_average": 8.1,
+      "vote_count": 1200,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 4562983,
+            "known_for_department": "Acting",
+            "name": "Liam Roberts",
+            "original_name": "Liam Roberts",
+            "profile_path": "/3k6G5c8z9faCzPQsSlcaN7zuSyb.jpg",
+            "cast_id": 21,
+            "character": "Eryk",
+            "credit_id": "62ab8e2a3b8b7e012a214f8b",
+            "biography": "Liam Roberts is an up-and-coming young actor from Ireland, known for his charismatic performances in fantasy and adventure films. He started his career in theater before moving to film, quickly gaining popularity for his natural talent and charm.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/ktHEdqmMWC1wdfPRMRCTZe2OISL.jpg",
-      "id": 1071215,
-      "title": "Thanksgiving",
-      "original_language": "en",
-      "original_title": "Thanksgiving",
-      "overview": "After a Black Friday riot ends in tragedy, a mysterious Thanksgiving-inspired killer terrorizes Plymouth, Massachusetts - the birthplace of the holiday. Picking off residents one by one, what begins as random revenge killings are soon revealed to be part of a larger, sinister holiday plan.",
-      "poster_path": "/f5f3TEVst1nHHyqgn7Z3tlwnBIH.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        27,
-        53,
-        9648
+      "id": 3057898,
+      "overview": "After a mysterious virus wipes out most of humanity, the survivors are left to fend for themselves in a world overrun by mutant creatures. A group of survivors led by former soldier Sarah, must navigate this new world, seeking a rumored safe haven in the north.",
+      "backdrop_path": "/c8dGp1jUx2f5RoBcP5cibOM1x5H.jpg",
+      "budget": 70000000,
+      "genres": [
+        {
+          "id": 27,
+          "name": "Horror"
+        },
+        {
+          "id": 878,
+          "name": "Science Fiction"
+        },
+        {
+          "id": 53,
+          "name": "Thriller"
+        }
       ],
-      "popularity": 499.897,
-      "release_date": "2023-11-16",
-      "video": false,
-      "vote_average": 6.663,
-      "vote_count": 203
+      "poster_path": "/j3C7R2eHeR2JhURtEa3Yz0P6Fgj.jpg",
+      "production_companies": [
+        {
+          "id": 487321,
+          "name": "Apocalypse Films"
+        },
+        {
+          "id": 754321,
+          "name": "Survivor Stories"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "CA",
+          "name": "Canada"
+        }
+      ],
+      "popularity": 136.694,
+      "release_date": "2024-04-15",
+      "runtime": 116,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "The Last Refuge",
+      "vote_average": 6.9,
+      "vote_count": 680,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 1,
+            "id": 7654321,
+            "known_for_department": "Acting",
+            "name": "Rachel Thomas",
+            "original_name": "Rachel Thomas",
+            "profile_path": "/9h4Uz2RdsU2RfjE0o5Avk8Yw4Tz.jpg",
+            "cast_id": 34,
+            "character": "Sarah",
+            "credit_id": "62ab8f7c1d3ecf4d25a7bf8e",
+            "biography": "Rachel Thomas is a Canadian actress known for her powerful performances in both television and film. She has gained critical acclaim for her ability to portray strong, independent characters, especially in the genres of horror and science fiction.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/rmfIhftLXpHEZzkLSpWQMZhirMJ.jpg",
-      "id": 823482,
-      "title": "Dream Scenario",
-      "original_language": "en",
-      "original_title": "Dream Scenario",
-      "overview": "Hapless family man Paul Matthews finds his life turned upside down when millions of strangers suddenly start seeing him in their dreams. But when his nighttime appearances take a nightmarish turn, Paul is forced to navigate his newfound stardom.",
-      "poster_path": "/2RSMu2iMDCdMKmvBWWvcmE8vjMj.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        35,
-        14
+      "id": 4198321,
+      "overview": "Set in a parallel universe where magic and technology coexist, a young inventor named Theo accidentally creates a portal to another world. With the help of a rogue sorcerer and a cyborg warrior, he must close the portal before an ancient evil escapes and threatens both worlds.",
+      "backdrop_path": "/9xRjhlT5e9csfRy3NuyICkrK8QE.jpg",
+      "budget": 80000000,
+      "genres": [
+        {
+          "id": 878,
+          "name": "Science Fiction"
+        },
+        {
+          "id": 14,
+          "name": "Fantasy"
+        },
+        {
+          "id": 28,
+          "name": "Action"
+        }
       ],
-      "popularity": 62.143,
-      "release_date": "2023-11-10",
-      "video": false,
-      "vote_average": 7.415,
-      "vote_count": 71
+      "poster_path": "/r9DkfOwfnAqC60ERlM4c2b4tJzB.jpg",
+      "production_companies": [
+        {
+          "id": 887654,
+          "name": "Parallel Visions"
+        },
+        {
+          "id": 456789,
+          "name": "Cyber Magic Films"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 156.694,
+      "release_date": "2023-09-30",
+      "runtime": 132,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "Portal of Worlds",
+      "vote_average": 7.8,
+      "vote_count": 920,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 9998765,
+            "known_for_department": "Acting",
+            "name": "Alexander Knight",
+            "original_name": "Alexander Knight",
+            "profile_path": "/1k8C25sF8ZWcvH9FbM6M7U5PdLw.jpg",
+            "cast_id": 41,
+            "character": "Theo",
+            "credit_id": "62ab9050c3a3683d9f6b2c1f",
+            "biography": "Alexander Knight is an Australian actor renowned for his dynamic roles in fantasy and science fiction movies. He brings a unique blend of charm and intensity to his characters, captivating audiences with his compelling performances.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/gg4zZoTggZmpAQ32qIrP5dtnkEZ.jpg",
-      "id": 891699,
-      "title": "Silent Night",
-      "original_language": "en",
-      "original_title": "Silent Night",
-      "overview": "A tormented father witnesses his young son die when caught in a gang's crossfire on Christmas Eve. While recovering from a wound that costs him his voice, he makes vengeance his life's mission and embarks on a punishing training regimen in order to avenge his son's death.",
-      "poster_path": "/tlcuhdNMKNGEVpGqBZrAaOOf1A6.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        28,
-        80,
-        53
+      "id": 6287491,
+      "overview": "When a group of friends reunites for a weekend getaway at a quirky beach house, they find themselves embroiled in a series of hilarious misadventures involving a missing dog, an eccentric neighbor, and a series of misunderstandings that test their friendship.",
+      "backdrop_path": "/8h5J4wQPhYZyR3s9xIGB41VjZnU.jpg",
+      "budget": 40000000,
+      "genres": [
+        {
+          "id": 35,
+          "name": "Comedy"
+        }
       ],
-      "popularity": 484.673,
-      "release_date": "2023-11-30",
-      "video": false,
-      "vote_average": 5.896,
-      "vote_count": 101
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/r9oTasGQofvkQY5vlUXglneF64Z.jpg",
-      "id": 1029575,
-      "title": "The Family Plan",
-      "original_language": "en",
-      "original_title": "The Family Plan",
-      "overview": "Dan Morgan is many things: a devoted husband, a loving father, a celebrated car salesman. He's also a former assassin. And when his past catches up to his present, he's forced to take his unsuspecting family on a road trip unlike any other.",
-      "poster_path": "/jLLtx3nTRSLGPAKl4RoIv1FbEBr.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        28,
-        35
+      "poster_path": "/q4FhrCJ5G5zN5NjASmQ5s8Y8Sgi.jpg",
+      "production_companies": [
+        {
+          "id": 947365,
+          "name": "Laugh Track Films"
+        },
+        {
+          "id": 638421,
+          "name": "Sunny Side Up Productions"
+        }
       ],
-      "popularity": 1235.279,
-      "release_date": "2023-12-14",
-      "video": false,
-      "vote_average": 7.534,
-      "vote_count": 282
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg",
-      "id": 872585,
-      "title": "Oppenheimer",
-      "original_language": "en",
-      "original_title": "Oppenheimer",
-      "overview": "The story of J. Robert Oppenheimer's role in the development of the atomic bomb during World War II.",
-      "poster_path": "/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        18,
-        36
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
       ],
-      "popularity": 611.128,
-      "release_date": "2023-07-19",
-      "video": false,
-      "vote_average": 8.128,
-      "vote_count": 5541
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/yOm993lsJyPmBodlYjgpPwBjXP9.jpg",
-      "id": 787699,
-      "title": "Wonka",
-      "original_language": "en",
-      "original_title": "Wonka",
-      "overview": "Willy Wonka – chock-full of ideas and determined to change the world one delectable bite at a time – is proof that the best things in life begin with a dream, and if you’re lucky enough to meet Willy Wonka, anything is possible.",
-      "poster_path": "/qhb1qOilapbapxWQn9jtRCMwXJF.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        35,
-        10751,
-        14
+      "popularity": 336.694,
+      "release_date": "2024-06-20",
+      "runtime": 101,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
       ],
-      "popularity": 940.927,
-      "release_date": "2023-12-06",
-      "video": false,
-      "vote_average": 7.23,
-      "vote_count": 460
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/vTPgBrqEhIIqeZOCqrdNjyXzK4c.jpg",
-      "id": 1219926,
-      "title": "South Park (Not Suitable for Children)",
-      "original_language": "en",
-      "original_title": "South Park (Not Suitable for Children)",
-      "overview": "After it's discovered that a teacher at South Park Elementary has an OnlyFans page, Randy is compelled to take a closer look at the seedy underbelly of the world of online influencers.",
-      "poster_path": "/d4KZZ6TdoZzeHWMIwZ6bdCe8flq.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        35,
-        16,
-        10770
-      ],
-      "popularity": 3.842,
-      "release_date": "2023-12-20",
-      "video": false,
-      "vote_average": 8.417,
-      "vote_count": 12
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/9jPoyxjiEYPylUIMI3Ntixf8z3M.jpg",
-      "id": 520758,
-      "title": "Chicken Run: Dawn of the Nugget",
-      "original_language": "en",
-      "original_title": "Chicken Run: Dawn of the Nugget",
-      "overview": "A band of fearless chickens flock together to save poultry-kind from an unsettling new threat: a nearby farm that's cooking up something suspicious.",
-      "poster_path": "/exNtEY8QUuQh9e23wSQjkPxKIU3.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        16,
-        12,
-        35,
-        10751
-      ],
-      "popularity": 839.322,
-      "release_date": "2023-12-08",
-      "video": false,
-      "vote_average": 7.647,
-      "vote_count": 204
-    },
-    {
-      "adult": false,
-      "backdrop_path": "/nHf61UzkfFno5X1ofIhugCPus2R.jpg",
-      "id": 346698,
-      "title": "Barbie",
-      "original_language": "en",
-      "original_title": "Barbie",
-      "overview": "Barbie and Ken are having the time of their lives in the colorful and seemingly perfect world of Barbie Land. However, when they get a chance to go to the real world, they soon discover the joys and perils of living among humans.",
-      "poster_path": "/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        35,
-        12,
-        14
-      ],
-      "popularity": 399.4,
-      "release_date": "2023-07-19",
-      "video": false,
+      "status": "Released",
+      "title": "Beach House Shenanigans",
       "vote_average": 7.2,
-      "vote_count": 6399
+      "vote_count": 490,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 1,
+            "id": 8896321,
+            "known_for_department": "Acting",
+            "name": "Jenna Clarke",
+            "original_name": "Jenna Clarke",
+            "profile_path": "/6yG1eXQYm1G2uQB1JWqjcC50cQi.jpg",
+            "cast_id": 14,
+            "character": "Maggie",
+            "credit_id": "62ab92934d8c9c6f7b9a8d7e",
+            "biography": "Jenna Clarke is a well-known American actress, famous for her comedic timing and ability to bring laughter to any role. She has starred in numerous comedy films and TV shows, earning a reputation as a versatile and talented comedian.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/hOx2kPyniEHJj9wquzJMuStFFUG.jpg",
-      "id": 770906,
-      "title": "Salaar: Part 1 – Ceasefire",
-      "original_language": "te",
-      "original_title": "సలార్: Part 1 - Ceasefire",
-      "overview": "In the city of Khansaar, Raja Mannar plans to make his son, Vardharaja Mannar his successor, but Raja Mannar's ministers and advisors plan a coup d'état by hiring armies from Russia and Serbia to attack and kill Vardha and Raja. Vardha, along with his brother and a few trusted men, manage to escape from Khansaar. Vardha goes to his childhood best friend, Deva, who learns about his predicament and sets out to make him the undisputed successor of Khansaar.",
-      "poster_path": "/bnVmFvn4f2FC2Ja00BApnz9Cmz9.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        28,
-        80,
-        53
+      "id": 9358643,
+      "overview": "An uptight accountant named Harold finds his world turned upside down when he inherits a rundown circus. With no experience in show business, Harold must navigate the eccentric personalities of the performers and save the circus from bankruptcy, all while discovering a new sense of adventure and laughter in his life.",
+      "backdrop_path": "/z3hl8dxXtf4Hxsz4Y8EjVcQf4Fw.jpg",
+      "budget": 50000000,
+      "genres": [
+        {
+          "id": 35,
+          "name": "Comedy"
+        }
       ],
-      "popularity": 80.696,
-      "release_date": "2023-12-21",
-      "video": false,
-      "vote_average": 5.6,
-      "vote_count": 5
+      "poster_path": "/k2ZxTv4LbBn33PtLKMQ2CJT4ud3.jpg",
+      "production_companies": [
+        {
+          "id": 456987,
+          "name": "Big Top Productions"
+        },
+        {
+          "id": 852741,
+          "name": "Funny Bone Films"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "GB",
+          "name": "United Kingdom"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "2023-08-11",
+      "runtime": 108,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "Circus of Chaos",
+      "vote_average": 7.5,
+      "vote_count": 530,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 10293847,
+            "known_for_department": "Acting",
+            "name": "Oliver Grant",
+            "original_name": "Oliver Grant",
+            "profile_path": "/3bZ0Yt4R6YDfL0l8sEz8RJk3AIu.jpg",
+            "cast_id": 22,
+            "character": "Harold",
+            "credit_id": "62ab93b6d9f6f342a5b7a8d3",
+            "biography": "Oliver Grant is a British actor renowned for his performances in comedies and light-hearted films. He has a natural flair for humor and has been praised for his ability to make audiences laugh while also delivering heartfelt performances.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/1X7vow16X7CnCoexXh4H4F2yDJv.jpg",
-      "id": 466420,
-      "title": "Killers of the Flower Moon",
-      "original_language": "en",
-      "original_title": "Killers of the Flower Moon",
-      "overview": "When oil is discovered in 1920s Oklahoma under Osage Nation land, the Osage people are murdered one by one—until the FBI steps in to unravel the mystery.",
-      "poster_path": "/dB6Krk806zeqd0YNp2ngQ9zXteH.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        80,
-        18,
-        36
+      "id": 1278654,
+      "overview": "A struggling musician named Dave dreams of making it big, but his lack of success forces him to take a job as a high school music teacher. There, he discovers a group of talented but misfit students and decides to form a rock band, leading to a series of humorous and heartwarming events.",
+      "backdrop_path": "/7T8PoPw4KmP9tz9iLpGnG0huCCT.jpg",
+      "budget": 30000000,
+      "genres": [
+        {
+          "id": 35,
+          "name": "Comedy"
+        },
+        {
+          "id": 10402,
+          "name": "Music"
+        }
       ],
-      "popularity": 576.063,
-      "release_date": "2023-10-18",
-      "video": false,
-      "vote_average": 7.563,
-      "vote_count": 1543
+      "poster_path": "/5P8SmMzSNYikXpxil6BYzJ16611.jpg",
+      "production_companies": [
+        {
+          "id": 648201,
+          "name": "Harmony Films"
+        },
+        {
+          "id": 758321,
+          "name": "Tune Up Productions"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "2024-05-05",
+      "runtime": 95,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "School of Rockstars",
+      "vote_average": 7.9,
+      "vote_count": 620,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 7745123,
+            "known_for_department": "Acting",
+            "name": "Ryan Cooper",
+            "original_name": "Ryan Cooper",
+            "profile_path": "/8l9v4F8PjyQHkfgYB9yRb8QGOBo.jpg",
+            "cast_id": 31,
+            "character": "Dave",
+            "credit_id": "62ab94c9d4b44e67ac9b8d3f",
+            "biography": "Ryan Cooper is an American actor and musician, known for his charismatic roles in comedy and music-themed films. He has a talent for combining humor with musical performances, making him a favorite among audiences.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/tLsc8SCFO0rMVgVyNm9XtfnyX84.jpg",
-      "id": 726209,
-      "title": "Leave the World Behind",
-      "original_language": "en",
-      "original_title": "Leave the World Behind",
-      "overview": "A family's getaway to a luxurious rental home takes an ominous turn when a cyberattack knocks out their devices—and two strangers appear at their door.",
-      "poster_path": "/29rhl1xopxA7JlGVVsf1UHfYPvN.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        18,
-        9648,
-        53,
-        878
+      "id": 8643295,
+      "overview": "Two best friends, Lisa and Sarah, embark on a hilarious road trip across the country after Sarah's wedding gets called off. Along the way, they encounter a series of bizarre characters and situations that challenge their friendship and lead to unforgettable memories.",
+      "backdrop_path": "/9rG1moVkZX8JtIHS4FbKhQhCJLj.jpg",
+      "budget": 35000000,
+      "genres": [
+        {
+          "id": 35,
+          "name": "Comedy"
+        }
       ],
-      "popularity": 536.462,
-      "release_date": "2023-11-22",
-      "video": false,
-      "vote_average": 6.554,
-      "vote_count": 1006
+      "poster_path": "/4l6H0jG5FXD5LW2CZb9yPZGDbj7.jpg",
+      "production_companies": [
+        {
+          "id": 987654,
+          "name": "Road Trip Entertainment"
+        },
+        {
+          "id": 123456,
+          "name": "Best Friend Films"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "2023-10-10",
+      "runtime": 102,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "Unplanned Adventures",
+      "vote_average": 7.4,
+      "vote_count": 560,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 1,
+            "id": 6677889,
+            "known_for_department": "Acting",
+            "name": "Sophie Martin",
+            "original_name": "Sophie Martin",
+            "profile_path": "/7sBEX8qQL6bEdFjZQBd4F0G0u5B.jpg",
+            "cast_id": 42,
+            "character": "Lisa",
+            "credit_id": "62ab9592a9f84f789c9b8d12",
+            "biography": "Sophie Martin is a British actress best known for her roles in comedies and romantic films. She has a great sense of humor and excels at playing relatable and endearing characters.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/kjQBrc00fB2RjHZB3PGR4w9ibpz.jpg",
-      "id": 670292,
-      "title": "The Creator",
-      "original_language": "en",
-      "original_title": "The Creator",
-      "overview": "Amid a future war between the human race and the forces of artificial intelligence, a hardened ex-special forces agent grieving the disappearance of his wife, is recruited to hunt down and kill the Creator, the elusive architect of advanced AI who has developed a mysterious weapon with the power to end the war—and mankind itself.",
-      "poster_path": "/vBZ0qvaRxqEhZwl6LWmruJqWE8Z.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        28,
-        12,
-        18
+      "id": 8392745,
+      "overview": "Set in 1940s New York, 'Empire of Shadows' follows the rise of Tommy Marconi, a young and ambitious mobster, as he navigates the dangerous underworld of organized crime. His journey takes him through a world of power struggles, betrayal, and family loyalty, as he aims to become the city's most feared mob boss.",
+      "backdrop_path": "/7c3Ffl0pH8tJGfq3YZHl7YDjVjR.jpg",
+      "budget": 60000000,
+      "genres": [
+        {
+          "id": 80,
+          "name": "Crime"
+        },
+        {
+          "id": 18,
+          "name": "Drama"
+        }
       ],
-      "popularity": 439.752,
-      "release_date": "2023-09-27",
-      "video": false,
-      "vote_average": 7.148,
-      "vote_count": 1535
+      "poster_path": "/i8QWXu4Of9q5ig6IlFt6cRvZyEz.jpg",
+      "production_companies": [
+        {
+          "id": 945672,
+          "name": "Vintage Films"
+        },
+        {
+          "id": 856743,
+          "name": "Noir Productions"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "1975-09-15",
+      "runtime": 150,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "Empire of Shadows",
+      "vote_average": 8.5,
+      "vote_count": 1240,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 9938852,
+            "known_for_department": "Acting",
+            "name": "Vincent Romano",
+            "original_name": "Vincent Romano",
+            "profile_path": "/8xKt3c8toZpKz4k0U8M4Q6jY6AI.jpg",
+            "cast_id": 11,
+            "character": "Tommy Marconi",
+            "credit_id": "62ab99f2db3ecf67ab9b8d45",
+            "biography": "Vincent Romano is an acclaimed American actor known for his charismatic and intense performances in crime dramas. He has a strong screen presence and has been praised for his ability to portray complex characters.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/omdPcU6OV4fKLiAr7D9SycYsr3w.jpg",
-      "id": 1006228,
-      "title": "Breakwater",
-      "original_language": "en",
-      "original_title": "Breakwater",
-      "overview": "A young ex-con risks his newfound freedom to track down the estranged daughter of a fellow inmate, and unknowingly brings a devil from her past straight to her doorstep.",
-      "poster_path": "/pfwCmX13GAwrFhhVFOgXmPdZgS6.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        53,
-        18
+      "id": 7568492,
+      "overview": "In 1930s Chicago, 'The Don's Last Stand' tells the story of aging mafia boss Vincenzo Moretti as he struggles to maintain control of his empire in the face of emerging young gangsters. The film explores themes of loyalty, the changing face of organized crime, and the ultimate cost of power.",
+      "backdrop_path": "/9xRV4F5IEyvAgZfCqC5dOj7C6L2.jpg",
+      "budget": 55000000,
+      "genres": [
+        {
+          "id": 80,
+          "name": "Crime"
+        },
+        {
+          "id": 18,
+          "name": "Drama"
+        }
       ],
-      "popularity": 90.317,
-      "release_date": "2023-12-22",
-      "video": false,
-      "vote_average": 6.75,
-      "vote_count": 4
+      "poster_path": "/6cP3DvqEGFkXBI6PDjRl9h6pXhS.jpg",
+      "production_companies": [
+        {
+          "id": 658421,
+          "name": "Capo Films"
+        },
+        {
+          "id": 812345,
+          "name": "Old Town Pictures"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "1972-03-22",
+      "runtime": 135,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "The Don's Last Stand",
+      "vote_average": 8.2,
+      "vote_count": 1100,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 8745123,
+            "known_for_department": "Acting",
+            "name": "Roberto Mancini",
+            "original_name": "Roberto Mancini",
+            "profile_path": "/7eZ8hFI8RpyiV26cqFb2mSXMTQx.jpg",
+            "cast_id": 21,
+            "character": "Vincenzo Moretti",
+            "credit_id": "62ab9b23c3d9c672b5b7a8d3",
+            "biography": "Roberto Mancini is a veteran Italian-American actor, celebrated for his powerful performances in mob and crime films. He is known for his deep voice, commanding presence, and ability to convey the nuanced emotions of complex characters.",
+            "order": 0
+          }
+        ]
+      }
     },
     {
-      "adult": false,
-      "backdrop_path": "/k1KrbaCMACQiq7EA0Yhw3bdzMv7.jpg",
-      "id": 901362,
-      "title": "Trolls Band Together",
-      "original_language": "en",
-      "original_title": "Trolls Band Together",
-      "overview": "When Branch's brother, Floyd, is kidnapped for his musical talents by a pair of nefarious pop-star villains, Branch and Poppy embark on a harrowing and emotional journey to reunite the other brothers and rescue Floyd from a fate even worse than pop-culture obscurity.",
-      "poster_path": "/bkpPTZUdq31UGDovmszsg2CchiI.jpg",
-      "media_type": "movie",
-      "genre_ids": [
-        16,
-        10751,
-        10402,
-        14,
-        35
+      "id": 6483721,
+      "overview": "Set in the gritty streets of 1950s Boston, 'Underworld Blues' follows detective John O'Connell as he infiltrates the Irish mob to bring down its notorious leader, Michael Sullivan. Caught between the law and the mafia, John faces moral dilemmas and dangerous encounters in a city rife with corruption.",
+      "backdrop_path": "/5l9v3z9HK8zwb1dlyfcB2TJgH1E.jpg",
+      "budget": 45000000,
+      "genres": [
+        {
+          "id": 80,
+          "name": "Crime"
+        },
+        {
+          "id": 9648,
+          "name": "Mystery"
+        },
+        {
+          "id": 18,
+          "name": "Drama"
+        }
       ],
-      "popularity": 605.385,
-      "release_date": "2023-10-12",
-      "video": false,
-      "vote_average": 7.153,
-      "vote_count": 402
+      "poster_path": "/p8UwBHWq4eFZn2z4y4f9GB4PJjL.jpg",
+      "production_companies": [
+        {
+          "id": 753951,
+          "name": "Gangland Productions"
+        },
+        {
+          "id": 456123,
+          "name": "Retro Films"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "1968-07-18",
+      "runtime": 122,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "Underworld Blues",
+      "vote_average": 7.9,
+      "vote_count": 980,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 5683214,
+            "known_for_department": "Acting",
+            "name": "Jack O'Reilly",
+            "original_name": "Jack O'Reilly",
+            "profile_path": "/4nEKEWJpaTHncCTv6zeP98Vq9Qr.jpg",
+            "cast_id": 33,
+            "character": "John O'Connell",
+            "credit_id": "62ab9c7c4d8c9c6f7b9a8d7e",
+            "biography": "Jack O'Reilly is an Irish-American actor known for his gritty and intense performances in crime and drama films. His ability to bring authenticity to his roles has made him a respected figure in the film industry.",
+            "order": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": 9123847,
+      "overview": "In 'The Family Code,' the story revolves around the Italian-American Morello family in 1960s Las Vegas. As they rise to power in the casino industry, they must navigate treacherous alliances, rival gangs, and family secrets. The film captures the essence of the mafia's influence in the glamorous yet perilous world of gambling.",
+      "backdrop_path": "/k4Q8Qw7OYQ9Gfyzd5Ij3M6QkM0J.jpg",
+      "budget": 65000000,
+      "genres": [
+        {
+          "id": 80,
+          "name": "Crime"
+        },
+        {
+          "id": 18,
+          "name": "Drama"
+        }
+      ],
+      "poster_path": "/j7Sv7Wg2ZVxO9Rg5JUaP0aP3aJq.jpg",
+      "production_companies": [
+        {
+          "id": 123987,
+          "name": "Mobster Films"
+        },
+        {
+          "id": 654321,
+          "name": "Sin City Cinema"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "1965-12-05",
+      "runtime": 140,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "The Family Code",
+      "vote_average": 8.3,
+      "vote_count": 1050,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 7894561,
+            "known_for_department": "Acting",
+            "name": "Anthony De Luca",
+            "original_name": "Anthony De Luca",
+            "profile_path": "/9w2JY9Zz5tRelZQYtVUz8Mb8IzJ.jpg",
+            "cast_id": 44,
+            "character": "Don Morello",
+            "credit_id": "62ab9d93c3a3683d9f6b2c1f",
+            "biography": "Anthony De Luca is an Italian-American actor renowned for his powerful performances in mobster and drama films. His commanding screen presence and ability to portray complex, authoritative characters have made him a highly respected actor in the genre.",
+            "order": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": 7634598,
+      "overview": "In 'The Adventures of Luna & Comet,' Luna, a brave young girl, teams up with Comet, a witty space alien, to save their respective planets from an intergalactic threat. Together, they embark on a journey across the universe, meeting diverse characters and learning the true meaning of friendship.",
+      "backdrop_path": "/6d7JZ2uTPh3KsOMjHXfz4ZhjYtU.jpg",
+      "budget": 90000000,
+      "genres": [
+        {
+          "id": 16,
+          "name": "Animation"
+        },
+        {
+          "id": 10751,
+          "name": "Family"
+        },
+        {
+          "id": 12,
+          "name": "Adventure"
+        }
+      ],
+      "poster_path": "/8YjFbSX6j1G5Tj72SNSUUY7wK75.jpg",
+      "production_companies": [
+        {
+          "id": 567891,
+          "name": "Stellar Animation Studios"
+        },
+        {
+          "id": 123456,
+          "name": "Galaxy Tales"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "2024-07-21",
+      "runtime": 97,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "The Adventures of Luna & Comet",
+      "vote_average": 8.4,
+      "vote_count": 950,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 1,
+            "id": 1234567,
+            "known_for_department": "Acting",
+            "name": "Emma Watson",
+            "original_name": "Emma Watson",
+            "profile_path": "/kms5X4FfRfQVvFrVLAsAo3RwIeK.jpg",
+            "cast_id": 10,
+            "character": "Luna (voice)",
+            "credit_id": "62ab9e9a3bbd8502a5d73b7c",
+            "biography": "",
+            "order": 0
+          },
+          {
+            "gender": 2,
+            "id": 2345678,
+            "known_for_department": "Acting",
+            "name": "Tom Holland",
+            "original_name": "Tom Holland",
+            "profile_path": "/2qhIDp44cAqP2clOgt2afQI07X8.jpg",
+            "cast_id": 11,
+            "character": "Comet (voice)",
+            "credit_id": "62ab9f22d5c33f529a356c7d",
+            "biography": "",
+            "order": 1
+          },
+          {
+            "gender": 1,
+            "id": 3456789,
+            "known_for_department": "Acting",
+            "name": "Anna Kendrick",
+            "original_name": "Anna Kendrick",
+            "profile_path": "/loTl3yqXQkL7Yw0l3aAPZwWITc2.jpg",
+            "cast_id": 12,
+            "character": "Zara the Space Pirate (voice)",
+            "credit_id": "62ab9f92f4b6055d4bb7a8d3",
+            "order": 2
+          },
+          {
+            "gender": 2,
+            "id": 4567890,
+            "known_for_department": "Acting",
+            "name": "Chris Pratt",
+            "original_name": "Chris Pratt",
+            "profile_path": "/gXKyT1YU5RWWPaE1je3ht58eUZr.jpg",
+            "cast_id": 13,
+            "character": "Captain Orion (voice)",
+            "credit_id": "62ab9fc1cee481541cfbdf8f",
+            "order": 3
+          },
+          {
+            "gender": 1,
+            "id": 5678901,
+            "known_for_department": "Acting",
+            "name": "Zoe Saldana",
+            "original_name": "Zoe Saldana",
+            "profile_path": "/ofNrWiA2KDdqiNxFTLp51HcXUlp.jpg",
+            "cast_id": 14,
+            "character": "Queen Lyra (voice)",
+            "credit_id": "62aba07b3b8b7e012a214f8b",
+            "order": 4
+          },
+          {
+            "gender": 2,
+            "id": 6789012,
+            "known_for_department": "Acting",
+            "name": "Idris Elba",
+            "original_name": "Idris Elba",
+            "profile_path": "/be1bVF7qGX91a6c5WeRPs5pKXln.jpg",
+            "cast_id": 15,
+            "character": "General Zogar (voice)",
+            "credit_id": "62aba0d4db3ecf67ab9b8d45",
+            "order": 5
+          },
+          {
+            "gender": 1,
+            "id": 7890123,
+            "known_for_department": "Acting",
+            "name": "Tara Strong",
+            "original_name": "Tara Strong",
+            "profile_path": "/z3z0Zc6eC8JX5B9P5wXL6qFJ5AI.jpg",
+            "cast_id": 16,
+            "character": "Fluffy the Space Cat (voice)",
+            "credit_id": "62aba134d5c33f529a356c7d",
+            "order": 6
+          },
+          {
+            "gender": 2,
+            "id": 8901234,
+            "known_for_department": "Acting",
+            "name": "John DiMaggio",
+            "original_name": "John DiMaggio",
+            "profile_path": "/tH3Rcvk3E9HZt7D5LV8dHt4FyTI.jpg",
+            "cast_id": 17,
+            "character": "Zoltar the Wise (voice)",
+            "credit_id": "62aba17af4b6055d4bb7a8d3",
+            "order": 7
+          },
+          {
+            "gender": 1,
+            "id": 9012345,
+            "known_for_department": "Acting",
+            "name": "Kristen Bell",
+            "original_name": "Kristen Bell",
+            "profile_path": "/swgYq7I5PIsdPeQnEYFf4ljeZQI.jpg",
+            "cast_id": 18,
+            "character": "Princess Aurora (voice)",
+            "credit_id": "62aba1b1c3a3683d9f6b2c1f",
+            "order": 8
+          },
+          {
+            "gender": 2,
+            "id": 9876543,
+            "known_for_department": "Acting",
+            "name": "Jack Black",
+            "original_name": "Jack Black",
+            "profile_path": "/8iDvkK4LenJ31rDCFJ5Zf5MBi2V.jpg",
+            "cast_id": 19,
+            "character": "Mighty the Space Bear (voice)",
+            "credit_id": "62aba1ebdb3ecf67ab9b8d45",
+            "order": 9
+          },
+          {
+            "gender": 1,
+            "id": 8765432,
+            "known_for_department": "Acting",
+            "name": "Mindy Kaling",
+            "original_name": "Mindy Kaling",
+            "profile_path": "/qDPKwmLqBbFvYBxKNGUxPjAct7o.jpg",
+            "cast_id": 20,
+            "character": "Sunny the Space Rabbit (voice)",
+            "credit_id": "62aba228d5c33f529a356c7d",
+            "order": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": 9483621,
+      "overview": "In 'Mystery of the Enchanted Forest,' a group of animal friends, led by the clever fox Foxy and the wise owl Hoot, must uncover the secret behind the strange happenings in their forest home. Their adventure takes them through enchanted lands and tests their courage and friendship.",
+      "backdrop_path": "/4Up1wqs8Rv5eSwsg8aCOrQ8qkLz.jpg",
+      "budget": 80000000,
+      "genres": [
+        {
+          "id": 16,
+          "name": "Animation"
+        },
+        {
+          "id": 10751,
+          "name": "Family"
+        },
+        {
+          "id": 14,
+          "name": "Fantasy"
+        }
+      ],
+      "poster_path": "/9GrIn7U4LAPr1AbjJLdL6p6Scz6.jpg",
+      "production_companies": [
+        {
+          "id": 789654,
+          "name": "Forest Animation"
+        },
+        {
+          "id": 654123,
+          "name": "Magical Creatures"
+        }
+      ],
+      "production_countries": [
+        {
+          "iso_3166_1": "US",
+          "name": "United States of America"
+        }
+      ],
+      "popularity": 336.694,
+      "release_date": "2023-12-10",
+      "runtime": 105,
+      "spoken_languages": [
+        {
+          "english_name": "English",
+          "iso_639_1": "en",
+          "name": "English"
+        }
+      ],
+      "status": "Released",
+      "title": "Mystery of the Enchanted Forest",
+      "vote_average": 7.8,
+      "vote_count": 870,
+      "images": {
+        "backdrops": [],
+        "logos": [],
+        "posters": []
+      },
+      "credits": {
+        "cast": [
+          {
+            "gender": 2,
+            "id": 3456789,
+            "known_for_department": "Acting",
+            "name": "Chris Pratt",
+            "original_name": "Chris Pratt",
+            "profile_path": "/gXKyT1YU5RWWPaE1je3ht58eUZr.jpg",
+            "cast_id": 15,
+            "character": "Foxy (voice)",
+            "credit_id": "62ab9fc1cee481541cfbdf8f",
+            "biography": "",
+            "order": 0
+          },
+          {
+            "gender": 1,
+            "id": 4567890,
+            "known_for_department": "Acting",
+            "name": "Scarlett Johansson",
+            "original_name": "Scarlett Johansson",
+            "profile_path": "/6NsMbJXRlDZuDzatN2akFdGuTvx.jpg",
+            "cast_id": 16,
+            "character": "Hoot (voice)",
+            "credit_id": "62aba07b3b8b7e012a214f8b",
+            "biography": "",
+            "order": 1
+          },
+          {
+            "gender": 2,
+            "id": 5678901,
+            "known_for_department": "Acting",
+            "name": "John Ratzenberger",
+            "original_name": "Dwayne Johnson",
+            "profile_path": "/kuqFzlYMc2IrsOyPznMd1FroeGq.jpg",
+            "cast_id": 17,
+            "character": "Rocko the Bear (voice)",
+            "credit_id": "62aba0d4db3ecf67ab9b8d45",
+            "order": 2
+          },
+          {
+            "gender": 1,
+            "id": 6789012,
+            "known_for_department": "Acting",
+            "name": "Tina Fey",
+            "original_name": "Tina Fey",
+            "profile_path": "/67JAm8qoS8QmW5WVEfAp6PTPAc0.jpg",
+            "cast_id": 18,
+            "character": "Bella the Butterfly (voice)",
+            "credit_id": "62aba134d5c33f529a356c7d",
+            "order": 3
+          },
+          {
+            "gender": 2,
+            "id": 7890123,
+            "known_for_department": "Acting",
+            "name": "James Franco",
+            "original_name": "James Franco",
+            "profile_path": "/p1uCaOjxSC1xS5TgmD4uloAkbLd.jpg",
+            "cast_id": 19,
+            "character": "Sly the Snake (voice)",
+            "credit_id": "62aba17af4b6055d4bb7a8d3",
+            "order": 4
+          },
+          {
+            "gender": 1,
+            "id": 8901234,
+            "known_for_department": "Acting",
+            "name": "Amy Poehler",
+            "original_name": "Amy Poehler",
+            "profile_path": "/4hPvsVP7uDBHDgj7JikIY3Wop18.jpg",
+            "cast_id": 20,
+            "character": "Lily the Rabbit (voice)",
+            "credit_id": "62aba1b1c3a3683d9f6b2c1f",
+            "order": 5
+          }
+        ]
+      }
     }
-  ],
-  "total_pages": 1000,
-  "total_results": 20000
+  ]
 }

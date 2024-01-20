@@ -18,22 +18,6 @@
     }
   ],
   "poster_path": "/ui4DrH1cKk2vkHshcUcGt2lKxCm.jpg",
-  "production_companies": [
-    {
-      "id": 114152,
-      "name": "The Stone Quarry",
-    },
-    {
-      "id": 156880,
-      "name": "Grand Electric",
-    }
-  ],
-  "production_countries": [
-    {
-      "iso_3166_1": "US",
-      "name": "United States of America"
-    }
-  ],
   "release_date": "2023-12-15",
   "runtime": 134,
   "spoken_languages": [
@@ -86,7 +70,7 @@
         "credit_id": "62828f91cee481541cfbdf8f",
         "biography": "Skrein made his acting debut in Plan B's short film Michelle. Skrein got his first lead role in Plan B's Ill Manors. Skrein portrayed Daario Naharis in the third season of the television series Game of Thrones. However, in the fourth season of the series, he had been replaced by Dutch actor Michiel Huisman. Skrein states that \"behind the scenes politics\" had forced him to leave the show. In 2014, Skrein was cast in The Transporter: Refueled, replacing Jason Statham as the lead. Though the film was critically panned, his performance was praised. In 2016, Skrein played the lead villain, Ajax, in the blockbuster action film Deadpool.\n\nOn 23 October 2015 Skrein was cast in sci-fi thriller, Gateway 6, alongside Rhys Ifans, with Tanel Toom making his directorial debut. Filming will commence in Estonia in the spring of 2016. On 29 October 2015 Skrein was cast in psychological revenge thriller, In Darkness, alongside Natalie Dormer and Stacy Martin; principal photography will begin early 2016.",
         "order": 2
-      },
+      }
     ]
   }
 }

@@ -44,7 +44,7 @@ pub fn home_view() -> impl View {
         popular_movies
             .into_iter()
             .map(|m| PosterCarouselItem::Movie(m).to_owned())
-            .take(12)
+            .take(20)
             .collect(),
     );
 
@@ -86,7 +86,7 @@ pub fn home_view() -> impl View {
     .style(|s| s.width_full())
 }
 
-//README-bookmark.defining-style-classes
+//README-bookmark.style-classes
 style_class!(pub MediaCarousel);
 style_class!(pub CarouselTitle);
 style_class!(pub ClickablePoster);

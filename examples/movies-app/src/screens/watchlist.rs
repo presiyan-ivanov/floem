@@ -2,10 +2,12 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use floem::{
+    cosmic_text::Weight,
     id::Id,
+    keyboard::{Key, ModifiersState, NamedKey},
     peniko::Color,
     reactive::{create_effect, create_rw_signal, create_signal, use_context, ReadSignal, RwSignal},
-    style::{Cursor, CursorStyle, FlexWrap, Position},
+    style::{Cursor, CursorStyle, FlexWrap, FontWeight, Position},
     style_class,
     taffy::{
         geometry::MinMax,
@@ -19,13 +21,9 @@ use floem::{
         Decorators, Label, VirtualDirection, VirtualItemSize,
     },
 };
-use im::Vector;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    GlobalState, PersonDetailsState, DIMMED_ACCENT_COLOR, NAVBAR_BG_COLOR, PRIMARY_BG_COLOR,
-    PRIMARY_FG_COLOR, SECONDARY_BG_COLOR, SECONDARY_FG_COLOR,
-};
+use crate::{GlobalState, PRIMARY_BG_COLOR, PRIMARY_FG_COLOR, SECONDARY_BG_COLOR, DIMMED_ACCENT_COLOR};
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 struct Watchlist {
@@ -40,13 +38,14 @@ struct WatchlistItem {
     note: Option<String>,
     added_on: String,
 }
+
+//README-bookmark.style-classes
 style_class!(TableRow);
 
 pub fn watchlist_view() -> impl View {
     let watchlist_json = include_str!("../../assets/data/watchlist.json");
     let watchlist: Watchlist =
         serde_json::from_str(watchlist_json).expect("Watchlist JSON was not well-formatted");
-    dbg!(&watchlist);
     let items = create_rw_signal(watchlist.items);
     // let (images, _) = create_signal(
     //     person
@@ -62,12 +61,12 @@ pub fn watchlist_view() -> impl View {
             max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(50.)),
         }),
         TrackSizingFunction::Single(MinMax {
-            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(150.)),
-            max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(350.)),
+            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(300.)),
+            max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(450.)),
         }),
         TrackSizingFunction::Single(MinMax {
-            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(50.)),
-            max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(100.)),
+            min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(80.)),
+            max: MaxTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(130.)),
         }),
         TrackSizingFunction::Single(MinMax {
             min: MinTrackSizingFunction::Fixed(floem::taffy::style::LengthPercentage::Points(200.)),
@@ -121,7 +120,6 @@ pub fn watchlist_view() -> impl View {
             .on_scroll(move |rect| {
                 dbg!(rect);
             })
-            .vertical_scroll_as_horizontal(|| true)
             .style(move |s| {
                 s.width(app_state.window_size.get().width - margin_horiz - 100.)
                     .margin_horiz(margin_horiz)
@@ -183,80 +181,6 @@ impl SortDirection {
     }
 }
 
-fn tbody(items: RwSignal<im::Vector<WatchlistItem>>) -> impl View {
-    let app_state = use_context::<Arc<GlobalState>>().unwrap();
-    let mut id: RwSignal<Option<Id>> = create_rw_signal(None);
-
-    let view = scroll(
-        virtual_list(
-            VirtualDirection::Vertical,
-            VirtualItemSize::Fixed(Box::new(|| 50.0)),
-            move || items.get(),
-            move |item| item.media_id,
-            move |item| {
-                h_stack((
-                    label(move || item.list_order.to_string()),
-                    label(move || format!("Title for media ID : {}", item.media_id.to_string())),
-                    label(move || item.media_kind.to_string()),
-                    label(move || {
-                        format!("Long note here: {} ", item.note.clone().unwrap_or_default())
-                    }),
-                    label(move || item.added_on.clone()),
-                    label(move || "Rating: 9.5".to_string()),
-                    label(move || "2023".to_string()),
-                ))
-                .class(TableRow)
-                .style(move |s| {
-                    s.color(PRIMARY_FG_COLOR)
-                        .items_center()
-                        .background(SECONDARY_BG_COLOR)
-                        .border(1.)
-                        .min_width(0)
-                        .border_color(Color::rgb8(33, 33, 33))
-                        //README-bookmark.conditional-styling
-                        .apply_if(item.media_id % 2 == 0, |s| s.background(PRIMARY_BG_COLOR))
-                })
-            },
-        )
-        .style(move |s| s.flex_col().width_full()),
-    )
-    .on_scroll(move |rect| {
-        dbg!(rect);
-        if let Some(id) = id.get_untracked() {
-            id.request_focus();
-            println!("Requested focus");
-        }
-    })
-    .style(move |s| s.height(900));
-
-    id.set(Some(view.id()));
-
-    view
-}
-
-fn sort_icon(active_sort: ReadSignal<Option<Sort>>, col: WatchlistCol) -> impl View {
-    dyn_container(
-        move || active_sort.get(),
-        move |val| {
-            let sort_icon =
-                val.filter(|sort| sort.sort_by == col)
-                    .map(|sort| match sort.direction {
-                        SortDirection::Asc => include_str!("../../assets/arrow-up.svg"),
-                        SortDirection::Desc => {
-                            include_str!("../../assets/arrow-down.svg")
-                        }
-                    });
-
-            match sort_icon {
-                Some(icon) => Box::new(
-                    svg(|| icon.to_owned()).style(|s| s.size(20, 20).color(PRIMARY_FG_COLOR)),
-                ),
-                None => Box::new(empty()),
-            }
-        },
-    )
-}
-
 fn thead(active_sort: RwSignal<Option<Sort>>) -> impl View {
     let color = Color::rgb8(30, 39, 44);
 
@@ -287,13 +211,106 @@ fn thead(active_sort: RwSignal<Option<Sort>>) -> impl View {
         th(WatchlistCol::Rating),
         th(WatchlistCol::Year),
     ))
-    .class(TableRow)
     .style(move |s| {
         s.items_center()
-            .font_size(16.0)
+            .font_size(20.0)
+            .color(PRIMARY_FG_COLOR)
             .border(1.)
             .border_color(color)
             .font_bold()
             .background(color)
     })
+    .class(TableRow)
+}
+
+fn sort_icon(active_sort: ReadSignal<Option<Sort>>, col: WatchlistCol) -> impl View {
+    dyn_container(
+        move || active_sort.get(),
+        move |val| {
+            let sort_icon =
+                val.filter(|sort| sort.sort_by == col)
+                    .map(|sort| match sort.direction {
+                        SortDirection::Asc => include_str!("../../assets/arrow-up.svg"),
+                        SortDirection::Desc => {
+                            include_str!("../../assets/arrow-down.svg")
+                        }
+                    });
+
+            match sort_icon {
+                Some(icon) => Box::new(
+                    svg(|| icon.to_owned()).style(|s| s.size(20, 20).color(PRIMARY_FG_COLOR)),
+                ),
+                None => Box::new(empty()),
+            }
+        },
+    )
+}
+
+fn tbody(items: RwSignal<im::Vector<WatchlistItem>>) -> impl View {
+    let edited_item: RwSignal<Option<u64>> = create_rw_signal(None);
+
+    let scroll = scroll(
+        virtual_list(
+            VirtualDirection::Vertical,
+            VirtualItemSize::Fixed(Box::new(|| 50.0)),
+            move || items.get(),
+            move |item| item.media_id,
+            move |item| {
+                h_stack((
+                    label(move || item.list_order.to_string()),
+                    label(move || format!("Title for media ID : {}", item.media_id.to_string())),
+                    label(move || item.media_kind.to_string()),
+                    label(move || {
+                        format!("Long note here: {} ", item.note.clone().unwrap_or_default())
+                    })
+                    .style(move |s| {
+                        s.cursor(CursorStyle::Pointer)
+                            .border_color(Color::TRANSPARENT)
+                            .border_bottom(1)
+                            .hover(|s| s.border_color(DIMMED_ACCENT_COLOR))
+                    })
+                    .on_click_stop(move |_| {
+                        edited_item.set(Some(item.media_id));
+                    }),
+                    label(move || item.added_on.clone()),
+                    label(move || "Rating: 9.5".to_string()),
+                    label(move || "2023".to_string()),
+                ))
+                .class(TableRow)
+                .style(move |s| {
+                    s.color(PRIMARY_FG_COLOR)
+                        .font_size(14.)
+                        // FIXME: this is workaround for an issue w styles incorrectly being applied
+                        // between different elements that use the same class.
+                        // When the items's order is changed by sorting,
+                        // the body rows would otherwise inherit styles from the header row(since they both use the TableRow class),
+                        // causing body rows to have incorrect font weight/size(same as the header row)
+                        .font_weight(Weight::NORMAL)
+                        .items_center()
+                        .background(SECONDARY_BG_COLOR)
+                        .border(1.)
+                        .min_width(0)
+                        .border_color(Color::rgb8(33, 33, 33))
+                        //README-bookmark.conditional-styling
+                        .apply_if(item.media_id % 2 == 0, |s| s.background(PRIMARY_BG_COLOR))
+                })
+            },
+        )
+        .style(move |s| s.flex_col().width_full()),
+    )
+    .on_scroll(move |rect| {
+        dbg!(rect);
+    })
+    .style(move |s| s.height(900));
+
+    v_stack((
+        scroll,
+        dyn_container(
+            move || edited_item.get(),
+            move |val| match val {
+                Some(id) => Box::new(label(move || id).style(|s| s.background(Color::BLUE))),
+                None => Box::new(empty()),
+            },
+        ),
+    ))
 }

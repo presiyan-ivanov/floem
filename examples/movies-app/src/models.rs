@@ -22,7 +22,7 @@ pub struct MovieDetails {
     pub imdb_id: String,
     pub title: String,
     pub tagline: String,
-    pub original_title: String,
+    // pub original_title: String,
     pub original_language: String,
     pub overview: Option<String>,
     pub release_date: String, // ToDo: Date Type
@@ -35,7 +35,6 @@ pub struct MovieDetails {
     pub vote_average: f64,
     pub popularity: f64,
     pub budget: u64,
-    pub adult: bool,
     // pub videos: Option<Results<Video>>,
     pub credits: Option<Credits>,
     pub production_companies: Vec<ProdCompany>,
@@ -81,8 +80,6 @@ impl From<MovieDetails> for Movie {
         Movie {
             id: movie_details.id,
             title: movie_details.title,
-            original_title: movie_details.original_title,
-            original_language: movie_details.original_language,
             overview: movie_details.overview,
             release_date: movie_details.release_date,
             homepage: movie_details.homepage,
@@ -91,7 +88,6 @@ impl From<MovieDetails> for Movie {
             popularity: movie_details.popularity,
             vote_count: movie_details.vote_count,
             vote_average: movie_details.vote_average,
-            adult: movie_details.adult,
         }
     }
 }
@@ -102,8 +98,6 @@ pub struct Movie {
     // pub imdb_id: String,
     pub title: String,
     // pub tagline: String,
-    pub original_title: String,
-    pub original_language: String,
     pub overview: Option<String>,
     //TODO: chrono-rs
     pub release_date: String,
@@ -116,7 +110,6 @@ pub struct Movie {
     pub vote_count: u64,
     pub vote_average: f64,
     // pub budget: u64,
-    pub adult: bool,
     // pub videos: Option<Results<Video>>,
     // pub credits: Option<Credits>,
 }
@@ -154,7 +147,6 @@ pub struct TvShow {
     pub vote_count: u64,
     pub vote_average: f64,
     // pub budget: u64,
-    pub adult: bool,
     // pub videos: Option<Results<Video>>,
     // pub credits: Option<Credits>,
 }

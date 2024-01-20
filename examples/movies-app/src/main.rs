@@ -315,7 +315,7 @@ fn app_view() -> impl View {
     let home_icon = include_str!("../assets/home_icon.svg");
     let movie_icon = include_str!("../assets/movie_icon.svg");
     let tv_icon = include_str!("../assets/tv_icon.svg");
-    let search_icon = include_str!("../assets/search_icon.svg");
+    let explore_icon = include_str!("../assets/explore_icon.svg");
     let collections_icon = include_str!("../assets/collections_icon.svg");
 
     create_effect(move |_| {
@@ -335,7 +335,7 @@ fn app_view() -> impl View {
             MainTab::Home => home_icon.to_string(),
             MainTab::Movies => movie_icon.to_string(),
             MainTab::TvShows => tv_icon.to_string(),
-            MainTab::Search => search_icon.to_string(),
+            MainTab::Search => explore_icon.to_string(),
             MainTab::Watchlist => collections_icon.to_string(),
         })
         .style(move |s| {
