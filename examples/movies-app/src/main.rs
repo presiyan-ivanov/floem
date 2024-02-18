@@ -8,8 +8,10 @@ use anyhow::{Context, Result};
 use floem::action::exec_after;
 use floem::animate::animation;
 use floem::style::{AlignItems, AlignSelf};
-use floem::views::{VirtualDirection, VirtualItemSize};
-use screens::watchlist::{self, watchlist_view};
+use floem::views::{SelectionCornerRadius, VirtualDirection, VirtualItemSize};
+use floem::widgets::TextInputClass;
+use screens::add_media::add_media;
+use screens::watchlist::watchlist_view;
 
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
@@ -59,6 +61,7 @@ enum MainTab {
     TvShows,
     Search,
     Watchlist,
+    AddMedia,
 }
 
 #[derive(Clone, Debug)]
@@ -127,6 +130,7 @@ impl MainTab {
             MainTab::TvShows => 2,
             MainTab::Search => 3,
             MainTab::Watchlist => 4,
+            MainTab::AddMedia => 5,
         }
     }
 
@@ -137,6 +141,7 @@ impl MainTab {
             "TvShows" => MainTab::TvShows,
             "Search" => MainTab::Search,
             "Watchlist" => MainTab::Watchlist,
+            "AddMedia" => MainTab::AddMedia,
             _ => panic!("Unknown tab {}", s),
         }
     }
@@ -148,6 +153,7 @@ impl MainTab {
             2 => MainTab::TvShows,
             3 => MainTab::Search,
             4 => MainTab::Watchlist,
+            5 => MainTab::AddMedia,
             _ => panic!("Unknown tab index {}", idx),
         }
     }
@@ -308,9 +314,16 @@ fn app_view() -> impl View {
     let window_size = state.window_size;
     let main_tab_size = state.main_tab_size;
     provide_context(state.clone());
-    let tabs: im::Vector<&str> = vec!["Home", "Movies", "TvShows", "Search", "Watchlist"]
-        .into_iter()
-        .collect();
+    let tabs: im::Vector<&str> = vec![
+        "Home",
+        "Movies",
+        "TvShows",
+        "Search",
+        "Watchlist",
+        "AddMedia",
+    ]
+    .into_iter()
+    .collect();
     let (tabs, _set_tabs) = create_signal(tabs);
     let home_icon = include_str!("../assets/home_icon.svg");
     let movie_icon = include_str!("../assets/movie_icon.svg");
@@ -337,16 +350,20 @@ fn app_view() -> impl View {
             MainTab::TvShows => tv_icon.to_string(),
             MainTab::Search => explore_icon.to_string(),
             MainTab::Watchlist => collections_icon.to_string(),
+            MainTab::AddMedia => home_icon.to_string(),
         })
         .style(move |s| {
-            s.size(25.px(), 25.px()).color(NAVBAR_ICONS_COLOR).apply_if(
-                active_tab
-                    .get()
-                    .as_main()
-                    .map(|mt| mt.index() == index)
-                    .unwrap_or(false),
-                |s| s.color(ACCENT_COLOR),
-            )
+            s.size(25.px(), 25.px())
+                .padding_vert(15)
+                .color(NAVBAR_ICONS_COLOR)
+                .apply_if(
+                    active_tab
+                        .get()
+                        .as_main()
+                        .map(|mt| mt.index() == index)
+                        .unwrap_or(false),
+                    |s| s.color(ACCENT_COLOR),
+                )
         }),))
         .on_click_stop(move |_| {
             active_tab.update(|v: &mut ActiveTabKind| {
@@ -380,7 +397,6 @@ fn app_view() -> impl View {
     .style(|s| {
         s.flex_col()
             .height_full()
-            .gap(0, 30.)
             .padding_vert(20.)
             .width(MAIN_TAB_WIDTH)
             .background(NAVBAR_BG_COLOR)
@@ -418,6 +434,7 @@ fn app_view() -> impl View {
                             MainTab::TvShows => container_box(tv_shows()),
                             MainTab::Search => container_box(label(|| "Search".to_owned())),
                             MainTab::Watchlist => container_box(watchlist_view()),
+                            MainTab::AddMedia => container_box(add_media()),
                         },
                     )
                     .style(|s| s.flex_row().items_start().width_full().flex_grow(1.)),
@@ -468,6 +485,18 @@ fn app_view() -> impl View {
                 .class(CarouselTitle, |s| {
                     s.font_size(20.).margin_top(5.).padding(5.)
                 })
+                .class(TextInputClass, |s| {
+                    s.background(SECONDARY_BG_COLOR)
+                        .width(150.px())
+                        .cursor_color(DIMMED_ACCENT_COLOR.with_alpha_factor(0.5))
+                        .set(SelectionCornerRadius, 4.0)
+                        .border_color(PRIMARY_BG_COLOR)
+                        .hover(|s| s.background(SECONDARY_BG_COLOR))
+                        .active(|s| s.background(SECONDARY_BG_COLOR))
+                        .focus_visible(|s| s.background(SECONDARY_BG_COLOR))
+                        .focus(|s| s.background(SECONDARY_BG_COLOR))
+                        .selected(|s| s.background(SECONDARY_BG_COLOR))
+                })
                 .class(ClickablePoster, |s| {
                     s.cursor(CursorStyle::Pointer)
                         .border_color(SECONDARY_FG_COLOR.with_alpha_factor(0.7))
@@ -481,13 +510,15 @@ fn app_view() -> impl View {
         .window_title(|| "Floem Movies".to_owned());
 
     let id = app_view.id();
-    app_view.on_event_stop(EventListener::KeyUp, move |e| {
-        if let Event::KeyUp(e) = e {
-            if e.key.logical_key == Key::Named(NamedKey::F11) {
-                id.inspect();
+    app_view
+        .keyboard_navigatable()
+        .on_event_stop(EventListener::KeyUp, move |e| {
+            if let Event::KeyUp(e) = e {
+                if e.key.logical_key == Key::Named(NamedKey::F11) {
+                    id.inspect();
+                }
             }
-        }
-    })
+        })
 }
 
 fn alerts_container() -> impl View {

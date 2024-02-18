@@ -126,7 +126,7 @@ pub fn overview(person_details: ReadSignal<PersonDetails>) -> impl View {
                     .get_untracked()
                     .biography
                     .unwrap_or("<No bio>".to_string())
-                    // label currently does not handle newlines, so this is a workaround
+                    // each line is a separate label, since label currently does not handle newlines
                     .split("\n")
                     .map(|line| static_label(line).style(|s| s.margin_bottom(5.0))),
             )

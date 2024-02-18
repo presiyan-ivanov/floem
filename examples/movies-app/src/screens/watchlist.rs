@@ -45,7 +45,8 @@ style_class!(TableRow);
 pub fn watchlist_view() -> impl View {
     let watchlist_json = include_str!("../../assets/data/watchlist.json");
     let watchlist: Watchlist =
-        serde_json::from_str(watchlist_json).expect("Watchlist JSON was not well-formatted");
+        serde_json::from_str(watchlist_json).expect("Watchlist JSON should be valid");
+
     let items = create_rw_signal(watchlist.items);
     // let (images, _) = create_signal(
     //     person
@@ -117,9 +118,6 @@ pub fn watchlist_view() -> impl View {
 
     container(
         scroll(v_stack((thead(active_sort), tbody(items))))
-            .on_scroll(move |rect| {
-                dbg!(rect);
-            })
             .style(move |s| {
                 s.width(app_state.window_size.get().width - margin_horiz - 100.)
                     .margin_horiz(margin_horiz)
@@ -182,8 +180,6 @@ impl SortDirection {
 }
 
 fn thead(active_sort: RwSignal<Option<Sort>>) -> impl View {
-    let color = Color::rgb8(30, 39, 44);
-
     let th = |col: WatchlistCol| {
         container(
             h_stack((text(col), sort_icon(active_sort.read_only(), col)))
@@ -202,6 +198,7 @@ fn thead(active_sort: RwSignal<Option<Sort>>) -> impl View {
         )
     };
 
+    let color = Color::rgb8(30, 39, 44);
     h_stack((
         th(WatchlistCol::ListOrder),
         th(WatchlistCol::Title),
